@@ -1,94 +1,67 @@
-// URL k vašemu API
 const API_BASE = "https://booking-app1-6kdy.onrender.com";
 
-// Začínáme aktuálním měsícem
 let viewStartMonth = new Date().getMonth();
 let viewStartYear = new Date().getFullYear();
-
-// Výběr dat
-let startDate = null;
-let endDate = null;
-let cachedAvailability = []; // Uložíme si data, abychom nemuseli furt volat API
+let selectedDate = null;
+let cachedAvailability = [];
 
 async function init() {
     await updateCalendar();
-    
     document.getElementById("prev").onclick = () => changeMonth(-1);
     document.getElementById("next").onclick = () => changeMonth(1);
+    
+    // Obsluha změny času ručně
+    document.getElementById("inp-time").onchange = updateSummaryUI;
+
+    // Obsluha tlačítka TEĎ
+    document.getElementById("btn-now").onclick = setTimeNow;
+}
+
+function setTimeNow() {
+    const now = new Date();
+    // Formátování HH:MM (musí být dvouciferné, např 09:05)
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    
+    const timeStr = `${hours}:${minutes}`;
+    document.getElementById("inp-time").value = timeStr;
+    
+    // Update UI (aby se propsalo do "Vrácení do...")
+    updateSummaryUI();
 }
 
 function changeMonth(delta) {
     viewStartMonth += delta;
-    // Ošetření přelomu roku
-    if (viewStartMonth > 11) {
-        viewStartMonth = 0;
-        viewStartYear++;
-    } else if (viewStartMonth < 0) {
-        viewStartMonth = 11;
-        viewStartYear--;
-    }
-    renderAllCalendars();
+    if (viewStartMonth > 11) { viewStartMonth = 0; viewStartYear++; }
+    else if (viewStartMonth < 0) { viewStartMonth = 11; viewStartYear--; }
+    renderSingleCalendar();
 }
 
 async function updateCalendar() {
     try {
         const res = await fetch(`${API_BASE}/availability`);
-        const data = await res.json();
-        cachedAvailability = data.days;
-        renderAllCalendars();
-    } catch (e) {
-        console.error("Chyba načítání:", e);
-        alert("Nepodařilo se načíst obsazenost.");
-    }
+        cachedAvailability = (await res.json()).days;
+        renderSingleCalendar();
+    } catch (e) { console.error(e); }
 }
 
-// Funkce, která vykreslí 3 měsíce vedle sebe
-function renderAllCalendars() {
+function renderSingleCalendar() {
     const wrapper = document.getElementById("calendar-wrapper");
-    wrapper.innerHTML = ""; // Vyčistit staré
-
-    // Smyčka pro 3 měsíce (0, 1, 2)
-    for (let i = 0; i < 3; i++) {
-        let m = viewStartMonth + i;
-        let y = viewStartYear;
-
-        // Korekce roku v cyklu
-        if (m > 11) {
-            m -= 12;
-            y++;
-        }
-
-        const monthDiv = createSingleMonth(y, m);
-        wrapper.appendChild(monthDiv);
-    }
-}
-
-function createSingleMonth(year, month) {
-    const container = document.createElement("div");
-    container.className = "month-container";
-
-    // Nadpis měsíce
-    const monthDate = new Date(year, month, 1);
-    const title = document.createElement("div");
-    title.className = "month-title";
-    title.innerText = monthDate.toLocaleString("cs-CZ", { month: "long", year: "numeric" });
-    container.appendChild(title);
-
-    // Grid dnů
+    wrapper.innerHTML = "";
+    
     const grid = document.createElement("div");
     grid.className = "days-grid";
 
-    // Hlavičky dnů (Po, Út...)
-    ["Po","Út","St","Čt","Pá","So","Ne"].forEach(d => {
+    ["PO","ÚT","ST","ČT","PÁ","SO","NE"].forEach(d => {
         const el = document.createElement("div");
         el.className = "weekday";
         el.innerText = d;
         grid.appendChild(el);
     });
 
-    // Prázdná místa před prvním dnem
-    let startDay = monthDate.getDay(); // 0 = Neděle
-    const adjust = startDay === 0 ? 6 : startDay - 1; // Posun, aby týden začínal Pondělím
+    const monthDate = new Date(viewStartYear, viewStartMonth, 1);
+    let startDay = monthDate.getDay(); 
+    const adjust = startDay === 0 ? 6 : startDay - 1;
     
     for (let i = 0; i < adjust; i++) {
         const empty = document.createElement("div");
@@ -96,104 +69,101 @@ function createSingleMonth(year, month) {
         grid.appendChild(empty);
     }
 
-    // Dny v měsíci
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const daysInMonth = new Date(viewStartYear, viewStartMonth + 1, 0).getDate();
 
     for (let d = 1; d <= daysInMonth; d++) {
-        const dateObj = new Date(year, month, d);
-        // Formát YYYY-MM-DD lokálně (pozor na posun pásem, toto je bezpečný hack)
-        const dateStr = dateObj.toLocaleDateString('en-CA'); // Vždy vrací YYYY-MM-DD
+        const dateObj = new Date(viewStartYear, viewStartMonth, d);
+        const dateStr = dateObj.toLocaleDateString('en-CA'); 
 
         const dayEl = document.createElement("div");
         dayEl.className = "day";
         dayEl.innerText = d;
 
-        // Kontrola obsazenosti z cache
         const found = cachedAvailability.find(x => x.date === dateStr);
-        const isBooked = found ? !found.available : false; // Defaultně volno, pokud není v DB
+        const isBooked = found ? !found.available : false;
 
         if (isBooked) {
             dayEl.classList.add("booked");
-            dayEl.title = "Obsazeno";
+            // Tooltip zobrazí text ze serveru (který už neobsahuje jméno)
+            dayEl.onmouseenter = (e) => showTooltip(e, found.info);
+            dayEl.onmouseleave = hideTooltip;
         } else {
             dayEl.classList.add("available");
             dayEl.onclick = () => handleDayClick(dateStr);
         }
 
-        // Stylování výběru
-        if (dateStr === startDate) dayEl.classList.add("range-start");
-        if (dateStr === endDate) dayEl.classList.add("range-end");
-        if (startDate && endDate && dateStr > startDate && dateStr < endDate) {
-            dayEl.classList.add("range");
+        if (selectedDate === dateStr) {
+            dayEl.classList.add("range-start");
         }
-
         grid.appendChild(dayEl);
     }
+    wrapper.appendChild(grid);
 
-    container.appendChild(grid);
-    return container;
+    const date = new Date(viewStartYear, viewStartMonth, 1);
+    document.getElementById("currentMonthLabel").innerText = 
+        date.toLocaleString("cs-CZ", { month: "long", year: "numeric" }).toUpperCase();
 }
 
 function handleDayClick(dateStr) {
-    // Logika výběru (Start -> End -> Reset)
-    if (!startDate || (startDate && endDate)) {
-        startDate = dateStr;
-        endDate = null;
-    } else if (dateStr < startDate) {
-        // Uživatel klikl na dřívější datum než start -> prohodíme nebo resetujeme
-        startDate = dateStr;
-    } else if (dateStr === startDate) {
-        startDate = null; // Zrušení výběru
-    } else {
-        // Máme start, uživatel klikl na pozdější datum -> máme konec
-        // Kontrola, zda není mezi start a end obsazeno
-        if (checkIfRangeIsFree(startDate, dateStr)) {
-            endDate = dateStr;
-            setTimeout(() => confirmReservation(), 100); // Malé zpoždění pro překreslení UI
-        } else {
-            alert("V tomto rozmezí je bohužel obsazený termín.");
-            return; // Nepřekreslovat s neplatným koncem
-        }
+    if (selectedDate === dateStr) selectedDate = null;
+    else selectedDate = dateStr;
+    updateSummaryUI();
+    renderSingleCalendar();
+}
+
+function updateSummaryUI() {
+    const dateText = document.getElementById("selected-date-text");
+    const returnText = document.getElementById("return-date-text");
+    const timeVal = document.getElementById("inp-time").value;
+
+    if (!selectedDate) {
+        dateText.innerText = "Nevybráno";
+        returnText.innerText = "---";
+        return;
     }
-    renderAllCalendars();
+
+    const startObj = new Date(selectedDate);
+    const endObj = new Date(startObj);
+    endObj.setDate(endObj.getDate() + 1);
+    const endDateStr = endObj.toLocaleDateString('en-CA');
+
+    dateText.innerText = `${selectedDate} (${timeVal})`;
+    returnText.innerText = `${endDateStr} (${timeVal})`;
 }
 
-function checkIfRangeIsFree(start, end) {
-    // Najdeme dny mezi start a end
-    // Jednoduchá kontrola stringů funguje, protože formát je YYYY-MM-DD
-    const blocked = cachedAvailability.filter(d => 
-        d.date >= start && d.date <= end && d.available === false
-    );
-    return blocked.length === 0;
+const tooltip = document.getElementById("tooltip");
+function showTooltip(e, text) {
+    if(!text) return;
+    tooltip.innerText = text;
+    tooltip.classList.remove("hidden");
+    const rect = e.target.getBoundingClientRect();
+    tooltip.style.top = (rect.top - 40) + "px";
+    tooltip.style.left = (rect.left + (rect.width/2) - 100) + "px";
+}
+function hideTooltip() { tooltip.classList.add("hidden"); }
+
+async function submitReservation() {
+    if (!selectedDate) { alert("Vyberte den vyzvednutí."); return; }
+    
+    const time = document.getElementById("inp-time").value;
+    const name = document.getElementById("inp-name").value;
+    const email = document.getElementById("inp-email").value;
+    const phone = document.getElementById("inp-phone").value;
+
+    if(!name || !email || !phone || !time) { alert("Vyplňte všechny údaje."); return; }
+
+    const payload = { startDate: selectedDate, time, name, email, phone };
+
+    try {
+        const res = await fetch(`${API_BASE}/reserve-range`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        const result = await res.json();
+        if (result.paymentUrl) window.location.href = result.paymentUrl; 
+        else alert("Chyba: " + (result.error || "Neznámá chyba"));
+    } catch (e) { alert("Chyba komunikace se serverem."); }
 }
 
-async function confirmReservation() {
-    if (confirm(`Chcete rezervovat termín od ${startDate} do ${endDate}?`)) {
-        // OPRAVA: Server čeká "from" a "to", ne "start" a "end"
-        const payload = { from: startDate, to: endDate };
-
-        try {
-            const res = await fetch(`${API_BASE}/reserve-range`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
-            });
-            const result = await res.json();
-
-            if (result.paymentUrl) {
-                window.location.href = result.paymentUrl;
-            } else if (result.error) {
-                alert("Chyba: " + result.error);
-                // Reset
-                startDate = null;
-                endDate = null;
-                renderAllCalendars();
-            }
-        } catch (e) {
-            alert("Chyba komunikace se serverem.");
-        }
-    }
-}
-
-// Spuštění
 init();
