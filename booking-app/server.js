@@ -10,7 +10,6 @@ app.use(bodyParser.json());
 
 const DB_FILE = path.join(__dirname, "data", "db.json");
 
-// načtení databáze
 function loadDB() {
     if (!fs.existsSync(DB_FILE)) {
         fs.ensureFileSync(DB_FILE);
@@ -19,92 +18,78 @@ function loadDB() {
     return fs.readJsonSync(DB_FILE);
 }
 
-// uložení databáze
 function saveDB(db) {
     fs.writeJsonSync(DB_FILE, db);
 }
 
-// pomocná funkce – vytvoří pole všech dní mezi od–do
 function getRange(from, to) {
     const a = new Date(from);
     const b = new Date(to);
     const days = [];
-
     for (let d = new Date(a); d <= b; d.setDate(d.getDate() + 1)) {
         days.push(d.toISOString().split("T")[0]);
     }
-
     return days;
 }
 
-// API – kalendářová dostupnost
 app.get("/availability", (req, res) => {
     const db = loadDB();
-    const reservations = db.reservations;
-
-    // vytvoření seznamu obsazených dní
     const bookedDays = new Set();
-    reservations.forEach(r => {
+    db.reservations.forEach(r => {
         getRange(r.from, r.to).forEach(day => bookedDays.add(day));
     });
 
-    // generujeme dny na 12 měsíců dopředu
     const days = [];
-    const start = new Date();
+    const start = new Date(); // Dnes
     const end = new Date();
-    end.setFullYear(end.getFullYear() + 1);
+    end.setFullYear(end.getFullYear() + 2); // Generujeme data na 2 roky dopředu
 
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
         const dateStr = d.toISOString().split("T")[0];
-        days.push({
-            date: dateStr,
-            available: !bookedDays.has(dateStr)
-        });
+        days.push({ date: dateStr, available: !bookedDays.has(dateStr) });
     }
-
     res.json({ days });
 });
 
-// API – rezervace více dní najednou
 app.post("/reserve-range", (req, res) => {
-    const { from, to } = req.body;
+    // 1. Získáme i kontaktní údaje
+    const { from, to, name, email, phone } = req.body;
 
-    if (!from || !to) return res.status(400).json({ error: "Missing dates." });
+    if (!from || !to || !name) return res.status(400).json({ error: "Chybí údaje." });
 
     const db = loadDB();
-    const reservations = db.reservations;
-
+    
+    // 2. Kontrola kolize
     const newRange = getRange(from, to);
     const bookedDays = new Set();
-
-    reservations.forEach(r => {
+    db.reservations.forEach(r => {
         getRange(r.from, r.to).forEach(day => bookedDays.add(day));
     });
 
-    // kolize
     for (const d of newRange) {
-        if (bookedDays.has(d)) {
-            return res.json({ error: "Některé dny už jsou obsazené." });
-        }
+        if (bookedDays.has(d)) return res.json({ error: "Termín je již obsazen." });
     }
 
-    // rezervace se uloží
-    reservations.push({ from, to, created: Date.now() });
+    // 3. Uložení rezervace vč. kontaktů
+    db.reservations.push({ 
+        from, to, name, email, phone, 
+        created: new Date().toISOString(),
+        paid: false // Zatím nezaplaceno
+    });
     saveDB(db);
 
-    // GoPay redirect zde – můžeš napojit později
-    const fakePaymentUrl = "https://gopay.com";  // zatím placeholder
+    // 4. GoPay logika (Zatím jen simulace)
+    // Zde by se volalo GoPay API pro vytvoření platby
+    const goPayUrl = "https://www.gopay.com/cs/"; // Placeholder - přesměruje na web GoPay
 
     res.json({
         success: true,
-        paymentUrl: fakePaymentUrl
+        paymentUrl: goPayUrl 
     });
 });
 
-// NOVÝ KÓD (Správně pro Render):
+// Oprava pro Render (poslouchat na 0.0.0.0)
 const PORT = process.env.PORT || 3000;
-// Přidali jsme "0.0.0.0", což znamená "poslouchej na všech adresách"
 app.listen(PORT, "0.0.0.0", () => {
     console.log("Server běží na portu " + PORT);
 });
-
