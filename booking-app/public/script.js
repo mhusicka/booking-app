@@ -1,8 +1,12 @@
 const API_BASE = "https://booking-app1-6kdy.onrender.com";
+const PRICE_PER_DAY = 1500;
 
 let viewStartMonth = new Date().getMonth();
 let viewStartYear = new Date().getFullYear();
-let selectedDate = null;
+
+// Start a Konec rozsahu
+let startDate = null;
+let endDate = null;
 let cachedAvailability = [];
 
 async function init() {
@@ -10,24 +14,29 @@ async function init() {
     document.getElementById("prev").onclick = () => changeMonth(-1);
     document.getElementById("next").onclick = () => changeMonth(1);
     
-    // Obsluha změny času ručně
     document.getElementById("inp-time").onchange = updateSummaryUI;
-
-    // Obsluha tlačítka TEĎ
-    document.getElementById("btn-now").onclick = setTimeNow;
+    document.getElementById("btn-now").onclick = setNow; // Tlačítko Teď
 }
 
-function setTimeNow() {
+// Funkce tlačítka "Teď" - nastaví čas A datum
+function setNow() {
     const now = new Date();
-    // Formátování HH:MM (musí být dvouciferné, např 09:05)
+    
+    // 1. Nastavit čas do inputu
     const hours = String(now.getHours()).padStart(2, '0');
     const minutes = String(now.getMinutes()).padStart(2, '0');
+    document.getElementById("inp-time").value = `${hours}:${minutes}`;
+
+    // 2. Nastavit Dnešní datum jako start i konec
+    // Pozor: toLocaleDateString('en-CA') vrací lokální čas ve formátu YYYY-MM-DD
+    const todayStr = now.toLocaleDateString('en-CA');
     
-    const timeStr = `${hours}:${minutes}`;
-    document.getElementById("inp-time").value = timeStr;
-    
-    // Update UI (aby se propsalo do "Vrácení do...")
+    startDate = todayStr;
+    endDate = todayStr;
+
+    // 3. Aktualizovat UI
     updateSummaryUI();
+    renderSingleCalendar();
 }
 
 function changeMonth(delta) {
@@ -84,7 +93,6 @@ function renderSingleCalendar() {
 
         if (isBooked) {
             dayEl.classList.add("booked");
-            // Tooltip zobrazí text ze serveru (který už neobsahuje jméno)
             dayEl.onmouseenter = (e) => showTooltip(e, found.info);
             dayEl.onmouseleave = hideTooltip;
         } else {
@@ -92,9 +100,13 @@ function renderSingleCalendar() {
             dayEl.onclick = () => handleDayClick(dateStr);
         }
 
-        if (selectedDate === dateStr) {
-            dayEl.classList.add("range-start");
+        // Vykreslování výběru (Start, Konec, Rozsah)
+        if (startDate === dateStr) dayEl.classList.add("range-start");
+        if (endDate === dateStr) dayEl.classList.add("range-end");
+        if (startDate && endDate && dateStr > startDate && dateStr < endDate) {
+            dayEl.classList.add("range");
         }
+
         grid.appendChild(dayEl);
     }
     wrapper.appendChild(grid);
@@ -104,31 +116,88 @@ function renderSingleCalendar() {
         date.toLocaleString("cs-CZ", { month: "long", year: "numeric" }).toUpperCase();
 }
 
+// --- LOGIKA KLIKÁNÍ ---
 function handleDayClick(dateStr) {
-    if (selectedDate === dateStr) selectedDate = null;
-    else selectedDate = dateStr;
+    // 1. Pokud nemáme nic nebo už máme oba -> Začínáme znovu od kliknutého
+    if (!startDate || (startDate && endDate)) {
+        startDate = dateStr;
+        endDate = null; // Zatím bez konce
+    } 
+    // 2. Máme start, ale nemáme konec
+    else if (startDate && !endDate) {
+        if (dateStr === startDate) {
+            // Klikl jsem znovu na to samé -> Chci jen jeden den
+            endDate = dateStr;
+        } else if (dateStr < startDate) {
+            // Klikl jsem před start -> Oprava startu
+            startDate = dateStr;
+        } else {
+            // Klikl jsem po startu -> Mám konec
+            if (checkIfRangeIsFree(startDate, dateStr)) {
+                endDate = dateStr;
+            } else {
+                alert("V tomto rozmezí je již obsazeno.");
+                // Resetujeme na začátek
+                startDate = dateStr; 
+                endDate = null;
+            }
+        }
+    }
+
     updateSummaryUI();
     renderSingleCalendar();
 }
 
+function checkIfRangeIsFree(start, end) {
+    const blocked = cachedAvailability.filter(d => 
+        d.date >= start && d.date <= end && d.available === false
+    );
+    return blocked.length === 0;
+}
+
+// Formátování data do češtiny (např. 10. 12. 2025)
+function formatCzDate(isoDateStr) {
+    const d = new Date(isoDateStr);
+    return d.toLocaleString("cs-CZ", { day: "numeric", month: "numeric", year: "numeric" });
+}
+
 function updateSummaryUI() {
     const dateText = document.getElementById("selected-date-text");
-    const returnText = document.getElementById("return-date-text");
+    const countEl = document.getElementById("day-count");
+    const priceEl = document.getElementById("total-price");
     const timeVal = document.getElementById("inp-time").value;
 
-    if (!selectedDate) {
+    if (!startDate) {
         dateText.innerText = "Nevybráno";
-        returnText.innerText = "---";
+        countEl.innerText = "0";
+        priceEl.innerText = "0 Kč";
         return;
     }
 
-    const startObj = new Date(selectedDate);
-    const endObj = new Date(startObj);
-    endObj.setDate(endObj.getDate() + 1);
-    const endDateStr = endObj.toLocaleDateString('en-CA');
+    // Pokud máme jen start, vypíšeme start
+    if (!endDate) {
+        dateText.innerText = `${formatCzDate(startDate)} (${timeVal}) ...`;
+        countEl.innerText = "1";
+        priceEl.innerText = `${PRICE_PER_DAY.toLocaleString("cs-CZ")} Kč`;
+        return;
+    }
 
-    dateText.innerText = `${selectedDate} (${timeVal})`;
-    returnText.innerText = `${endDateStr} (${timeVal})`;
+    // Máme start i konec
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const diffTime = Math.abs(end - start);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 den
+
+    // Zobrazení: 10. 12. 2025 - 12. 12. 2025 (10:00)
+    if (startDate === endDate) {
+         dateText.innerText = `${formatCzDate(startDate)} (${timeVal})`;
+    } else {
+         dateText.innerText = `${formatCzDate(startDate)} – ${formatCzDate(endDate)} (${timeVal})`;
+    }
+
+    countEl.innerText = diffDays;
+    const total = diffDays * PRICE_PER_DAY;
+    priceEl.innerText = total.toLocaleString("cs-CZ") + " Kč";
 }
 
 const tooltip = document.getElementById("tooltip");
@@ -138,13 +207,16 @@ function showTooltip(e, text) {
     tooltip.classList.remove("hidden");
     const rect = e.target.getBoundingClientRect();
     tooltip.style.top = (rect.top - 40) + "px";
-    tooltip.style.left = (rect.left + (rect.width/2) - 100) + "px";
+    tooltip.style.left = (rect.left + (rect.width/2) - 60) + "px";
 }
 function hideTooltip() { tooltip.classList.add("hidden"); }
 
 async function submitReservation() {
-    if (!selectedDate) { alert("Vyberte den vyzvednutí."); return; }
-    
+    // Validace: Musíme mít start i konec (i když je to stejný den)
+    if (!startDate) { alert("Vyberte termín."); return; }
+    // Pokud uživatel vybral jen start a nekliknul podruhé, nastavíme konec = start
+    if (!endDate) endDate = startDate;
+
     const time = document.getElementById("inp-time").value;
     const name = document.getElementById("inp-name").value;
     const email = document.getElementById("inp-email").value;
@@ -152,7 +224,7 @@ async function submitReservation() {
 
     if(!name || !email || !phone || !time) { alert("Vyplňte všechny údaje."); return; }
 
-    const payload = { startDate: selectedDate, time, name, email, phone };
+    const payload = { startDate, endDate, time, name, email, phone };
 
     try {
         const res = await fetch(`${API_BASE}/reserve-range`, {
@@ -161,9 +233,22 @@ async function submitReservation() {
             body: JSON.stringify(payload)
         });
         const result = await res.json();
-        if (result.paymentUrl) window.location.href = result.paymentUrl; 
-        else alert("Chyba: " + (result.error || "Neznámá chyba"));
-    } catch (e) { alert("Chyba komunikace se serverem."); }
+
+        if (result.success) {
+            alert("✅ Rezervace úspěšně vytvořena!");
+            // Reset formuláře
+            startDate = null; endDate = null;
+            document.getElementById("inp-name").value = "";
+            document.getElementById("inp-email").value = "";
+            document.getElementById("inp-phone").value = "";
+            updateCalendar();
+            updateSummaryUI();
+        } else {
+            alert("Chyba: " + (result.error || "Neznámá chyba"));
+        }
+    } catch (e) {
+        alert("Chyba komunikace se serverem.");
+    }
 }
 
 init();
