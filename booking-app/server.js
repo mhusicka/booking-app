@@ -101,6 +101,10 @@ app.post("/reserve-range", (req, res) => {
     });
 });
 
-// Render PORT
+// NOVÝ KÓD (Správně pro Render):
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log("Server běží na portu " + PORT));
+// Přidali jsme "0.0.0.0", což znamená "poslouchej na všech adresách"
+app.listen(PORT, "0.0.0.0", () => {
+    console.log("Server běží na portu " + PORT);
+});
+
