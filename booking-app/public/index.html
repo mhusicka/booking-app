@@ -2,27 +2,29 @@
 <html lang="cs">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rezervace vozíku</title>
     <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
-<h1>Rezervace vozíku</h1>
+    <div class="main-container">
+        <h1>Rezervace vozíku</h1>
 
-<div id="calendarHeader">
-    <button id="prev">❮</button>
-    <div id="monthLabel"></div>
-    <button id="next">❯</button>
-</div>
+        <div class="controls">
+            <button id="prev" class="nav-btn">❮ Předchozí</button>
+            <button id="next" class="nav-btn">Další ❯</button>
+        </div>
 
-<div id="calendar"></div>
+        <div id="calendar-wrapper"></div>
 
-<div id="legend">
-    <span class="legend free"></span> Volno
-    <span class="legend booked"></span> Obsazeno
-    <span class="legend selecting"></span> Vybráno
-</div>
+        <div id="legend">
+            <div class="legend-item"><span class="box available"></span> Volno</div>
+            <div class="legend-item"><span class="box booked"></span> Obsazeno</div>
+            <div class="legend-item"><span class="box selecting"></span> Váš výběr</div>
+        </div>
+    </div>
 
-<script src="script.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
