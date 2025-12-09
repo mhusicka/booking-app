@@ -1,22 +1,27 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="cs">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Rezervace</title>
-  <link rel="stylesheet" href="style.css" />
+    <meta charset="UTF-8">
+    <title>Rezervace vozíku</title>
+    <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
+<h1>Rezervace vozíku</h1>
 
-<h1>Rezervace</h1>
-
-<div id="nav">
-    <button id="prev">◀</button>
-    <span id="monthLabel"></span>
-    <button id="next">▶</button>
+<div id="calendarHeader">
+    <button id="prev">❮</button>
+    <div id="monthLabel"></div>
+    <button id="next">❯</button>
 </div>
 
 <div id="calendar"></div>
+
+<div id="legend">
+    <span class="legend free"></span> Volno
+    <span class="legend booked"></span> Obsazeno
+    <span class="legend selecting"></span> Vybráno
+</div>
 
 <script src="script.js"></script>
 </body>
