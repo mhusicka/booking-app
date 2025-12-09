@@ -1,26 +1,30 @@
 const express = require("express");
-const fs = require("fs-extra");
 const cors = require("cors");
 const bodyParser = require("body-parser");
-const path = require("path");
+const mongoose = require("mongoose");
 
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
-const DB_FILE = path.join(__dirname, "data", "db.json");
+// Vložte svůj MongoDB řádek:
+const MONGO_URI = "mongodb+srv://admin:mojeheslo123@cluster0.xxxxx.mongodb.net/?retryWrites=true&w=majority";
 
-function loadDB() {
-    if (!fs.existsSync(DB_FILE)) {
-        fs.ensureFileSync(DB_FILE);
-        fs.writeJsonSync(DB_FILE, { reservations: [] });
-    }
-    return fs.readJsonSync(DB_FILE);
-}
+mongoose.connect(MONGO_URI)
+    .then(() => console.log("✅ Připojeno k MongoDB"))
+    .catch(err => console.error("❌ Chyba DB:", err));
 
-function saveDB(db) {
-    fs.writeJsonSync(DB_FILE, db);
-}
+const ReservationSchema = new mongoose.Schema({
+    startDate: String, 
+    endDate: String,   
+    time: String,      
+    name: String,
+    email: String,
+    phone: String,
+    created: { type: Date, default: Date.now }
+});
+
+const Reservation = mongoose.model("Reservation", ReservationSchema);
 
 function getRange(from, to) {
     const a = new Date(from);
@@ -32,64 +36,85 @@ function getRange(from, to) {
     return days;
 }
 
-app.get("/availability", (req, res) => {
-    const db = loadDB();
-    const bookedDays = new Set();
-    db.reservations.forEach(r => {
-        getRange(r.from, r.to).forEach(day => bookedDays.add(day));
-    });
+// 1. Získání dostupnosti (BEZ JMÉNA v tooltipu)
+app.get("/availability", async (req, res) => {
+    try {
+        const allReservations = await Reservation.find();
+        const bookedDetails = {}; 
 
-    const days = [];
-    const start = new Date(); // Dnes
-    const end = new Date();
-    end.setFullYear(end.getFullYear() + 2); // Generujeme data na 2 roky dopředu
+        allReservations.forEach(r => {
+            const range = getRange(r.startDate, r.endDate);
+            range.forEach((day) => {
+                let status = "Obsazeno"; // Výchozí text bez jména
 
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        const dateStr = d.toISOString().split("T")[0];
-        days.push({ date: dateStr, available: !bookedDays.has(dateStr) });
+                // Specifikace pro den vyzvednutí/vrácení pouze s ČASEM
+                if (day === r.startDate) status = `Vyzvednutí: ${r.time}`;
+                if (day === r.endDate) status = `Vrácení: ${r.time}`;
+
+                bookedDetails[day] = {
+                    isBooked: true,
+                    time: r.time,
+                    info: status 
+                };
+            });
+        });
+
+        const days = [];
+        const start = new Date();
+        const end = new Date();
+        end.setFullYear(end.getFullYear() + 2);
+
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+            const dateStr = d.toISOString().split("T")[0];
+            const detail = bookedDetails[dateStr];
+
+            days.push({
+                date: dateStr,
+                available: !detail,
+                info: detail ? detail.info : "" 
+            });
+        }
+
+        res.json({ days });
+    } catch (error) {
+        res.status(500).json({ error: "Chyba serveru" });
     }
-    res.json({ days });
 });
 
-app.post("/reserve-range", (req, res) => {
-    // 1. Získáme i kontaktní údaje
-    const { from, to, name, email, phone } = req.body;
+// 2. Rezervace (stejné jako minule)
+app.post("/reserve-range", async (req, res) => {
+    const { startDate, time, name, email, phone } = req.body;
+    if (!startDate || !time || !name) return res.status(400).json({ error: "Chybí údaje." });
 
-    if (!from || !to || !name) return res.status(400).json({ error: "Chybí údaje." });
+    const startObj = new Date(startDate);
+    const endObj = new Date(startObj);
+    endObj.setDate(endObj.getDate() + 1);
+    const endDate = endObj.toISOString().split("T")[0];
 
-    const db = loadDB();
-    
-    // 2. Kontrola kolize
-    const newRange = getRange(from, to);
-    const bookedDays = new Set();
-    db.reservations.forEach(r => {
-        getRange(r.from, r.to).forEach(day => bookedDays.add(day));
-    });
+    try {
+        const allReservations = await Reservation.find();
+        const newRange = getRange(startDate, endDate);
+        let isCollision = false;
+        
+        allReservations.forEach(r => {
+            const existingRange = getRange(r.startDate, r.endDate);
+            const intersection = newRange.filter(day => existingRange.includes(day));
+            if (intersection.length > 0) isCollision = true;
+        });
 
-    for (const d of newRange) {
-        if (bookedDays.has(d)) return res.json({ error: "Termín je již obsazen." });
+        if (isCollision) return res.json({ error: "Termín je obsazen." });
+
+        const newRes = new Reservation({ startDate, endDate, time, name, email, phone });
+        await newRes.save();
+
+        const goPayUrl = "https://www.gopay.com/cs/"; 
+        res.json({ success: true, paymentUrl: goPayUrl });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: "Chyba DB" });
     }
-
-    // 3. Uložení rezervace vč. kontaktů
-    db.reservations.push({ 
-        from, to, name, email, phone, 
-        created: new Date().toISOString(),
-        paid: false // Zatím nezaplaceno
-    });
-    saveDB(db);
-
-    // 4. GoPay logika (Zatím jen simulace)
-    // Zde by se volalo GoPay API pro vytvoření platby
-    const goPayUrl = "https://www.gopay.com/cs/"; // Placeholder - přesměruje na web GoPay
-
-    res.json({
-        success: true,
-        paymentUrl: goPayUrl 
-    });
 });
 
-// Oprava pro Render (poslouchat na 0.0.0.0)
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, "0.0.0.0", () => {
-    console.log("Server běží na portu " + PORT);
-});
+app.listen(PORT, "0.0.0.0", () => console.log("Server běží na portu " + PORT));
