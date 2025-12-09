@@ -1,21 +1,22 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="cs">
 <head>
-    <meta charset="UTF-8">
-    <title>Rezervace</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Rezervace</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
 <h1>Rezervace</h1>
 
-<label>Začátek: <input type="date" id="start"></label>
-<label>Konec: <input type="date" id="end"></label>
-<button id="btnReserve">Spočítat cenu</button>
+<div id="nav">
+    <button id="prev">◀</button>
+    <span id="monthLabel"></span>
+    <button id="next">▶</button>
+</div>
 
-<h2 id="price"></h2>
-
-<button id="btnPay" style="display:none;">Zaplatit</button>
+<div id="calendar"></div>
 
 <script src="script.js"></script>
 </body>
