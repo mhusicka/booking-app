@@ -1,75 +1,104 @@
-const express = require("express");
-const bodyParser = require("body-parser");
-const cors = require("cors");
-const axios = require("axios");
+const API_BASE = "https://booking-app1-6kdy.onrender.com";
 
-const app = express();
-app.use(cors());
-app.use(bodyParser.json());
-app.use(express.static("public"));
+let currentMonth = new Date().getMonth();
+let currentYear = new Date().getFullYear();
 
-const PRICE_PER_DAY = 200; // Kč
+async function loadAvailability() {
+    const res = await fetch(`${API_BASE}/availability`);
+    return (await res.json()).days;
+}
 
-// Fake storage (Render.com nemá disk, doporučuji později Supabase)
-let reservations = [];
+function renderCalendar(daysData) {
+    const calendar = document.getElementById("calendar");
+    calendar.innerHTML = "";
 
-app.post("/api/reserve", (req, res) => {
-    const { startDate, endDate } = req.body;
+    const monthStart = new Date(currentYear, currentMonth, 1);
+    const monthEnd = new Date(currentYear, currentMonth + 1, 0);
+    const todayStr = new Date().toISOString().split("T")[0];
 
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+    const firstDay = monthStart.getDay() === 0 ? 7 : monthStart.getDay();
+    const totalDays = monthEnd.getDate();
 
-    const price = days * PRICE_PER_DAY;
+    // title
+    document.getElementById("monthLabel").innerText =
+        monthStart.toLocaleString("cs-CZ", { month: "long", year: "numeric" });
 
-    const reservationId = Date.now().toString();
-
-    reservations.push({
-        id: reservationId,
-        startDate,
-        endDate,
-        price,
-        paid: false
+    // weekday labels
+    const weekdays = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"];
+    weekdays.forEach(w => {
+        const el = document.createElement("div");
+        el.className = "weekday";
+        el.innerText = w;
+        calendar.appendChild(el);
     });
 
-    res.json({ reservationId, price });
-});
+    // empty cells before 1st
+    for (let i = 1; i < firstDay; i++) {
+        const empty = document.createElement("div");
+        empty.className = "empty";
+        calendar.appendChild(empty);
+    }
 
+    // render days
+    for (let day = 1; day <= totalDays; day++) {
+        const dateObj = new Date(currentYear, currentMonth, day);
+        const dateStr = dateObj.toISOString().split("T")[0];
 
-// GoPay - jen příprava endpointu
-app.post("/api/pay", async (req, res) => {
-    const { reservationId } = req.body;
+        const btn = document.createElement("button");
+        btn.className = "day";
 
-    const reservation = reservations.find(r => r.id === reservationId);
-    if (!reservation) return res.status(404).json({ error: "Not found" });
+        const availability = daysData.find(d => d.date === dateStr);
+        const available = availability ? availability.available : true;
 
-    // Zde bude GoPay produkční implementace
-    // Zatím vracíme testovací URL
+        btn.innerText = day;
 
-    return res.json({
-        redirectUrl: "https://gate.gopay.cz/test-payment/" + reservationId
+        // today's highlight
+        if (dateStr === todayStr) btn.classList.add("today");
+
+        // unavailable day
+        if (!available) {
+            btn.classList.add("disabled");
+            btn.disabled = true;
+        } else {
+            btn.onclick = () => reserveDay(dateStr);
+        }
+
+        calendar.appendChild(btn);
+    }
+}
+
+async function updateCalendar() {
+    const data = await loadAvailability();
+    renderCalendar(data);
+}
+
+async function reserveDay(date) {
+    const res = await fetch(`${API_BASE}/reserve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date })
     });
-});
 
+    const result = await res.json();
 
-// Po zaplacení → TTLock
-app.post("/api/payment-success", async (req, res) => {
-    const { reservationId } = req.body;
+    if (result.paymentUrl) {
+        window.location.href = result.paymentUrl;
+    } else {
+        alert(result.error || "Chyba při rezervaci");
+    }
+}
 
-    const reservation = reservations.find(r => r.id === reservationId);
-    if (!reservation) return res.status(404).json({ error: "Not found" });
+// navigation
+document.getElementById("prev").onclick = () => {
+    currentMonth--;
+    if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+    updateCalendar();
+};
 
-    reservation.paid = true;
+document.getElementById("next").onclick = () => {
+    currentMonth++;
+    if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+    updateCalendar();
+};
 
-    // TTLock API volání (dummy)
-    // Zde se později doplní reálné:
-    // axios.post("https://euapi.ttlock.com/v3/lock/sendCode", {...});
-
-    console.log("TTLock: Posílám kód pro rezervaci:", reservationId);
-
-    res.json({ ok: true });
-});
-
-// Render.com používá port z env proměnné
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log("Server běží na portu " + PORT));
+updateCalendar();
