@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rezervace vozíku</title>
+    <title>Vozík 24/7</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
 </head>
 
 <body>
     <div class="main-container">
-        <h1>Rezervace termínu (24h)</h1>
+        <h1>Vozík 24/7</h1>
 
         <div class="content-wrapper">
             <div class="calendar-section">
@@ -33,11 +33,11 @@
                 <h2>Vaše rezervace</h2>
                 
                 <div class="summary-box">
-                    <p>Datum vyzvednutí: <span id="selected-date-text" style="color:#bfa37c; font-weight:bold">Nevybráno</span></p>
-                    <p>Vrácení do: <span id="return-date-text">---</span></p>
+                    <p>Datum: <span id="selected-date-text" style="color:#bfa37c; font-weight:bold">Nevybráno</span></p>
+                    <p>Počet dní: <span id="day-count">0</span></p>
                     
                     <div class="price-tag">
-                        Cena: <span id="total-price">1 500 Kč</span> / 24h
+                        Cena: <span id="total-price">0 Kč</span>
                     </div>
                 </div>
                 
@@ -64,7 +64,7 @@
                     <input type="tel" id="inp-phone" placeholder="+420 777 123 456">
                 </div>
 
-                <button onclick="submitReservation()" class="btn-pay">Přejít k platbě</button>
+                <button onclick="submitReservation()" class="btn-pay">Rezervovat (Test)</button>
             </div>
         </div>
     </div>
