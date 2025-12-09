@@ -8,7 +8,7 @@ app.use(cors());
 app.use(bodyParser.json());
 
 // Vložte svůj MongoDB řádek:
-const MONGO_URI = "mongodb+srv://admin:mojeheslo123@cluster0.xxxxx.mongodb.net/?retryWrites=true&w=majority";
+const MONGO_URI = "mongodb+srv://mhusicka_db_user:s384gWYYuWaCqQBu@cluster0.elhifrg.mongodb.net/?appName=Cluster0";
 
 mongoose.connect(MONGO_URI)
     .then(() => console.log("✅ Připojeno k MongoDB"))
@@ -118,3 +118,4 @@ app.post("/reserve-range", async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, "0.0.0.0", () => console.log("Server běží na portu " + PORT));
+
