@@ -1,60 +1,68 @@
 const express = require("express");
-const cors = require("cors");
 const bodyParser = require("body-parser");
+const cors = require("cors");
 
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
-app.use(express.static("public")); // slouží frontendu
-
-// Fake databáze pro rezervace
-let reservations = [];
 
 const PRICE_PER_DAY = 200;
 
-// Vrátí dostupnost dnů
+// fake DB (Render nemá disk → později doporučuji Supabase)
+let reservations = [];
+
+// vytvoří pole dat mezi dvěma dny
+function getRange(start, end) {
+    const out = [];
+    let d = new Date(start);
+
+    while (d <= new Date(end)) {
+        out.push(d.toISOString().split("T")[0]);
+        d.setDate(d.getDate() + 1);
+    }
+    return out;
+}
+
+// endpoint: dostupnost
 app.get("/availability", (req, res) => {
-    const days = [];
+    const days = {};
 
-    // generujeme dostupnost na 3 měsíce dopředu
-    const start = new Date();
-    const end = new Date();
-    end.setMonth(end.getMonth() + 3);
-
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        const dateStr = d.toISOString().split("T")[0];
-        const reserved = reservations.find(r => r.date === dateStr);
-
-        days.push({
-            date: dateStr,
-            available: reserved ? false : true
+    reservations.forEach(r => {
+        const range = getRange(r.start, r.end);
+        range.forEach(d => {
+            days[d] = false;
         });
+    });
+
+    // všechno převedeme do pole
+    const list = Object.keys(days).map(date => ({
+        date,
+        available: days[date] !== false
+    }));
+
+    res.json({ days: list });
+});
+
+// rezervace rozsahu
+app.post("/reserve-range", (req, res) => {
+    const { start, end } = req.body;
+
+    const range = getRange(start, end);
+
+    // kontrola obsazenosti
+    for (let resv of reservations) {
+        const booked = getRange(resv.start, resv.end);
+        if (range.some(d => booked.includes(d))) {
+            return res.json({ error: "Termín obsahuje obsazené dny." });
+        }
     }
 
-    res.json({ days });
-});
+    reservations.push({ start, end });
 
-// Rezervace dne
-app.post("/reserve", (req, res) => {
-    const { date } = req.body;
-
-    if (!date) return res.status(400).json({ error: "Date missing" });
-
-    const already = reservations.find(r => r.date === date);
-    if (already) return res.json({ error: "Den je již obsazen" });
-
-    // uložíme rezervaci (fake zatím)
-    reservations.push({
-        date,
-        paid: false
-    });
-
-    // zatím nefunguje GoPay, takže vracíme fake odkaz
     return res.json({
-        paymentUrl: "https://gate.gopay.cz/test-payment/" + date
+        paymentUrl: "https://gate.gopay.cz/test-payment/" + Date.now()
     });
 });
 
-// Server port
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log("Server běží na portu " + PORT));
