@@ -5,25 +5,71 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rezervace vozíku</title>
     <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
 </head>
 
 <body>
     <div class="main-container">
-        <h1>Rezervace vozíku</h1>
+        <h1>Rezervace termínu (24h)</h1>
 
-        <div class="controls">
-            <button id="prev" class="nav-btn">❮ Předchozí</button>
-            <button id="next" class="nav-btn">Další ❯</button>
-        </div>
+        <div class="content-wrapper">
+            <div class="calendar-section">
+                <div class="controls">
+                    <button id="prev" class="nav-btn">❮</button>
+                    <span id="currentMonthLabel"></span>
+                    <button id="next" class="nav-btn">❯</button>
+                </div>
+                
+                <div id="calendar-wrapper"></div>
+                
+                <div id="legend">
+                    <div class="legend-item"><span class="box available"></span> Volno</div>
+                    <div class="legend-item"><span class="box booked"></span> Obsazeno</div>
+                    <div class="legend-item"><span class="box selecting"></span> Váš výběr</div>
+                </div>
+            </div>
 
-        <div id="calendar-wrapper"></div>
+            <div id="booking-form">
+                <h2>Vaše rezervace</h2>
+                
+                <div class="summary-box">
+                    <p>Datum vyzvednutí: <span id="selected-date-text" style="color:#bfa37c; font-weight:bold">Nevybráno</span></p>
+                    <p>Vrácení do: <span id="return-date-text">---</span></p>
+                    
+                    <div class="price-tag">
+                        Cena: <span id="total-price">1 500 Kč</span> / 24h
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Čas vyzvednutí</label>
+                    <div class="time-row">
+                        <input type="time" id="inp-time" value="09:00">
+                        <button id="btn-now" class="btn-small">Teď</button>
+                    </div>
+                </div>
 
-        <div id="legend">
-            <div class="legend-item"><span class="box available"></span> Volno</div>
-            <div class="legend-item"><span class="box booked"></span> Obsazeno</div>
-            <div class="legend-item"><span class="box selecting"></span> Váš výběr</div>
+                <div class="form-group">
+                    <label>Jméno a příjmení</label>
+                    <input type="text" id="inp-name" placeholder="Jan Novák">
+                </div>
+
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="inp-email" placeholder="jan@novak.cz">
+                </div>
+
+                <div class="form-group">
+                    <label>Telefon</label>
+                    <input type="tel" id="inp-phone" placeholder="+420 777 123 456">
+                </div>
+
+                <button onclick="submitReservation()" class="btn-pay">Přejít k platbě</button>
+            </div>
         </div>
     </div>
+
+    <div id="tooltip" class="tooltip hidden"></div>
 
     <script src="script.js"></script>
 </body>
