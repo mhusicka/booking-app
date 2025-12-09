@@ -1,10 +1,9 @@
 const API_BASE = "https://booking-app1-6kdy.onrender.com";
-const PRICE_PER_DAY = 1500;
+const PRICE_PER_DAY = 230;
 
 let viewStartMonth = new Date().getMonth();
 let viewStartYear = new Date().getFullYear();
 
-// Start a Konec rozsahu
 let startDate = null;
 let endDate = null;
 let cachedAvailability = [];
@@ -15,26 +14,20 @@ async function init() {
     document.getElementById("next").onclick = () => changeMonth(1);
     
     document.getElementById("inp-time").onchange = updateSummaryUI;
-    document.getElementById("btn-now").onclick = setNow; // Tlačítko Teď
+    document.getElementById("btn-now").onclick = setNow;
 }
 
-// Funkce tlačítka "Teď" - nastaví čas A datum
 function setNow() {
     const now = new Date();
-    
-    // 1. Nastavit čas do inputu
     const hours = String(now.getHours()).padStart(2, '0');
     const minutes = String(now.getMinutes()).padStart(2, '0');
     document.getElementById("inp-time").value = `${hours}:${minutes}`;
 
-    // 2. Nastavit Dnešní datum jako start i konec
-    // Pozor: toLocaleDateString('en-CA') vrací lokální čas ve formátu YYYY-MM-DD
     const todayStr = now.toLocaleDateString('en-CA');
     
     startDate = todayStr;
     endDate = todayStr;
 
-    // 3. Aktualizovat UI
     updateSummaryUI();
     renderSingleCalendar();
 }
@@ -60,6 +53,8 @@ function renderSingleCalendar() {
     
     const grid = document.createElement("div");
     grid.className = "days-grid";
+    // Přidáme id, abychom mohli snadno odchytit pohyb myši mimo grid
+    grid.onmouseleave = clearHoverEffect; 
 
     ["PO","ÚT","ST","ČT","PÁ","SO","NE"].forEach(d => {
         const el = document.createElement("div");
@@ -79,6 +74,8 @@ function renderSingleCalendar() {
     }
 
     const daysInMonth = new Date(viewStartYear, viewStartMonth + 1, 0).getDate();
+    // Získáme dnešní datum pro kontrolu minulosti
+    const todayStr = new Date().toLocaleDateString('en-CA');
 
     for (let d = 1; d <= daysInMonth; d++) {
         const dateObj = new Date(viewStartYear, viewStartMonth, d);
@@ -87,20 +84,36 @@ function renderSingleCalendar() {
         const dayEl = document.createElement("div");
         dayEl.className = "day";
         dayEl.innerText = d;
+        // Uložíme datum do atributu pro snadnější práci při Hoveru
+        dayEl.dataset.date = dateStr;
 
         const found = cachedAvailability.find(x => x.date === dateStr);
         const isBooked = found ? !found.available : false;
 
-        if (isBooked) {
+        // 1. KONTROLA MINULOSTI
+        if (dateStr < todayStr) {
+            dayEl.classList.add("past");
+            // Nemá onclick ani hover logiku
+        } 
+        // 2. KONTROLA OBSAZENOSTI
+        else if (isBooked) {
             dayEl.classList.add("booked");
-            dayEl.onmouseenter = (e) => showTooltip(e, found.info);
+            // I obsazený den může mít tooltip, ale ne hover výběr
+            dayEl.onmouseenter = (e) => {
+                showTooltip(e, found.info);
+                handleHoverLogic(dateStr); // Aby se hover efekt "zastavil" o obsazené
+            };
             dayEl.onmouseleave = hideTooltip;
-        } else {
+        } 
+        // 3. VOLNÝ DEN
+        else {
             dayEl.classList.add("available");
             dayEl.onclick = () => handleDayClick(dateStr);
+            // Přidání Hover Logiky
+            dayEl.onmouseenter = () => handleHoverLogic(dateStr);
         }
 
-        // Vykreslování výběru (Start, Konec, Rozsah)
+        // Vykreslení existujícího výběru
         if (startDate === dateStr) dayEl.classList.add("range-start");
         if (endDate === dateStr) dayEl.classList.add("range-end");
         if (startDate && endDate && dateStr > startDate && dateStr < endDate) {
@@ -116,32 +129,66 @@ function renderSingleCalendar() {
         date.toLocaleString("cs-CZ", { month: "long", year: "numeric" }).toUpperCase();
 }
 
+// --- NOVÁ LOGIKA HOVERU (VZNÁŠENÍ) ---
+function handleHoverLogic(hoverDate) {
+    // Pokud nemáme vybraný start, nebo už máme vybraný i konec, neděláme nic
+    if (!startDate || (startDate && endDate)) return;
+
+    // Pokud uživatel vybral start a teď hýbe myší, chceme podbarvit dny
+    const days = document.querySelectorAll('.day[data-date]');
+    
+    let s = startDate;
+    let e = hoverDate;
+
+    // Prohození, pokud jedeme "pozpátku"
+    if (e < s) { [s, e] = [e, s]; }
+
+    days.forEach(day => {
+        const d = day.dataset.date;
+        // Vyčistíme starý hover
+        day.classList.remove('hover-range');
+
+        // Pokud je den v rozsahu start-hover
+        if (d >= s && d <= e) {
+            // Ale nesmíme přepsat už hotové třídy start/end
+            if (!day.classList.contains('range-start') && !day.classList.contains('booked')) {
+                day.classList.add('hover-range');
+            }
+        }
+    });
+}
+
+function clearHoverEffect() {
+    const days = document.querySelectorAll('.day.hover-range');
+    days.forEach(d => d.classList.remove('hover-range'));
+}
+
 // --- LOGIKA KLIKÁNÍ ---
 function handleDayClick(dateStr) {
-    // 1. Pokud nemáme nic nebo už máme oba -> Začínáme znovu od kliknutého
     if (!startDate || (startDate && endDate)) {
         startDate = dateStr;
-        endDate = null; // Zatím bez konce
+        endDate = null;
+        clearHoverEffect(); // Vymazat starý hover při novém startu
     } 
-    // 2. Máme start, ale nemáme konec
     else if (startDate && !endDate) {
         if (dateStr === startDate) {
-            // Klikl jsem znovu na to samé -> Chci jen jeden den
-            endDate = dateStr;
-        } else if (dateStr < startDate) {
-            // Klikl jsem před start -> Oprava startu
-            startDate = dateStr;
+            endDate = dateStr; // Klik na stejný = jeden den
         } else {
-            // Klikl jsem po startu -> Mám konec
-            if (checkIfRangeIsFree(startDate, dateStr)) {
-                endDate = dateStr;
+            // Kontrola prohození (když kliknu dříve než start)
+            let s = startDate;
+            let e = dateStr;
+            if (e < s) { [s, e] = [e, s]; }
+
+            if (checkIfRangeIsFree(s, e)) {
+                startDate = s;
+                endDate = e;
             } else {
                 alert("V tomto rozmezí je již obsazeno.");
-                // Resetujeme na začátek
-                startDate = dateStr; 
+                startDate = dateStr; // Reset na nový start
                 endDate = null;
             }
         }
+        clearHoverEffect(); // Výběr dokončen, hover už není třeba
     }
 
     updateSummaryUI();
@@ -155,7 +202,6 @@ function checkIfRangeIsFree(start, end) {
     return blocked.length === 0;
 }
 
-// Formátování data do češtiny (např. 10. 12. 2025)
 function formatCzDate(isoDateStr) {
     const d = new Date(isoDateStr);
     return d.toLocaleString("cs-CZ", { day: "numeric", month: "numeric", year: "numeric" });
@@ -174,7 +220,6 @@ function updateSummaryUI() {
         return;
     }
 
-    // Pokud máme jen start, vypíšeme start
     if (!endDate) {
         dateText.innerText = `${formatCzDate(startDate)} (${timeVal}) ...`;
         countEl.innerText = "1";
@@ -182,13 +227,11 @@ function updateSummaryUI() {
         return;
     }
 
-    // Máme start i konec
     const start = new Date(startDate);
     const end = new Date(endDate);
     const diffTime = Math.abs(end - start);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 den
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
 
-    // Zobrazení: 10. 12. 2025 - 12. 12. 2025 (10:00)
     if (startDate === endDate) {
          dateText.innerText = `${formatCzDate(startDate)} (${timeVal})`;
     } else {
@@ -212,9 +255,7 @@ function showTooltip(e, text) {
 function hideTooltip() { tooltip.classList.add("hidden"); }
 
 async function submitReservation() {
-    // Validace: Musíme mít start i konec (i když je to stejný den)
     if (!startDate) { alert("Vyberte termín."); return; }
-    // Pokud uživatel vybral jen start a nekliknul podruhé, nastavíme konec = start
     if (!endDate) endDate = startDate;
 
     const time = document.getElementById("inp-time").value;
@@ -236,7 +277,6 @@ async function submitReservation() {
 
         if (result.success) {
             alert("✅ Rezervace úspěšně vytvořena!");
-            // Reset formuláře
             startDate = null; endDate = null;
             document.getElementById("inp-name").value = "";
             document.getElementById("inp-email").value = "";
