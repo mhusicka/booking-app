@@ -1,31 +1,42 @@
-let reservationId = null;
+const API_BASE = "https://booking-app1-6kdy.onrender.com";  // ← sem vlož URL backendu, např. https://moje-apka.onrender.com
 
-document.getElementById("btnReserve").onclick = async () => {
-    const start = document.getElementById("start").value;
-    const end = document.getElementById("end").value;
+// Načtení dostupnosti dnů z backendu
+async function loadCalendar() {
+    const res = await fetch(`${API_BASE}/availability`);
+    const data = await res.json();
 
-    const res = await fetch("/api/reserve", {
+    // zde vykreslíme dny
+    const calendar = document.getElementById("calendar");
+    calendar.innerHTML = "";
+
+    data.days.forEach(day => {
+        const btn = document.createElement("button");
+        btn.innerText = `${day.date} — ${day.available ? "volný" : "obsazeno"}`;
+        btn.disabled = !day.available;
+
+        if (day.available) {
+            btn.onclick = () => reserveDay(day.date);
+        }
+
+        calendar.appendChild(btn);
+    });
+}
+
+// Rezervace dne
+async function reserveDay(date) {
+    const res = await fetch(`${API_BASE}/reserve`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ startDate: start, endDate: end })
+        body: JSON.stringify({ date })
     });
 
-    const data = await res.json();
-    reservationId = data.reservationId;
+    const result = await res.json();
 
-    document.getElementById("price").innerText =
-        `Cena: ${data.price} Kč`;
+    if (result.paymentUrl) {
+        window.location.href = result.paymentUrl; // přesměruje na GoPay
+    } else {
+        alert("Chyba při vytváření rezervace");
+    }
+}
 
-    document.getElementById("btnPay").style.display = "block";
-};
-
-document.getElementById("btnPay").onclick = async () => {
-    const res = await fetch("/api/pay", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reservationId })
-    });
-
-    const data = await res.json();
-    window.location.href = data.redirectUrl;
-};
+loadCalendar();
