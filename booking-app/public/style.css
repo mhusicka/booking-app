@@ -1,4 +1,6 @@
-/* --- ZÁKLADNÍ NASTAVENÍ A FONTY --- */
+/* =========================================
+   1. ZÁKLADNÍ NASTAVENÍ A FONTY
+   ========================================= */
 body {
     font-family: 'Montserrat', sans-serif;
     background: #f8f9fa;
@@ -21,7 +23,12 @@ h1, h2 {
     letter-spacing: 2px;
     color: #444;
 }
-h1 { text-align: center; margin-bottom: 40px; }
+
+h1 { 
+    text-align: center; 
+    margin-bottom: 40px; 
+}
+
 h2 { 
     font-size: 1.2rem; 
     margin-top: 0; 
@@ -31,55 +38,151 @@ h2 {
     padding-bottom: 5px;
 }
 
-/* --- ROZLOŽENÍ OBSAHU (DVA SLOUPCE) --- */
+/* =========================================
+   2. ROZLOŽENÍ (LAYOUT)
+   ========================================= */
 .content-wrapper {
     display: flex;
     flex-wrap: wrap;
     gap: 40px;
 }
 
-.calendar-section { flex: 1; min-width: 300px; }
-#booking-form { flex: 1; min-width: 280px; background: #fafafa; padding: 20px; border-radius: 8px; }
+/* Levý sloupec (Kalendář) */
+.calendar-section { 
+    flex: 1; 
+    min-width: 300px; 
+}
 
-/* --- KALENDÁŘ --- */
+/* Pravý sloupec (Formulář) */
+#booking-form { 
+    flex: 1; 
+    min-width: 280px; 
+    background: #fafafa; 
+    padding: 20px; 
+    border-radius: 8px; 
+}
+
+/* =========================================
+   3. KALENDÁŘ
+   ========================================= */
 .controls {
-    display: flex; justify-content: space-between; align-items: center;
-    margin-bottom: 20px; font-weight: bold; font-size: 1.1rem;
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center;
+    margin-bottom: 20px; 
+    font-weight: bold; 
+    font-size: 1.1rem;
 }
+
 .nav-btn {
-    background: white; border: 1px solid #ddd; padding: 5px 15px; cursor: pointer; transition: 0.3s;
+    background: white; 
+    border: 1px solid #ddd; 
+    padding: 5px 15px; 
+    cursor: pointer; 
+    transition: 0.3s;
 }
-.nav-btn:hover { background: #bfa37c; color: white; border-color: #bfa37c; }
 
-.days-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
-.weekday { text-align: center; font-size: 0.8rem; color: #999; margin-bottom: 10px; }
+.nav-btn:hover { 
+    background: #bfa37c; 
+    color: white; 
+    border-color: #bfa37c; 
+}
 
-.day, .empty { height: 40px; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; border: 1px solid #eee; }
-.day { cursor: pointer; background: white; transition: 0.2s; }
-.day:hover { border-color: #bfa37c; }
+.days-grid { 
+    display: grid; 
+    grid-template-columns: repeat(7, 1fr); 
+    gap: 4px; 
+}
 
-/* Stavy dní */
-.day.booked { background: #f0f0f0; color: #ccc; cursor: not-allowed; text-decoration: line-through; }
+.weekday { 
+    text-align: center; 
+    font-size: 0.8rem; 
+    color: #999; 
+    margin-bottom: 10px; 
+}
 
-/* ZLATÁ BARVA PRO VÝBĚR */
+/* Styl jednoho dne */
+.day, .empty { 
+    height: 40px; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    font-size: 0.9rem; 
+    border: 1px solid #eee; 
+    transition: background 0.1s, border-color 0.1s;
+}
+
+.day { 
+    cursor: pointer; 
+    background: white; 
+}
+
+.day:hover { 
+    border-color: #bfa37c; 
+}
+
+/* --- STAVY DNÍ --- */
+
+/* 1. Minulost (Neklikatelné, šedé) */
+.day.past {
+    background: #fcfcfc;
+    color: #ddd;
+    cursor: not-allowed;
+    pointer-events: none; /* Zakáže klikání i hover */
+    border-color: #f0f0f0;
+}
+
+/* 2. Obsazeno (Červené/Šedé, přeškrtnuté) */
+.day.booked { 
+    background: #f0f0f0; 
+    color: #aaa; 
+    cursor: not-allowed; 
+    text-decoration: line-through; 
+    /* pointer-events: none nedáváme, aby fungoval tooltip */
+}
+
+/* 3. Hover Range (Náhled výběru - světle zlatá) */
+.day.hover-range {
+    background: #e6dccb; 
+    color: #333;
+    border-color: #bfa37c;
+}
+
+/* 4. Finální výběr (Tmavší zlatá) */
 .day.range-start, .day.range-end, .day.range { 
     background: #bfa37c !important; 
     color: white; 
     border-color: #bfa37c; 
 }
 
-/* --- FORMULÁŘ --- */
+/* =========================================
+   4. FORMULÁŘ
+   ========================================= */
 .summary-box {
-    background: white; border: 1px solid #eee; padding: 15px; margin-bottom: 20px; border-left: 4px solid #bfa37c;
+    background: white; 
+    border: 1px solid #eee; 
+    padding: 15px; 
+    margin-bottom: 20px; 
+    border-left: 4px solid #bfa37c;
 }
 
 .price-tag {
-    font-size: 1.3rem; font-weight: bold; color: #333; margin-top: 10px; text-align: right;
+    font-size: 1.3rem; 
+    font-weight: bold; 
+    color: #333; 
+    margin-top: 10px; 
+    text-align: right;
 }
 .price-tag span { color: #bfa37c; }
 
 .form-group { margin-bottom: 15px; }
-label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 0.85rem; }
+
+label { 
+    display: block; 
+    margin-bottom: 5px; 
+    font-weight: 600; 
+    font-size: 0.85rem; 
+}
 
 input { 
     width: 100%; 
@@ -88,12 +191,13 @@ input {
     font-family: 'Montserrat', sans-serif; 
     box-sizing: border-box; 
 }
+
 input:focus { outline: 1px solid #bfa37c; }
 
-/* --- NOVÉ: TLAČÍTKO TEĎ A ČAS --- */
+/* Řádek s časem a tlačítkem TEĎ */
 .time-row {
     display: flex;
-    gap: 10px; /* Mezera mezi časem a tlačítkem */
+    gap: 10px;
 }
 
 .btn-small {
@@ -104,7 +208,6 @@ input:focus { outline: 1px solid #bfa37c; }
     font-weight: bold;
     color: #555;
     transition: 0.2s;
-    /* Zarovnání výšky s inputem */
     display: flex;
     align-items: center;
 }
@@ -115,19 +218,44 @@ input:focus { outline: 1px solid #bfa37c; }
     border-color: #bfa37c;
 }
 
-/* Tlačítko Zaplatit */
+/* Hlavní tlačítko */
 .btn-pay {
-    width: 100%; background: #333; color: white; border: none; padding: 15px;
-    font-weight: bold; text-transform: uppercase; cursor: pointer; margin-top: 10px; transition: 0.3s;
+    width: 100%; 
+    background: #333; 
+    color: white; 
+    border: none; 
+    padding: 15px;
+    font-weight: bold; 
+    text-transform: uppercase; 
+    cursor: pointer; 
+    margin-top: 10px; 
+    transition: 0.3s;
 }
+
 .btn-pay:hover { background: #bfa37c; }
 
-/* --- LEGENDA --- */
-#legend { display: flex; gap: 15px; margin-top: 20px; font-size: 0.8rem; justify-content: center;}
-.box { width: 12px; height: 12px; display: inline-block; margin-right: 5px; border: 1px solid #ddd; }
-.box.booked { background: #f0f0f0; } .box.selecting { background: #bfa37c; }
+/* =========================================
+   5. LEGENDA A TOOLTIP
+   ========================================= */
+#legend { 
+    display: flex; 
+    gap: 15px; 
+    margin-top: 20px; 
+    font-size: 0.8rem; 
+    justify-content: center;
+}
 
-/* --- TOOLTIP (Bublina) --- */
+.box { 
+    width: 12px; 
+    height: 12px; 
+    display: inline-block; 
+    margin-right: 5px; 
+    border: 1px solid #ddd; 
+}
+.box.booked { background: #f0f0f0; } 
+.box.selecting { background: #bfa37c; }
+
+/* Tooltip (Bublina) */
 .tooltip {
     position: fixed;
     background: #333;
@@ -143,7 +271,9 @@ input:focus { outline: 1px solid #bfa37c; }
 }
 .tooltip.hidden { display: none; }
 
-/* --- RESPONZIVITA (Mobil) --- */
+/* =========================================
+   6. RESPONZIVITA (MOBIL)
+   ========================================= */
 @media (max-width: 700px) {
     .content-wrapper { flex-direction: column; }
     .main-container { padding: 20px; }
