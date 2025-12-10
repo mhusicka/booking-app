@@ -42,7 +42,6 @@ const ReservationSchema = new mongoose.Schema({
 
 const Reservation = mongoose.model("Reservation", ReservationSchema);
 
-// Pomocná funkce pro výpočet dnů
 function getRange(from, to) {
     const a = new Date(from);
     const b = new Date(to);
@@ -54,12 +53,11 @@ function getRange(from, to) {
 }
 
 // ==========================================
-// 2. FUNKCE PRO TTLOCK (OPRAVENO)
+// 2. FUNKCE PRO TTLOCK (FINÁLNÍ OPRAVA)
 // ==========================================
 
 async function getTTLockToken() {
-    // Používáme způsob, který fungoval ve scriptu zjistit_id.js
-    // Posíláme data jako 'params' (v URL), nikoliv v těle.
+    // Přihlášení fungovalo přes URL parametry, necháme to tak
     try {
         const res = await axios.post('https://api.ttlock.com/oauth2/token', null, {
             params: {
@@ -75,11 +73,10 @@ async function getTTLockToken() {
         if (res.data.access_token) {
             return res.data.access_token;
         } else {
-            console.error("TTLock Login Error:", res.data);
-            throw new Error("Nepodařilo se přihlásit do TTLock.");
+            throw new Error("Login failed: " + JSON.stringify(res.data));
         }
     } catch (e) {
-        console.error("Chyba při přihlašování:", e.message);
+        console.error("Chyba Token:", e.message);
         throw e;
     }
 }
@@ -92,28 +89,34 @@ async function generatePinCode(startStr, endStr, timeStr) {
         const startDt = new Date(`${startStr}T${timeStr}:00`);
         const endDt = new Date(`${endStr}T${timeStr}:00`);
 
-        // OPRAVA: Data posíláme v 'params' (do URL query string),
-        // protože to je formát, který server Apache Tomcat spolehlivě bere.
-        const requestParams = {
-            clientId: TTLOCK_CLIENT_ID,
-            accessToken: token,
-            lockId: MY_LOCK_ID,
-            keyboardPwdVersion: 4, 
-            keyboardPwdType: 3, // 3 = Periodický
-            startDate: startDt.getTime(),
-            endDate: endDt.getTime(),
-            date: Date.now()
-        };
+        // 1. Vytvoříme parametry jako URLSearchParams objekt
+        const params = new URLSearchParams();
+        params.append('clientId', TTLOCK_CLIENT_ID);
+        params.append('accessToken', token);
+        params.append('lockId', MY_LOCK_ID);
+        params.append('keyboardPwdVersion', 4);
+        params.append('keyboardPwdType', 3); // 3 = Periodický
+        params.append('startDate', startDt.getTime());
+        params.append('endDate', endDt.getTime());
+        params.append('date', Date.now());
 
-        const res = await axios.post('https://api.ttlock.com/v3/keyboardPwd/add', null, {
-            params: requestParams
+        // 2. OPRAVA: Převedeme to na string ručně a nastavíme hlavičku.
+        // Tím donutíme server přijmout to jako "starý dobrý formulář".
+        const bodyString = params.toString();
+
+        const res = await axios.post('https://api.ttlock.com/v3/keyboardPwd/add', bodyString, {
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
         });
 
         if (res.data.errcode === 0) {
             console.log("✅ PIN ÚSPĚCH:", res.data.keyboardPwd);
             return res.data.keyboardPwd; 
         } else {
-            console.error("❌ TTLock API Error (logika):", res.data);
+            console.error("❌ TTLock API Error:", res.data);
+            // Logování detailu chyby pro případné další ladění
+            if(res.data.errmsg) console.error("Zpráva:", res.data.errmsg);
             return null;
         }
 
@@ -137,50 +140,36 @@ app.get("/availability", async (req, res) => {
     try {
         const allReservations = await Reservation.find();
         const bookedDetails = {}; 
-
         allReservations.forEach(r => {
             const range = getRange(r.startDate, r.endDate);
             range.forEach((day) => {
                 let status = "Obsazeno";
-                if (r.startDate === r.endDate) {
-                    status = `Rezervace: ${r.time}`;
-                } else {
+                if (r.startDate === r.endDate) status = `Rezervace: ${r.time}`;
+                else {
                     if (day === r.startDate) status = `Vyzvednutí: ${r.time}`;
                     if (day === r.endDate) status = `Vrácení: ${r.time}`;
                 }
                 bookedDetails[day] = { isBooked: true, time: r.time, info: status };
             });
         });
-
         const days = [];
         const start = new Date();
         const end = new Date();
         end.setFullYear(end.getFullYear() + 2); 
-
         for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
             const dateStr = d.toISOString().split("T")[0];
             const detail = bookedDetails[dateStr];
-            days.push({
-                date: dateStr,
-                available: !detail,
-                info: detail ? detail.info : "" 
-            });
+            days.push({ date: dateStr, available: !detail, info: detail ? detail.info : "" });
         }
         res.json({ days });
-    } catch (error) {
-        res.status(500).json({ error: "Chyba serveru" });
-    }
+    } catch (error) { res.status(500).json({ error: "Chyba serveru" }); }
 });
 
 app.post("/reserve-range", async (req, res) => {
     const { startDate, endDate, time, name, email, phone } = req.body;
-
-    if (!startDate || !endDate || !time || !name) {
-        return res.status(400).json({ error: "Chybí údaje." });
-    }
+    if (!startDate || !endDate || !time || !name) return res.status(400).json({ error: "Chybí údaje." });
 
     try {
-        // 1. Kontrola kolize
         const allReservations = await Reservation.find();
         const newRange = getRange(startDate, endDate);
         let isCollision = false;
@@ -191,23 +180,17 @@ app.post("/reserve-range", async (req, res) => {
         });
         if (isCollision) return res.json({ error: "Termín je obsazen." });
 
-        // 2. Generování PINu
+        // Generování PINu
         let generatedPin = "Nepodařilo se vygenerovat (zkuste později v adminu)";
         const pin = await generatePinCode(startDate, endDate, time);
-        
-        if (pin) {
-            generatedPin = pin;
-        }
+        if (pin) generatedPin = pin;
 
-        // 3. Uložení
         const newRes = new Reservation({ 
-            startDate, endDate, time, name, email, phone, 
-            passcode: generatedPin 
+            startDate, endDate, time, name, email, phone, passcode: generatedPin 
         });
         await newRes.save();
 
         res.json({ success: true, pin: generatedPin });
-
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: "Chyba DB" });
