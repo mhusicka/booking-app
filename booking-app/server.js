@@ -36,7 +36,7 @@ const ReservationSchema = new mongoose.Schema({
     name: String,
     email: String,
     phone: String,
-    passcode: String, // Zde budeme ukládat PIN
+    passcode: String,
     created: { type: Date, default: Date.now }
 });
 
@@ -58,6 +58,7 @@ function getRange(from, to) {
 // ==========================================
 
 async function getTTLockToken() {
+    // Pro získání tokenu posíláme data jako formulář (x-www-form-urlencoded)
     const params = new URLSearchParams();
     params.append('client_id', TTLOCK_CLIENT_ID);
     params.append('client_secret', TTLOCK_CLIENT_SECRET);
@@ -66,9 +67,12 @@ async function getTTLockToken() {
     params.append('grant_type', 'password');
     params.append('redirect_uri', 'http://localhost');
 
-    // Používáme novější oauth2 endpoint, který vám fungoval ve skriptu
     const res = await axios.post('https://api.ttlock.com/oauth2/token', params);
-    return res.data.access_token;
+    if (res.data.access_token) {
+        return res.data.access_token;
+    } else {
+        throw new Error("Nepodařilo se získat token: " + JSON.stringify(res.data));
+    }
 }
 
 async function generatePinCode(startStr, endStr, timeStr) {
@@ -77,31 +81,40 @@ async function generatePinCode(startStr, endStr, timeStr) {
         const token = await getTTLockToken();
 
         // Převod na timestamp (milisekundy)
-        // startStr je "2023-12-10", timeStr je "09:00"
         const startDt = new Date(`${startStr}T${timeStr}:00`);
         const endDt = new Date(`${endStr}T${timeStr}:00`);
 
-        const res = await axios.post('https://api.ttlock.com/v3/keyboardPwd/add', null, {
-            params: {
-                clientId: TTLOCK_CLIENT_ID,
-                accessToken: token,
-                lockId: MY_LOCK_ID,
-                keyboardPwdVersion: 4, 
-                keyboardPwdType: 3, // 3 = Periodický (od-do)
-                startDate: startDt.getTime(),
-                endDate: endDt.getTime(),
-                date: Date.now()
-            }
-        });
+        // OPRAVA: Data musíme zabalit do URLSearchParams (jako formulář), 
+        // jinak server vrací chybu 400.
+        const params = new URLSearchParams();
+        params.append('clientId', TTLOCK_CLIENT_ID);
+        params.append('accessToken', token);
+        params.append('lockId', MY_LOCK_ID);
+        params.append('keyboardPwdVersion', 4);
+        params.append('keyboardPwdType', 3); // 3 = Periodický (od-do)
+        params.append('startDate', startDt.getTime());
+        params.append('endDate', endDt.getTime());
+        params.append('date', Date.now());
+
+        // Odeslání POST požadavku se správným formátem dat
+        const res = await axios.post('https://api.ttlock.com/v3/keyboardPwd/add', params);
 
         if (res.data.errcode === 0) {
-            return res.data.keyboardPwd; // ÚSPĚCH
+            console.log("✅ PIN ÚSPĚCH:", res.data.keyboardPwd);
+            return res.data.keyboardPwd; 
         } else {
-            console.error("TTLock API Error:", res.data);
+            console.error("❌ TTLock API Error (logika):", res.data);
             return null;
         }
     } catch (e) {
-        console.error("Chyba komunikace s TTLock:", e.message);
+        // Vylepšený výpis chyby - ukáže nám přesně, co serveru vadilo
+        console.error("❌ Chyba komunikace s TTLock:");
+        if (e.response) {
+            console.error("Status:", e.response.status);
+            console.error("Data:", e.response.data);
+        } else {
+            console.error(e.message);
+        }
         return null;
     }
 }
@@ -149,7 +162,6 @@ app.get("/availability", async (req, res) => {
     }
 });
 
-// HLAVNÍ REZERVACE
 app.post("/reserve-range", async (req, res) => {
     const { startDate, endDate, time, name, email, phone } = req.body;
 
@@ -172,9 +184,9 @@ app.post("/reserve-range", async (req, res) => {
         // 2. Generování PINu
         let generatedPin = "Nepodařilo se vygenerovat (zkuste později v adminu)";
         const pin = await generatePinCode(startDate, endDate, time);
+        
         if (pin) {
             generatedPin = pin;
-            console.log("✅ PIN vygenerován:", pin);
         }
 
         // 3. Uložení
@@ -192,7 +204,7 @@ app.post("/reserve-range", async (req, res) => {
     }
 });
 
-// ADMIN
+// ADMIN API
 app.get("/admin/reservations", async (req, res) => {
     const password = req.headers["x-admin-password"];
     if (password !== ADMIN_PASSWORD) return res.status(403).json({ error: "Špatné heslo!" });
