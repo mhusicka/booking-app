@@ -1,9 +1,3 @@
-Dobře. Zde je finální, kompletní kód server.js, který zahrnuje všechny opravy formátování, podpisu (sign) a URL, včetně abecedního seřazení parametrů pro hashování pomocí modulu crypto.
-
-Tato verze pokrývá všechny známé požadavky API TTLock V3, které by mohly vést k chybě 400 Bad Request.
-📄 Kompletní kód server.js (Finalní verze s crypto a seřazením sign)
-JavaScript
-
 const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
@@ -250,3 +244,4 @@ app.delete("/admin/reservations/:id", async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, "0.0.0.0", () => console.log("Server běží na portu " + PORT));
+
