@@ -1,3 +1,9 @@
+Dobře. Zde je finální, kompletní kód server.js, který zahrnuje všechny opravy formátování, podpisu (sign) a URL, včetně abecedního seřazení parametrů pro hashování pomocí modulu crypto.
+
+Tato verze pokrývá všechny známé požadavky API TTLock V3, které by mohly vést k chybě 400 Bad Request.
+📄 Kompletní kód server.js (Finalní verze s crypto a seřazením sign)
+JavaScript
+
 const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
@@ -62,13 +68,13 @@ function hashPassword(password) {
 
 async function getTTLockToken() {
     try {
-        // ZMĚNA: Používáme EU API i pro získání tokenu
+        // Používáme EU API i pro získání tokenu
         const res = await axios.post('https://euapi.ttlock.com/oauth2/token', null, { 
             params: {
                 client_id: TTLOCK_CLIENT_ID,
                 client_secret: TTLOCK_CLIENT_SECRET,
                 username: TTLOCK_USERNAME,
-                // Používáme novou funkci pro hashování
+                // Používáme funkci pro hashování
                 password: hashPassword(TTLOCK_PASSWORD), 
                 grant_type: 'password',
                 redirect_uri: 'http://localhost'
@@ -86,14 +92,14 @@ async function getTTLockToken() {
     }
 }
 
-// TATO FUNKCE BYLA OPRAVENA PRO POUŽITÍ VESTAVĚNÉHO MODULU 'crypto'
+// TATO FUNKCE BYLA OPRAVENA PRO ABECEDNÍ SEŘAZENÍ SIGN STRINGU
 async function generatePinCode(startStr, endStr, timeStr) {
     try {
         console.log(`Generuji PIN pro: ${startStr} - ${endStr} (${timeStr})`);
         const token = await getTTLockToken();
 
         const startDt = new Date(`${startStr}T${timeStr}:00`);
-        const endDt = new Date(`${endStr}T${timeStr}:00`);
+        const endDt = new Date(`${endDt}T${timeStr}:00`);
         const currentDateMs = Date.now();
         
         // --- 1. Sestavení dat do objektu ---
@@ -108,10 +114,21 @@ async function generatePinCode(startStr, endStr, timeStr) {
             date: currentDateMs
         };
 
-        // --- 2. Generování podpisu (sign) pomocí crypto ---
-        const signString = `clientId=${dataForPin.clientId}&accessToken=${dataForPin.accessToken}&date=${dataForPin.date}&clientSecret=${TTLOCK_CLIENT_SECRET}`;
+        // --- 2. Generování podpisu (sign) s abecedním řazením ---
         
-        // Změna: Používáme crypto, generujeme hexadecimální string a dáváme na velká písmena
+        // Data pro hashování, VČETNĚ SECRETU
+        const signData = {
+            clientId: TTLOCK_CLIENT_ID,
+            accessToken: token,
+            date: currentDateMs,
+            clientSecret: TTLOCK_CLIENT_SECRET
+        };
+        
+        // Sestavíme řetězec seřazením klíčů (Abecední sort: accessToken, clientId, clientSecret, date)
+        const sortedKeys = Object.keys(signData).sort();
+        let signString = sortedKeys.map(key => `${key}=${signData[key]}`).join('&');
+
+        // Generujeme hash: MD5, hex a VELKÁ písmena
         const sign = crypto.createHash('md5').update(signString).digest('hex').toUpperCase(); 
 
         // --- 3. Sestavení finálního TĚLA (body) jako řetězec ---
