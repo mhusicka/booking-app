@@ -85,7 +85,7 @@ async function getTTLockToken() {
     }
 }
 
-// ⚠ NOVÉ – správná verze generatePinCode s vyzvednutím skutečného PINu
+// ⚠ Opravená funkce generatePinCode
 async function generatePinCode(startStr, endStr, timeStr) {
     try {
         console.log(`Generuji PIN pro: ${startStr} - ${endStr} (${timeStr})`);
@@ -94,7 +94,7 @@ async function generatePinCode(startStr, endStr, timeStr) {
 
         const startDt = new Date(`${startStr}T${timeStr}:00`);
         const endDt = new Date(`${endStr}T${timeStr}:00`);
-        const now = Date.now();
+        const now = Math.floor(Date.now() / 1000); // v sekundách
 
         // --- sign ---
         const signData = {
@@ -120,8 +120,8 @@ async function generatePinCode(startStr, endStr, timeStr) {
             keyboardPwd: "",
             keyboardPwdType: "3",
             keyboardPwdVersion: "4",
-            startDate: startDt.getTime(),
-            endDate: endDt.getTime(),
+            startDate: Math.floor(startDt.getTime() / 1000), // oprava → v sekundách
+            endDate: Math.floor(endDt.getTime() / 1000),     // oprava → v sekundách
             date: now,
             sign
         };
@@ -137,16 +137,13 @@ async function generatePinCode(startStr, endStr, timeStr) {
             { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
         );
 
-        // -----------------------------------------
-        // ⚠ ÚSPĚCH = API vrací POUZE keyboardPwdId!
-        // -----------------------------------------
         if (res.data.keyboardPwdId) {
             console.log("TTLock vytvořil PIN, ID:", res.data.keyboardPwdId);
 
             // --- Druhý krok: získání skutečného PIN kódu ---
             const pwdRes = await axios.post(
                 "https://euapi.ttlock.com/v3/keyboardPwd/get",
-                `clientId=${TTLOCK_CLIENT_ID}&accessToken=${token}&keyboardPwdId=${res.data.keyboardPwdId}&date=${Date.now()}`,
+                `clientId=${TTLOCK_CLIENT_ID}&accessToken=${token}&keyboardPwdId=${res.data.keyboardPwdId}&date=${now}`,
                 { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
             );
 
@@ -167,7 +164,6 @@ async function generatePinCode(startStr, endStr, timeStr) {
         return null;
     }
 }
-
 
 // ==========================================
 // 3. API ENDPOINTY
