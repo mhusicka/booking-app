@@ -62,7 +62,7 @@ function hashPassword(password) {
     return crypto.createHash('md5').update(password).digest('hex');
 }
 
-// ⚠ Získání tokenu
+// Získání access tokenu
 async function getTTLockToken() {
     try {
         const res = await axios.post('https://euapi.ttlock.com/oauth2/token', null, {
@@ -75,17 +75,15 @@ async function getTTLockToken() {
                 redirect_uri: 'http://localhost'
             }
         });
-
         if (res.data.access_token) return res.data.access_token;
         throw new Error("Login failed: " + JSON.stringify(res.data));
-
     } catch (e) {
         console.error("Chyba Token:", e.message);
         throw e;
     }
 }
 
-// ⚠ Opravená funkce generatePinCode
+// Generování PINu pro budoucí i aktuální rezervace
 async function generatePinCode(startStr, endStr, timeStr) {
     try {
         console.log(`Generuji PIN pro: ${startStr} - ${endStr} (${timeStr})`);
@@ -94,14 +92,17 @@ async function generatePinCode(startStr, endStr, timeStr) {
 
         const startDt = new Date(`${startStr}T${timeStr}:00`);
         const endDt = new Date(`${endStr}T${timeStr}:00`);
-        const now = Math.floor(Date.now() / 1000); // v sekundách
+
+        const requestDate = Math.floor(Date.now() / 1000); // aktuální čas pro API
+        const startSec = Math.floor(startDt.getTime() / 1000);
+        const endSec = Math.floor(endDt.getTime() / 1000);
 
         // --- sign ---
         const signData = {
             accessToken: token,
             clientId: TTLOCK_CLIENT_ID,
             clientSecret: TTLOCK_CLIENT_SECRET,
-            date: now
+            date: requestDate
         };
 
         const sorted = Object.keys(signData).sort();
@@ -118,11 +119,11 @@ async function generatePinCode(startStr, endStr, timeStr) {
             accessToken: token,
             lockId: MY_LOCK_ID,
             keyboardPwd: "",
-            keyboardPwdType: "3",
+            keyboardPwdType: "3",       // časově omezený PIN
             keyboardPwdVersion: "4",
-            startDate: Math.floor(startDt.getTime() / 1000), // oprava → v sekundách
-            endDate: Math.floor(endDt.getTime() / 1000),     // oprava → v sekundách
-            date: now,
+            startDate: startSec,        // v sekundách
+            endDate: endSec,            // v sekundách
+            date: requestDate,          // aktuální timestamp
             sign
         };
 
@@ -143,7 +144,7 @@ async function generatePinCode(startStr, endStr, timeStr) {
             // --- Druhý krok: získání skutečného PIN kódu ---
             const pwdRes = await axios.post(
                 "https://euapi.ttlock.com/v3/keyboardPwd/get",
-                `clientId=${TTLOCK_CLIENT_ID}&accessToken=${token}&keyboardPwdId=${res.data.keyboardPwdId}&date=${now}`,
+                `clientId=${TTLOCK_CLIENT_ID}&accessToken=${token}&keyboardPwdId=${res.data.keyboardPwdId}&date=${requestDate}`,
                 { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
             );
 
