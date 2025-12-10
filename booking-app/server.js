@@ -86,7 +86,7 @@ async function getTTLockToken() {
     }
 }
 
-// Generování PINu s opravenými milisekundami (MS) a podepsaným druhým krokem
+// Generování PINu s TYPEM 3 (PERIODICKÝ) a správnými milisekundami
 async function generatePinCode(startStr, endStr, timeStr) {
     try {
         console.log(`Generuji PIN pro: ${startStr} - ${endStr} (${timeStr})`);
@@ -96,12 +96,11 @@ async function generatePinCode(startStr, endStr, timeStr) {
         const startDt = new Date(`${startStr}T${timeStr}:00`);
         const endDt = new Date(`${endStr}T${timeStr}:00`);
 
-        // --- OPRAVENO: POUŽÍVÁME MILISEKUNDY (MS) ---
+        // POUŽÍVÁME MILISEKUNDY (MS)
         const requestDate = Date.now(); 
         const startMs = startDt.getTime(); 
         const endMs = endDt.getTime(); 
-        // ---------------------------------------------
-
+        
         // --- sign pro /v3/keyboardPwd/add ---
         const signData = {
             accessToken: token,
@@ -123,7 +122,8 @@ async function generatePinCode(startStr, endStr, timeStr) {
             clientId: TTLOCK_CLIENT_ID,
             accessToken: token,
             lockId: MY_LOCK_ID,
-            keyboardPwdType: "1",       // TRVALÝ PIN (pro test)
+            // OPRAVENO: PERIODICKÝ PIN (TYPE 3) pro dočasné rezervace
+            keyboardPwdType: "3",       
             keyboardPwdVersion: "4",
             startDate: startMs,         
             endDate: endMs,             
@@ -136,9 +136,6 @@ async function generatePinCode(startStr, endStr, timeStr) {
             .map(k => `${k}=${encodeURIComponent(body[k])}`)
             .join("&");
         
-        // Debugovací výstup pro kontrolu:
-        // console.log("DEBUG BODY ADD:", bodyStr);
-
         // --- 1. Odeslání požadavku na vytvoření PINu ---
         const res = await axios.post(
             "https://euapi.ttlock.com/v3/keyboardPwd/add",
@@ -163,9 +160,6 @@ async function generatePinCode(startStr, endStr, timeStr) {
             
             const getPwdBodyStr = `clientId=${TTLOCK_CLIENT_ID}&accessToken=${token}&keyboardPwdId=${res.data.keyboardPwdId}&date=${getPwdDate}&sign=${getPwdSign}`;
             
-            // Debugovací výstup pro kontrolu druhého kroku:
-            // console.log("DEBUG BODY GET:", getPwdBodyStr);
-
             const pwdRes = await axios.post(
                 "https://euapi.ttlock.com/v3/keyboardPwd/get",
                 getPwdBodyStr,
@@ -181,13 +175,11 @@ async function generatePinCode(startStr, endStr, timeStr) {
             }
         }
 
-        // Pokud API nevrátí ID, ale jiný kód chyby TTLock
         console.error("❌ TTLock API ERROR", res.data);
         return null;
 
     } catch (e) {
         console.error("❌ Chyba komunikace s TTLock");
-        // Logujeme detail chyby
         console.error("Detail chyby:", e.response?.data || e.message);
         return null;
     }
