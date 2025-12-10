@@ -4,7 +4,6 @@ const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
 const axios = require("axios");
 const md5 = require("md5");
-const querystring = require("querystring"); // Vestavěná knihovna pro formátování dat
 
 const app = express();
 app.use(cors());
@@ -17,7 +16,7 @@ app.use(bodyParser.json());
 const MONGO_URI = "mongodb+srv://mhusicka_db_user:s384gWYYuWaCqQBu@cluster0.elhifrg.mongodb.net/?appName=Cluster0";
 const ADMIN_PASSWORD = "3C1a4d88*"; 
 
-// --- TTLOCK ÚDAJE (Vaše údaje) ---
+// --- TTLOCK ÚDAJE ---
 const TTLOCK_CLIENT_ID = "17eac95916f44987b3f7fc6c6d224712";
 const TTLOCK_CLIENT_SECRET = "de74756cc5eb87301170f29ac82f40c3";
 const TTLOCK_USERNAME = "martinhusicka@centrum.cz";
@@ -53,12 +52,12 @@ function getRange(from, to) {
 }
 
 // ==========================================
-// 2. FUNKCE PRO TTLOCK (POUŽITÍ QUERYSTRING)
+// 2. FUNKCE PRO TTLOCK
 // ==========================================
 
 async function getTTLockToken() {
     try {
-        // Přihlášení fungovalo přes params (v URL), neměnit.
+        // Získání tokenu (toto fungovalo, necháváme beze změny)
         const res = await axios.post('https://api.ttlock.com/oauth2/token', null, {
             params: {
                 client_id: TTLOCK_CLIENT_ID,
@@ -89,25 +88,25 @@ async function generatePinCode(startStr, endStr, timeStr) {
         const startDt = new Date(`${startStr}T${timeStr}:00`);
         const endDt = new Date(`${endStr}T${timeStr}:00`);
 
-        // ZDE JE ZMĚNA: Použijeme 'querystring.stringify'
-        // To vytvoří přesně ten formát (klic=hodnota&klic2=hodnota), který Tomcat server vyžaduje.
-        const requestBody = querystring.stringify({
-            clientId: TTLOCK_CLIENT_ID,
-            accessToken: token,
-            lockId: MY_LOCK_ID,
-            keyboardPwdVersion: 4, 
-            keyboardPwdType: 3, // 3 = Periodický
-            startDate: startDt.getTime(),
-            endDate: endDt.getTime(),
-            date: Date.now()
-        });
+        // === OPRAVENÁ ČÁST PRO V3 API ===
+        // Data balíme do URLSearchParams, aby se poslala jako x-www-form-urlencoded
+        const params = new URLSearchParams();
+        params.append('clientId', TTLOCK_CLIENT_ID);
+        params.append('accessToken', token);
+        params.append('lockId', MY_LOCK_ID);
+        params.append('keyboardPwdVersion', '4');
+        params.append('keyboardPwdType', '3'); // 3 = Periodický
+        params.append('startDate', startDt.getTime());
+        params.append('endDate', endDt.getTime());
+        params.append('date', Date.now());
 
-        // Odesíláme data v těle (requestBody) a explicitně říkáme serveru, že je to formulář.
-        const res = await axios.post('https://api.ttlock.com/v3/keyboardPwd/add', requestBody, {
+        // Posíláme params jako DRUHÝ argument (body)
+        const res = await axios.post('https://api.ttlock.com/v3/keyboardPwd/add', params, {
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded'
             }
         });
+        // === KONEC OPRAVY ===
 
         if (res.data.errcode === 0) {
             console.log("✅ PIN ÚSPĚCH:", res.data.keyboardPwd);
@@ -178,7 +177,10 @@ app.post("/reserve-range", async (req, res) => {
         if (isCollision) return res.json({ error: "Termín je obsazen." });
 
         let generatedPin = "Nepodařilo se vygenerovat (zkuste později v adminu)";
+        
+        // Zavoláme opravenou funkci
         const pin = await generatePinCode(startDate, endDate, time);
+        
         if (pin) generatedPin = pin;
 
         const newRes = new Reservation({ 
