@@ -4,6 +4,7 @@ const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
 const axios = require("axios");
 const md5 = require("md5");
+const querystring = require("querystring"); // Vestavěná knihovna pro formátování dat
 
 const app = express();
 app.use(cors());
@@ -16,7 +17,7 @@ app.use(bodyParser.json());
 const MONGO_URI = "mongodb+srv://mhusicka_db_user:s384gWYYuWaCqQBu@cluster0.elhifrg.mongodb.net/?appName=Cluster0";
 const ADMIN_PASSWORD = "3C1a4d88*"; 
 
-// --- TTLOCK ÚDAJE (JIŽ VYPLNĚNO) ---
+// --- TTLOCK ÚDAJE (Vaše údaje) ---
 const TTLOCK_CLIENT_ID = "17eac95916f44987b3f7fc6c6d224712";
 const TTLOCK_CLIENT_SECRET = "de74756cc5eb87301170f29ac82f40c3";
 const TTLOCK_USERNAME = "martinhusicka@centrum.cz";
@@ -52,12 +53,12 @@ function getRange(from, to) {
 }
 
 // ==========================================
-// 2. FUNKCE PRO TTLOCK
+// 2. FUNKCE PRO TTLOCK (POUŽITÍ QUERYSTRING)
 // ==========================================
 
 async function getTTLockToken() {
     try {
-        // TENTO STYL TI FUNGOVAL -> POUŽIJEME HO ZNOVU
+        // Přihlášení fungovalo přes params (v URL), neměnit.
         const res = await axios.post('https://api.ttlock.com/oauth2/token', null, {
             params: {
                 client_id: TTLOCK_CLIENT_ID,
@@ -88,18 +89,23 @@ async function generatePinCode(startStr, endStr, timeStr) {
         const startDt = new Date(`${startStr}T${timeStr}:00`);
         const endDt = new Date(`${endStr}T${timeStr}:00`);
 
-        // OPRAVA: Posíláme data v 'params' (v URL), stejně jako u přihlášení.
-        // Žádné bodyString, žádné hlavičky navíc.
-        const res = await axios.post('https://api.ttlock.com/v3/keyboardPwd/add', null, {
-            params: {
-                clientId: TTLOCK_CLIENT_ID,
-                accessToken: token,
-                lockId: MY_LOCK_ID,
-                keyboardPwdVersion: 4, 
-                keyboardPwdType: 3, // 3 = Periodický
-                startDate: startDt.getTime(),
-                endDate: endDt.getTime(),
-                date: Date.now()
+        // ZDE JE ZMĚNA: Použijeme 'querystring.stringify'
+        // To vytvoří přesně ten formát (klic=hodnota&klic2=hodnota), který Tomcat server vyžaduje.
+        const requestBody = querystring.stringify({
+            clientId: TTLOCK_CLIENT_ID,
+            accessToken: token,
+            lockId: MY_LOCK_ID,
+            keyboardPwdVersion: 4, 
+            keyboardPwdType: 3, // 3 = Periodický
+            startDate: startDt.getTime(),
+            endDate: endDt.getTime(),
+            date: Date.now()
+        });
+
+        // Odesíláme data v těle (requestBody) a explicitně říkáme serveru, že je to formulář.
+        const res = await axios.post('https://api.ttlock.com/v3/keyboardPwd/add', requestBody, {
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
             }
         });
 
