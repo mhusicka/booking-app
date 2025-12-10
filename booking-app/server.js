@@ -54,24 +54,33 @@ function getRange(from, to) {
 }
 
 // ==========================================
-// 2. FUNKCE PRO TTLOCK
+// 2. FUNKCE PRO TTLOCK (OPRAVENO)
 // ==========================================
 
 async function getTTLockToken() {
-    // Pro získání tokenu posíláme data jako formulář (x-www-form-urlencoded)
-    const params = new URLSearchParams();
-    params.append('client_id', TTLOCK_CLIENT_ID);
-    params.append('client_secret', TTLOCK_CLIENT_SECRET);
-    params.append('username', TTLOCK_USERNAME);
-    params.append('password', md5(TTLOCK_PASSWORD));
-    params.append('grant_type', 'password');
-    params.append('redirect_uri', 'http://localhost');
+    // Používáme způsob, který fungoval ve scriptu zjistit_id.js
+    // Posíláme data jako 'params' (v URL), nikoliv v těle.
+    try {
+        const res = await axios.post('https://api.ttlock.com/oauth2/token', null, {
+            params: {
+                client_id: TTLOCK_CLIENT_ID,
+                client_secret: TTLOCK_CLIENT_SECRET,
+                username: TTLOCK_USERNAME,
+                password: md5(TTLOCK_PASSWORD),
+                grant_type: 'password',
+                redirect_uri: 'http://localhost'
+            }
+        });
 
-    const res = await axios.post('https://api.ttlock.com/oauth2/token', params);
-    if (res.data.access_token) {
-        return res.data.access_token;
-    } else {
-        throw new Error("Nepodařilo se získat token: " + JSON.stringify(res.data));
+        if (res.data.access_token) {
+            return res.data.access_token;
+        } else {
+            console.error("TTLock Login Error:", res.data);
+            throw new Error("Nepodařilo se přihlásit do TTLock.");
+        }
+    } catch (e) {
+        console.error("Chyba při přihlašování:", e.message);
+        throw e;
     }
 }
 
@@ -80,24 +89,25 @@ async function generatePinCode(startStr, endStr, timeStr) {
         console.log(`Generuji PIN pro: ${startStr} - ${endStr} (${timeStr})`);
         const token = await getTTLockToken();
 
-        // Převod na timestamp (milisekundy)
         const startDt = new Date(`${startStr}T${timeStr}:00`);
         const endDt = new Date(`${endStr}T${timeStr}:00`);
 
-        // OPRAVA: Data musíme zabalit do URLSearchParams (jako formulář), 
-        // jinak server vrací chybu 400.
-        const params = new URLSearchParams();
-        params.append('clientId', TTLOCK_CLIENT_ID);
-        params.append('accessToken', token);
-        params.append('lockId', MY_LOCK_ID);
-        params.append('keyboardPwdVersion', 4);
-        params.append('keyboardPwdType', 3); // 3 = Periodický (od-do)
-        params.append('startDate', startDt.getTime());
-        params.append('endDate', endDt.getTime());
-        params.append('date', Date.now());
+        // OPRAVA: Data posíláme v 'params' (do URL query string),
+        // protože to je formát, který server Apache Tomcat spolehlivě bere.
+        const requestParams = {
+            clientId: TTLOCK_CLIENT_ID,
+            accessToken: token,
+            lockId: MY_LOCK_ID,
+            keyboardPwdVersion: 4, 
+            keyboardPwdType: 3, // 3 = Periodický
+            startDate: startDt.getTime(),
+            endDate: endDt.getTime(),
+            date: Date.now()
+        };
 
-        // Odeslání POST požadavku se správným formátem dat
-        const res = await axios.post('https://api.ttlock.com/v3/keyboardPwd/add', params);
+        const res = await axios.post('https://api.ttlock.com/v3/keyboardPwd/add', null, {
+            params: requestParams
+        });
 
         if (res.data.errcode === 0) {
             console.log("✅ PIN ÚSPĚCH:", res.data.keyboardPwd);
@@ -106,8 +116,8 @@ async function generatePinCode(startStr, endStr, timeStr) {
             console.error("❌ TTLock API Error (logika):", res.data);
             return null;
         }
+
     } catch (e) {
-        // Vylepšený výpis chyby - ukáže nám přesně, co serveru vadilo
         console.error("❌ Chyba komunikace s TTLock:");
         if (e.response) {
             console.error("Status:", e.response.status);
@@ -204,7 +214,6 @@ app.post("/reserve-range", async (req, res) => {
     }
 });
 
-// ADMIN API
 app.get("/admin/reservations", async (req, res) => {
     const password = req.headers["x-admin-password"];
     if (password !== ADMIN_PASSWORD) return res.status(403).json({ error: "Špatné heslo!" });
