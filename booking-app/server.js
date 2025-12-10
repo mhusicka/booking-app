@@ -58,7 +58,7 @@ function getRange(from, to) {
 // 2. FUNKCE PRO TTLOCK
 // ==========================================
 
-// Pomocná funkce pro hashování hesla
+// Pomocná funkce pro hashování hesla (MD5)
 function hashPassword(password) {
     return crypto.createHash('md5').update(password).digest('hex');
 }
@@ -86,7 +86,7 @@ async function getTTLockToken() {
     }
 }
 
-// Generování PINu s opravenými milisekundami (MS)
+// Generování PINu s opravenými milisekundami (MS) a podepsaným druhým krokem
 async function generatePinCode(startStr, endStr, timeStr) {
     try {
         console.log(`Generuji PIN pro: ${startStr} - ${endStr} (${timeStr})`);
@@ -96,21 +96,20 @@ async function generatePinCode(startStr, endStr, timeStr) {
         const startDt = new Date(`${startStr}T${timeStr}:00`);
         const endDt = new Date(`${endStr}T${timeStr}:00`);
 
-        // --- OPRAVENO: POUŽÍVÁME MILISEKUNDY (MS), NE SEKUNDY (S) ---
+        // --- OPRAVENO: POUŽÍVÁME MILISEKUNDY (MS) ---
         const requestDate = Date.now(); 
         const startMs = startDt.getTime(); 
         const endMs = endDt.getTime(); 
-        // -------------------------------------------------------------
+        // ---------------------------------------------
 
-        // --- sign ---
+        // --- sign pro /v3/keyboardPwd/add ---
         const signData = {
             accessToken: token,
             clientId: TTLOCK_CLIENT_ID,
             clientSecret: TTLOCK_CLIENT_SECRET,
-            date: requestDate // Používáme MS
+            date: requestDate 
         };
 
-        // Abecední seřazení pro signString
         const sorted = Object.keys(signData).sort();
         const signString = sorted.map(k => `${k}=${signData[k]}`).join("&");
 
@@ -119,16 +118,16 @@ async function generatePinCode(startStr, endStr, timeStr) {
             .digest("hex")
             .toUpperCase();
 
-        // --- Tělo požadavku ---
+        // --- Tělo požadavku /add ---
         const body = {
             clientId: TTLOCK_CLIENT_ID,
             accessToken: token,
             lockId: MY_LOCK_ID,
             keyboardPwdType: "1",       // TRVALÝ PIN (pro test)
             keyboardPwdVersion: "4",
-            startDate: startMs,         // začátek rezervace v MS
-            endDate: endMs,             // konec rezervace v MS
-            date: requestDate,          // aktuální timestamp v MS pro sign
+            startDate: startMs,         
+            endDate: endMs,             
+            date: requestDate,          
             sign
         };
 
@@ -136,6 +135,9 @@ async function generatePinCode(startStr, endStr, timeStr) {
         const bodyStr = Object.keys(body)
             .map(k => `${k}=${encodeURIComponent(body[k])}`)
             .join("&");
+        
+        // Debugovací výstup pro kontrolu:
+        // console.log("DEBUG BODY ADD:", bodyStr);
 
         // --- 1. Odeslání požadavku na vytvoření PINu ---
         const res = await axios.post(
@@ -147,7 +149,7 @@ async function generatePinCode(startStr, endStr, timeStr) {
         if (res.data.keyboardPwdId) {
             console.log("TTLock vytvořil PIN, ID:", res.data.keyboardPwdId);
 
-            // --- 2. Získání skutečného PIN kódu (musí být podepsáno) ---
+            // --- 2. Získání skutečného PIN kódu (/v3/keyboardPwd/get) ---
             const getPwdDate = Date.now();
             const getPwdSignData = {
                 clientId: TTLOCK_CLIENT_ID,
@@ -161,6 +163,9 @@ async function generatePinCode(startStr, endStr, timeStr) {
             
             const getPwdBodyStr = `clientId=${TTLOCK_CLIENT_ID}&accessToken=${token}&keyboardPwdId=${res.data.keyboardPwdId}&date=${getPwdDate}&sign=${getPwdSign}`;
             
+            // Debugovací výstup pro kontrolu druhého kroku:
+            // console.log("DEBUG BODY GET:", getPwdBodyStr);
+
             const pwdRes = await axios.post(
                 "https://euapi.ttlock.com/v3/keyboardPwd/get",
                 getPwdBodyStr,
@@ -182,7 +187,7 @@ async function generatePinCode(startStr, endStr, timeStr) {
 
     } catch (e) {
         console.error("❌ Chyba komunikace s TTLock");
-        // Logujeme detail chyby (může být HTML 400 nebo chyba připojení)
+        // Logujeme detail chyby
         console.error("Detail chyby:", e.response?.data || e.message);
         return null;
     }
