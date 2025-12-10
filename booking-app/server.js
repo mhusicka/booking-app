@@ -68,7 +68,6 @@ async function getTTLockToken() {
                 client_id: TTLOCK_CLIENT_ID,
                 client_secret: TTLOCK_CLIENT_SECRET,
                 username: TTLOCK_USERNAME,
-                // Používáme funkci pro hashování
                 password: hashPassword(TTLOCK_PASSWORD), 
                 grant_type: 'password',
                 redirect_uri: 'http://localhost'
@@ -86,14 +85,15 @@ async function getTTLockToken() {
     }
 }
 
-// TATO FUNKCE BYLA OPRAVENA PRO ABECEDNÍ SEŘAZENÍ SIGN STRINGU
+// TATO FUNKCE OPRAVUJE CHYBU 'Cannot access endDt' A POUŽÍVÁ ABECEDNÍ SEŘAZENÍ SIGN STRINGU
 async function generatePinCode(startStr, endStr, timeStr) {
     try {
         console.log(`Generuji PIN pro: ${startStr} - ${endStr} (${timeStr})`);
         const token = await getTTLockToken();
 
+        // OPRAVENO: Zajištěno správné použití endStr (vstupní datum)
         const startDt = new Date(`${startStr}T${timeStr}:00`);
-        const endDt = new Date(`${endDt}T${timeStr}:00`);
+        const endDt = new Date(`${endStr}T${timeStr}:00`); 
         const currentDateMs = Date.now();
         
         // --- 1. Sestavení dat do objektu ---
@@ -109,8 +109,6 @@ async function generatePinCode(startStr, endStr, timeStr) {
         };
 
         // --- 2. Generování podpisu (sign) s abecedním řazením ---
-        
-        // Data pro hashování, VČETNĚ SECRETU
         const signData = {
             clientId: TTLOCK_CLIENT_ID,
             accessToken: token,
@@ -118,7 +116,7 @@ async function generatePinCode(startStr, endStr, timeStr) {
             clientSecret: TTLOCK_CLIENT_SECRET
         };
         
-        // Sestavíme řetězec seřazením klíčů (Abecední sort: accessToken, clientId, clientSecret, date)
+        // Sestavíme řetězec seřazením klíčů
         const sortedKeys = Object.keys(signData).sort();
         let signString = sortedKeys.map(key => `${key}=${signData[key]}`).join('&');
 
@@ -143,7 +141,6 @@ async function generatePinCode(startStr, endStr, timeStr) {
             console.log("✅ PIN ÚSPĚCH:", res.data.keyboardPwd);
             return res.data.keyboardPwd; 
         } else {
-            // Logujeme konkrétní API chybu z TTLocku (pokud ji vrátí)
             console.error("❌ TTLock API Error:", res.data);
             return null;
         }
@@ -244,4 +241,3 @@ app.delete("/admin/reservations/:id", async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, "0.0.0.0", () => console.log("Server běží na portu " + PORT));
-
