@@ -122,8 +122,7 @@ async function generatePinCode(startStr, endStr, timeStr) {
             clientId: TTLOCK_CLIENT_ID,
             accessToken: token,
             lockId: MY_LOCK_ID,
-            // OPRAVENO: PERIODICKÝ PIN (TYPE 3) pro dočasné rezervace
-            keyboardPwdType: "3",       
+            keyboardPwdType: "3",       // PERIODICKÝ PIN (TYPE 3)
             keyboardPwdVersion: "4",
             startDate: startMs,         
             endDate: endMs,             
@@ -136,6 +135,9 @@ async function generatePinCode(startStr, endStr, timeStr) {
             .map(k => `${k}=${encodeURIComponent(body[k])}`)
             .join("&");
         
+        // --- ZDE JE DEBUG VÝSTUP ---
+        console.log("DEBUG BODY ADD:", bodyStr);
+
         // --- 1. Odeslání požadavku na vytvoření PINu ---
         const res = await axios.post(
             "https://euapi.ttlock.com/v3/keyboardPwd/add",
