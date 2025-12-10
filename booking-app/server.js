@@ -13,16 +13,15 @@ app.use(bodyParser.json());
 // 1. KONFIGURACE
 // ==========================================
 
-// Databáze
 const MONGO_URI = "mongodb+srv://mhusicka_db_user:s384gWYYuWaCqQBu@cluster0.elhifrg.mongodb.net/?appName=Cluster0";
 const ADMIN_PASSWORD = "3C1a4d88*"; 
 
-// --- TTLOCK ÚDAJE (DOPLŇTE!) ---
+// --- TTLOCK ÚDAJE (JIŽ VYPLNĚNO) ---
 const TTLOCK_CLIENT_ID = "17eac95916f44987b3f7fc6c6d224712";
 const TTLOCK_CLIENT_SECRET = "de74756cc5eb87301170f29ac82f40c3";
-const TTLOCK_USERNAME = "martinhusicka@centrum.cz"; // e-mail nebo telefon
+const TTLOCK_USERNAME = "martinhusicka@centrum.cz";
 const TTLOCK_PASSWORD = "3C1a4d88*";
-const MY_LOCK_ID = 23198305; // Vaše zjištěné ID
+const MY_LOCK_ID = 23198305;
 // -------------------------------
 
 mongoose.connect(MONGO_URI)
@@ -53,12 +52,12 @@ function getRange(from, to) {
 }
 
 // ==========================================
-// 2. FUNKCE PRO TTLOCK (FINÁLNÍ OPRAVA)
+// 2. FUNKCE PRO TTLOCK
 // ==========================================
 
 async function getTTLockToken() {
-    // Přihlášení fungovalo přes URL parametry, necháme to tak
     try {
+        // TENTO STYL TI FUNGOVAL -> POUŽIJEME HO ZNOVU
         const res = await axios.post('https://api.ttlock.com/oauth2/token', null, {
             params: {
                 client_id: TTLOCK_CLIENT_ID,
@@ -89,24 +88,18 @@ async function generatePinCode(startStr, endStr, timeStr) {
         const startDt = new Date(`${startStr}T${timeStr}:00`);
         const endDt = new Date(`${endStr}T${timeStr}:00`);
 
-        // 1. Vytvoříme parametry jako URLSearchParams objekt
-        const params = new URLSearchParams();
-        params.append('clientId', TTLOCK_CLIENT_ID);
-        params.append('accessToken', token);
-        params.append('lockId', MY_LOCK_ID);
-        params.append('keyboardPwdVersion', 4);
-        params.append('keyboardPwdType', 3); // 3 = Periodický
-        params.append('startDate', startDt.getTime());
-        params.append('endDate', endDt.getTime());
-        params.append('date', Date.now());
-
-        // 2. OPRAVA: Převedeme to na string ručně a nastavíme hlavičku.
-        // Tím donutíme server přijmout to jako "starý dobrý formulář".
-        const bodyString = params.toString();
-
-        const res = await axios.post('https://api.ttlock.com/v3/keyboardPwd/add', bodyString, {
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
+        // OPRAVA: Posíláme data v 'params' (v URL), stejně jako u přihlášení.
+        // Žádné bodyString, žádné hlavičky navíc.
+        const res = await axios.post('https://api.ttlock.com/v3/keyboardPwd/add', null, {
+            params: {
+                clientId: TTLOCK_CLIENT_ID,
+                accessToken: token,
+                lockId: MY_LOCK_ID,
+                keyboardPwdVersion: 4, 
+                keyboardPwdType: 3, // 3 = Periodický
+                startDate: startDt.getTime(),
+                endDate: endDt.getTime(),
+                date: Date.now()
             }
         });
 
@@ -115,8 +108,6 @@ async function generatePinCode(startStr, endStr, timeStr) {
             return res.data.keyboardPwd; 
         } else {
             console.error("❌ TTLock API Error:", res.data);
-            // Logování detailu chyby pro případné další ladění
-            if(res.data.errmsg) console.error("Zpráva:", res.data.errmsg);
             return null;
         }
 
@@ -124,7 +115,7 @@ async function generatePinCode(startStr, endStr, timeStr) {
         console.error("❌ Chyba komunikace s TTLock:");
         if (e.response) {
             console.error("Status:", e.response.status);
-            console.error("Data:", e.response.data);
+            console.error("Data:", e.response.data); 
         } else {
             console.error(e.message);
         }
@@ -180,7 +171,6 @@ app.post("/reserve-range", async (req, res) => {
         });
         if (isCollision) return res.json({ error: "Termín je obsazen." });
 
-        // Generování PINu
         let generatedPin = "Nepodařilo se vygenerovat (zkuste později v adminu)";
         const pin = await generatePinCode(startDate, endDate, time);
         if (pin) generatedPin = pin;
