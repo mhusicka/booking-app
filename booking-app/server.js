@@ -2,27 +2,33 @@ const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
+const axios = require("axios");
+const md5 = require("md5");
 
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
 // ==========================================
-// 1. KONFIGURACE (HESLA A DATABÁZE)
+// 1. KONFIGURACE
 // ==========================================
 
-// ZDE VLOŽTE SVŮJ ŘÁDEK Z MONGODB:
+// Databáze
 const MONGO_URI = "mongodb+srv://mhusicka_db_user:s384gWYYuWaCqQBu@cluster0.elhifrg.mongodb.net/?appName=Cluster0";
-
-// ZDE SI ZVOLTE HESLO PRO VSTUP DO ADMINU:
 const ADMIN_PASSWORD = "3C1a4d88*"; 
 
-// Připojení k DB
+// --- TTLOCK ÚDAJE (DOPLŇTE!) ---
+const TTLOCK_CLIENT_ID = "17eac95916f44987b3f7fc6c6d224712";
+const TTLOCK_CLIENT_SECRET = "de74756cc5eb87301170f29ac82f40c3";
+const TTLOCK_USERNAME = "martinhusicka@centrum.cz"; // e-mail nebo telefon
+const TTLOCK_PASSWORD = "3C1a4d88*";
+const MY_LOCK_ID = 23198305; // Vaše zjištěné ID
+// -------------------------------
+
 mongoose.connect(MONGO_URI)
     .then(() => console.log("✅ Připojeno k MongoDB"))
     .catch(err => console.error("❌ Chyba DB:", err));
 
-// Definice struktury dat (Schéma)
 const ReservationSchema = new mongoose.Schema({
     startDate: String, 
     endDate: String,   
@@ -30,6 +36,7 @@ const ReservationSchema = new mongoose.Schema({
     name: String,
     email: String,
     phone: String,
+    passcode: String, // Zde budeme ukládat PIN
     created: { type: Date, default: Date.now }
 });
 
@@ -47,10 +54,62 @@ function getRange(from, to) {
 }
 
 // ==========================================
-// 2. VEŘEJNÉ API (PRO ZÁKAZNÍKY)
+// 2. FUNKCE PRO TTLOCK
 // ==========================================
 
-// Získání dostupnosti
+async function getTTLockToken() {
+    const params = new URLSearchParams();
+    params.append('client_id', TTLOCK_CLIENT_ID);
+    params.append('client_secret', TTLOCK_CLIENT_SECRET);
+    params.append('username', TTLOCK_USERNAME);
+    params.append('password', md5(TTLOCK_PASSWORD));
+    params.append('grant_type', 'password');
+    params.append('redirect_uri', 'http://localhost');
+
+    // Používáme novější oauth2 endpoint, který vám fungoval ve skriptu
+    const res = await axios.post('https://api.ttlock.com/oauth2/token', params);
+    return res.data.access_token;
+}
+
+async function generatePinCode(startStr, endStr, timeStr) {
+    try {
+        console.log(`Generuji PIN pro: ${startStr} - ${endStr} (${timeStr})`);
+        const token = await getTTLockToken();
+
+        // Převod na timestamp (milisekundy)
+        // startStr je "2023-12-10", timeStr je "09:00"
+        const startDt = new Date(`${startStr}T${timeStr}:00`);
+        const endDt = new Date(`${endStr}T${timeStr}:00`);
+
+        const res = await axios.post('https://api.ttlock.com/v3/keyboardPwd/add', null, {
+            params: {
+                clientId: TTLOCK_CLIENT_ID,
+                accessToken: token,
+                lockId: MY_LOCK_ID,
+                keyboardPwdVersion: 4, 
+                keyboardPwdType: 3, // 3 = Periodický (od-do)
+                startDate: startDt.getTime(),
+                endDate: endDt.getTime(),
+                date: Date.now()
+            }
+        });
+
+        if (res.data.errcode === 0) {
+            return res.data.keyboardPwd; // ÚSPĚCH
+        } else {
+            console.error("TTLock API Error:", res.data);
+            return null;
+        }
+    } catch (e) {
+        console.error("Chyba komunikace s TTLock:", e.message);
+        return null;
+    }
+}
+
+// ==========================================
+// 3. API ENDPOINTY
+// ==========================================
+
 app.get("/availability", async (req, res) => {
     try {
         const allReservations = await Reservation.find();
@@ -66,38 +125,31 @@ app.get("/availability", async (req, res) => {
                     if (day === r.startDate) status = `Vyzvednutí: ${r.time}`;
                     if (day === r.endDate) status = `Vrácení: ${r.time}`;
                 }
-
-                bookedDetails[day] = {
-                    isBooked: true,
-                    time: r.time,
-                    info: status 
-                };
+                bookedDetails[day] = { isBooked: true, time: r.time, info: status };
             });
         });
 
         const days = [];
         const start = new Date();
         const end = new Date();
-        end.setFullYear(end.getFullYear() + 2); // Kalendář na 2 roky dopředu
+        end.setFullYear(end.getFullYear() + 2); 
 
         for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
             const dateStr = d.toISOString().split("T")[0];
             const detail = bookedDetails[dateStr];
-
             days.push({
                 date: dateStr,
                 available: !detail,
                 info: detail ? detail.info : "" 
             });
         }
-
         res.json({ days });
     } catch (error) {
         res.status(500).json({ error: "Chyba serveru" });
     }
 });
 
-// Vytvoření rezervace
+// HLAVNÍ REZERVACE
 app.post("/reserve-range", async (req, res) => {
     const { startDate, endDate, time, name, email, phone } = req.body;
 
@@ -106,22 +158,33 @@ app.post("/reserve-range", async (req, res) => {
     }
 
     try {
+        // 1. Kontrola kolize
         const allReservations = await Reservation.find();
         const newRange = getRange(startDate, endDate);
         let isCollision = false;
-        
         allReservations.forEach(r => {
             const existingRange = getRange(r.startDate, r.endDate);
             const intersection = newRange.filter(day => existingRange.includes(day));
             if (intersection.length > 0) isCollision = true;
         });
-
         if (isCollision) return res.json({ error: "Termín je obsazen." });
 
-        const newRes = new Reservation({ startDate, endDate, time, name, email, phone });
+        // 2. Generování PINu
+        let generatedPin = "Nepodařilo se vygenerovat (zkuste později v adminu)";
+        const pin = await generatePinCode(startDate, endDate, time);
+        if (pin) {
+            generatedPin = pin;
+            console.log("✅ PIN vygenerován:", pin);
+        }
+
+        // 3. Uložení
+        const newRes = new Reservation({ 
+            startDate, endDate, time, name, email, phone, 
+            passcode: generatedPin 
+        });
         await newRes.save();
 
-        res.json({ success: true });
+        res.json({ success: true, pin: generatedPin });
 
     } catch (error) {
         console.error(error);
@@ -129,45 +192,20 @@ app.post("/reserve-range", async (req, res) => {
     }
 });
 
-// ==========================================
-// 3. ADMIN API (PRO VÁS)
-// ==========================================
-
-// Načtení seznamu všech rezervací (vyžaduje heslo)
+// ADMIN
 app.get("/admin/reservations", async (req, res) => {
     const password = req.headers["x-admin-password"];
-    
-    if (password !== ADMIN_PASSWORD) {
-        return res.status(403).json({ error: "Špatné heslo!" });
-    }
-
-    try {
-        // Seřadíme od nejnovějších
-        const all = await Reservation.find().sort({ created: -1 });
-        res.json(all);
-    } catch (e) {
-        res.status(500).json({ error: "Chyba databáze" });
-    }
+    if (password !== ADMIN_PASSWORD) return res.status(403).json({ error: "Špatné heslo!" });
+    const all = await Reservation.find().sort({ created: -1 });
+    res.json(all);
 });
 
-// Smazání rezervace (vyžaduje heslo)
 app.delete("/admin/reservations/:id", async (req, res) => {
     const password = req.headers["x-admin-password"];
-    
-    if (password !== ADMIN_PASSWORD) {
-        return res.status(403).json({ error: "Špatné heslo!" });
-    }
-
-    try {
-        await Reservation.findByIdAndDelete(req.params.id);
-        res.json({ success: true });
-    } catch (e) {
-        res.status(500).json({ error: "Chyba při mazání" });
-    }
+    if (password !== ADMIN_PASSWORD) return res.status(403).json({ error: "Špatné heslo!" });
+    await Reservation.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
 });
 
-// ==========================================
-// 4. SPUŠTĚNÍ SERVERU
-// ==========================================
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, "0.0.0.0", () => console.log("Server běží na portu " + PORT));
