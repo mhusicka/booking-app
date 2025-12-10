@@ -3,7 +3,7 @@ const cors = require("cors");
 const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
 const axios = require("axios");
-const md5 = require("md5"); // KNIHOVNA PRO GENERACI HASHŮ
+const crypto = require("crypto"); // POUŽÍVÁME VESTAVĚNÝ MODUL CRYPTO
 
 const app = express();
 app.use(cors());
@@ -55,15 +55,21 @@ function getRange(from, to) {
 // 2. FUNKCE PRO TTLOCK
 // ==========================================
 
+// Pomocná funkce pro hashování hesla (stále vyžaduje MD5)
+function hashPassword(password) {
+    return crypto.createHash('md5').update(password).digest('hex');
+}
+
 async function getTTLockToken() {
     try {
-        // ZMĚNA ZDE: Používáme EU API i pro získání tokenu
+        // ZMĚNA: Používáme EU API i pro získání tokenu
         const res = await axios.post('https://euapi.ttlock.com/oauth2/token', null, { 
             params: {
                 client_id: TTLOCK_CLIENT_ID,
                 client_secret: TTLOCK_CLIENT_SECRET,
                 username: TTLOCK_USERNAME,
-                password: md5(TTLOCK_PASSWORD),
+                // Používáme novou funkci pro hashování
+                password: hashPassword(TTLOCK_PASSWORD), 
                 grant_type: 'password',
                 redirect_uri: 'http://localhost'
             }
@@ -79,7 +85,8 @@ async function getTTLockToken() {
         throw e;
     }
 }
-// TATO FUNKCE BYLA OPRAVENA
+
+// TATO FUNKCE BYLA OPRAVENA PRO POUŽITÍ VESTAVĚNÉHO MODULU 'crypto'
 async function generatePinCode(startStr, endStr, timeStr) {
     try {
         console.log(`Generuji PIN pro: ${startStr} - ${endStr} (${timeStr})`);
@@ -89,32 +96,33 @@ async function generatePinCode(startStr, endStr, timeStr) {
         const endDt = new Date(`${endStr}T${timeStr}:00`);
         const currentDateMs = Date.now();
         
-        // 1. Připravíme data
+        // --- 1. Sestavení dat do objektu ---
         const dataForPin = {
             clientId: TTLOCK_CLIENT_ID,
             accessToken: token,
             lockId: MY_LOCK_ID,
             keyboardPwdVersion: '4',
-            keyboardPwdType: '3', // 3 = Periodický
+            keyboardPwdType: '3', 
             startDate: startDt.getTime(),
             endDate: endDt.getTime(),
             date: currentDateMs
         };
 
-        // 2. Vytvoříme řetězec pro podepsání a generujeme podpis (sign)
-        // Pořadí parametrů je kritické: clientId, accessToken, date, clientSecret
+        // --- 2. Generování podpisu (sign) pomocí crypto ---
         const signString = `clientId=${dataForPin.clientId}&accessToken=${dataForPin.accessToken}&date=${dataForPin.date}&clientSecret=${TTLOCK_CLIENT_SECRET}`;
-        const sign = md5(signString); // Generujeme podpis
+        
+        // Změna: Používáme crypto, generujeme hexadecimální string a dáváme na velká písmena
+        const sign = crypto.createHash('md5').update(signString).digest('hex').toUpperCase(); 
 
-        // 3. Data balíme do URLSearchParams a přidáme sign
-        const params = new URLSearchParams();
+        // --- 3. Sestavení finálního TĚLA (body) jako řetězec ---
+        let bodyString = '';
         for (const key in dataForPin) {
-            params.append(key, dataForPin[key]);
+            bodyString += `${key}=${encodeURIComponent(dataForPin[key])}&`;
         }
-        params.append('sign', sign); // Přidáme vygenerovaný podpis!
+        bodyString += `sign=${sign}`;
         
         // 4. Posíláme data (body) s hlavičkou application/x-www-form-urlencoded
-        const res = await axios.post('https://api.ttlock.com/v3/keyboardPwd/add', params, {
+        const res = await axios.post('https://euapi.ttlock.com/v3/keyboardPwd/add', bodyString, {
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded'
             }
@@ -124,6 +132,7 @@ async function generatePinCode(startStr, endStr, timeStr) {
             console.log("✅ PIN ÚSPĚCH:", res.data.keyboardPwd);
             return res.data.keyboardPwd; 
         } else {
+            // Logujeme konkrétní API chybu z TTLocku (pokud ji vrátí)
             console.error("❌ TTLock API Error:", res.data);
             return null;
         }
@@ -139,6 +148,7 @@ async function generatePinCode(startStr, endStr, timeStr) {
         return null;
     }
 }
+
 
 // ==========================================
 // 3. API ENDPOINTY
@@ -190,7 +200,7 @@ app.post("/reserve-range", async (req, res) => {
 
         let generatedPin = "Nepodařilo se vygenerovat (zkuste později v adminu)";
         
-        // Zavoláme funkci
+        // Zavoláme opravenou funkci
         const pin = await generatePinCode(startDate, endDate, time);
         
         if (pin) generatedPin = pin;
