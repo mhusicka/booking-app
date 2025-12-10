@@ -83,7 +83,7 @@ async function getTTLockToken() {
     }
 }
 
-// Generování PINu pro budoucí i aktuální rezervace
+// Generování TRVALÉHO PINu s platností od–do
 async function generatePinCode(startStr, endStr, timeStr) {
     try {
         console.log(`Generuji PIN pro: ${startStr} - ${endStr} (${timeStr})`);
@@ -118,12 +118,11 @@ async function generatePinCode(startStr, endStr, timeStr) {
             clientId: TTLOCK_CLIENT_ID,
             accessToken: token,
             lockId: MY_LOCK_ID,
-            keyboardPwd: "",
-            keyboardPwdType: "3",       // časově omezený PIN
+            keyboardPwdType: "1",       // TRVALÝ PIN
             keyboardPwdVersion: "4",
-            startDate: startSec,        // v sekundách
-            endDate: endSec,            // v sekundách
-            date: requestDate,          // aktuální timestamp
+            startDate: startSec,        // začátek rezervace
+            endDate: endSec,            // konec rezervace
+            date: requestDate,          // aktuální timestamp pro sign
             sign
         };
 
