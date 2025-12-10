@@ -80,7 +80,7 @@ async function getTTLockToken() {
     }
 }
 
-// TATO FUNKCE BYLA OPRAVENA
+// TATO FUNKCE BYLA OPRAVENA S POUŽITÍM REGIONÁLNÍ URL A VELKÝCH PÍSMEN V MD5
 async function generatePinCode(startStr, endStr, timeStr) {
     try {
         console.log(`Generuji PIN pro: ${startStr} - ${endStr} (${timeStr})`);
@@ -90,32 +90,35 @@ async function generatePinCode(startStr, endStr, timeStr) {
         const endDt = new Date(`${endStr}T${timeStr}:00`);
         const currentDateMs = Date.now();
         
-        // 1. Připravíme data
+        // --- 1. Sestavení dat do objektu ---
         const dataForPin = {
             clientId: TTLOCK_CLIENT_ID,
             accessToken: token,
             lockId: MY_LOCK_ID,
             keyboardPwdVersion: '4',
-            keyboardPwdType: '3', // 3 = Periodický
+            keyboardPwdType: '3', 
             startDate: startDt.getTime(),
             endDate: endDt.getTime(),
             date: currentDateMs
         };
 
-        // 2. Vytvoříme řetězec pro podepsání a generujeme podpis (sign)
-        // Pořadí parametrů je kritické: clientId, accessToken, date, clientSecret
+        // --- 2. Generování podpisu (sign) ---
+        // Vytvoříme řetězec pro podepsání a generujeme podpis (sign)
         const signString = `clientId=${dataForPin.clientId}&accessToken=${dataForPin.accessToken}&date=${dataForPin.date}&clientSecret=${TTLOCK_CLIENT_SECRET}`;
-        const sign = md5(signString); // Generujeme podpis
+        // Změna: přidáno .toUpperCase() pro kompatibilitu
+        const sign = md5(signString).toUpperCase(); 
 
-        // 3. Data balíme do URLSearchParams a přidáme sign
-        const params = new URLSearchParams();
+        // --- 3. Sestavení finálního TĚLA (body) jako řetězec ---
+        let bodyString = '';
         for (const key in dataForPin) {
-            params.append(key, dataForPin[key]);
+            // Použijeme encodeURIComponent pro bezpečnou konverzi
+            bodyString += `${key}=${encodeURIComponent(dataForPin[key])}&`;
         }
-        params.append('sign', sign); // Přidáme vygenerovaný podpis!
+        bodyString += `sign=${sign}`;
         
         // 4. Posíláme data (body) s hlavičkou application/x-www-form-urlencoded
-        const res = await axios.post('https://api.ttlock.com/v3/keyboardPwd/add', params, {
+        // Změna: URL na euapi.ttlock.com pro stabilnější komunikaci v Evropě
+        const res = await axios.post('https://euapi.ttlock.com/v3/keyboardPwd/add', bodyString, {
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded'
             }
@@ -191,7 +194,7 @@ app.post("/reserve-range", async (req, res) => {
 
         let generatedPin = "Nepodařilo se vygenerovat (zkuste později v adminu)";
         
-        // Zavoláme funkci
+        // Zavoláme opravenou funkci
         const pin = await generatePinCode(startDate, endDate, time);
         
         if (pin) generatedPin = pin;
