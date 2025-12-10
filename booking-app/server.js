@@ -14,7 +14,7 @@ app.use(bodyParser.json());
 // ==========================================
 
 const MONGO_URI = "mongodb+srv://mhusicka_db_user:s384gWYYuWaCqQBu@cluster0.elhifrg.mongodb.net/?appName=Cluster0";
-const ADMIN_PASSWORD = "3C1a4d88*"; 
+const ADMIN_PASSWORD = "3C1a4d88*";
 
 // --- TTLOCK ÚDAJE ---
 const TTLOCK_CLIENT_ID = "17eac95916f44987b3f7fc6c6d224712";
@@ -22,12 +22,14 @@ const TTLOCK_CLIENT_SECRET = "de74756cc5eb87301170f29ac82f40c3";
 const TTLOCK_USERNAME = "martinhusicka@centrum.cz";
 const TTLOCK_PASSWORD = "3C1a4d88*";
 const MY_LOCK_ID = 23198305;
-// -------------------------------
 
 mongoose.connect(MONGO_URI)
     .then(() => console.log("✅ Připojeno k MongoDB"))
     .catch(err => console.error("❌ Chyba DB:", err));
 
+// ==========================================
+// DB SCHÉMA
+// ==========================================
 const ReservationSchema = new mongoose.Schema({
     startDate: String,
     endDate: String,
@@ -55,14 +57,15 @@ function getRange(from, to) {
 // 2. FUNKCE PRO TTLOCK
 // ==========================================
 
-// MD5 hash pro přihlášení
+// MD5 hash pro TTLock login
 function hashPassword(password) {
     return crypto.createHash('md5').update(password).digest('hex');
 }
 
+// ⚠ Získání tokenu
 async function getTTLockToken() {
     try {
-        const res = await axios.post('https://euapi.ttlock.com/oauth2/token', null, { 
+        const res = await axios.post('https://euapi.ttlock.com/oauth2/token', null, {
             params: {
                 client_id: TTLOCK_CLIENT_ID,
                 client_secret: TTLOCK_CLIENT_SECRET,
@@ -82,6 +85,7 @@ async function getTTLockToken() {
     }
 }
 
+// ⚠ NOVÉ – správná verze generatePinCode s vyzvednutím skutečného PINu
 async function generatePinCode(startStr, endStr, timeStr) {
     try {
         console.log(`Generuji PIN pro: ${startStr} - ${endStr} (${timeStr})`);
@@ -92,7 +96,7 @@ async function generatePinCode(startStr, endStr, timeStr) {
         const endDt = new Date(`${endStr}T${timeStr}:00`);
         const now = Date.now();
 
-        // --- API sign ---
+        // --- sign ---
         const signData = {
             accessToken: token,
             clientId: TTLOCK_CLIENT_ID,
@@ -103,9 +107,12 @@ async function generatePinCode(startStr, endStr, timeStr) {
         const sorted = Object.keys(signData).sort();
         const signString = sorted.map(k => `${k}=${signData[k]}`).join("&");
 
-        const sign = crypto.createHash("md5").update(signString).digest("hex").toUpperCase();
+        const sign = crypto.createHash("md5")
+            .update(signString)
+            .digest("hex")
+            .toUpperCase();
 
-        // --- DATA PRO TTLOCK ---
+        // --- Tělo požadavku ---
         const body = {
             clientId: TTLOCK_CLIENT_ID,
             accessToken: token,
@@ -119,23 +126,40 @@ async function generatePinCode(startStr, endStr, timeStr) {
             sign
         };
 
-        // Převod do x-www-form-urlencoded
         const bodyStr = Object.keys(body)
             .map(k => `${k}=${encodeURIComponent(body[k])}`)
             .join("&");
 
+        // --- Odeslání ---
         const res = await axios.post(
             "https://euapi.ttlock.com/v3/keyboardPwd/add",
             bodyStr,
             { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
         );
 
-        if (res.data.errcode === 0) {
-            console.log("✅ Vygenerovaný PIN:", res.data.keyboardPwd);
-            return res.data.keyboardPwd;
+        // -----------------------------------------
+        // ⚠ ÚSPĚCH = API vrací POUZE keyboardPwdId!
+        // -----------------------------------------
+        if (res.data.keyboardPwdId) {
+            console.log("TTLock vytvořil PIN, ID:", res.data.keyboardPwdId);
+
+            // --- Druhý krok: získání skutečného PIN kódu ---
+            const pwdRes = await axios.post(
+                "https://euapi.ttlock.com/v3/keyboardPwd/get",
+                `clientId=${TTLOCK_CLIENT_ID}&accessToken=${token}&keyboardPwdId=${res.data.keyboardPwdId}&date=${Date.now()}`,
+                { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
+            );
+
+            if (pwdRes.data.keyboardPwd) {
+                console.log("✅ Skutečný PIN:", pwdRes.data.keyboardPwd);
+                return pwdRes.data.keyboardPwd;
+            } else {
+                console.error("❌ Nelze získat PIN:", pwdRes.data);
+                return null;
+            }
         }
 
-        console.error("❌ TTLock API error:", res.data);
+        console.error("❌ TTLock API ERROR", res.data);
         return null;
 
     } catch (e) {
@@ -143,6 +167,7 @@ async function generatePinCode(startStr, endStr, timeStr) {
         return null;
     }
 }
+
 
 // ==========================================
 // 3. API ENDPOINTY
@@ -186,6 +211,7 @@ app.get("/availability", async (req, res) => {
     }
 });
 
+
 app.post("/reserve-range", async (req, res) => {
     const { startDate, endDate, time, name, email, phone } = req.body;
 
@@ -221,6 +247,7 @@ app.post("/reserve-range", async (req, res) => {
     }
 });
 
+
 app.get("/admin/reservations", async (req, res) => {
     if (req.headers["x-admin-password"] !== ADMIN_PASSWORD)
         return res.status(403).json({ error: "Špatné heslo!" });
@@ -236,6 +263,7 @@ app.delete("/admin/reservations/:id", async (req, res) => {
     await Reservation.findByIdAndDelete(req.params.id);
     res.json({ success: true });
 });
+
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, "0.0.0.0", () =>
