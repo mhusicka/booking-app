@@ -4,7 +4,7 @@ const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
 const axios = require("axios");
 const crypto = require("crypto");
-const querystring = require("querystring"); // Nutné pro x-www-form-urlencoded
+const querystring = require("querystring");
 
 const app = express();
 app.use(cors());
@@ -25,8 +25,8 @@ const TTLOCK_PASSWORD = "3C1a4d88*";
 const MY_LOCK_ID = 23198305;
 
 mongoose.connect(MONGO_URI)
-    .then(() => console.log("✅ Připojeno k MongoDB"))
-    .catch(err => console.error("❌ Chyba DB:", err));
+    .then(() => console.log("DB pripojena OK"))
+    .catch(err => console.error("Chyba DB:", err));
 
 // DB Schema
 const ReservationSchema = new mongoose.Schema({
@@ -53,7 +53,7 @@ function getRange(from, to) {
 }
 
 // ==========================================
-// 2. FUNKCE PRO TTLOCK (Dle manuálu)
+// 2. FUNKCE PRO TTLOCK
 // ==========================================
 
 function hashPassword(password) {
@@ -79,9 +79,9 @@ async function getTTLockToken() {
         );
 
         if (res.data.access_token) return res.data.access_token;
-        throw new Error("Login failed: " + JSON.stringify(res.data));
+        throw new Error("Login failed");
     } catch (e) {
-        console.error("❌ Chyba Token:", e.message);
+        console.error("Chyba Token:", e.message);
         throw e;
     }
 }
@@ -89,11 +89,11 @@ async function getTTLockToken() {
 // Generování PINu
 async function generatePinCode(startStr, endStr, timeStr) {
     try {
-        console.log(`🚀 Generuji PIN (Manual Compliant) pro: ${startStr} - ${endStr}`);
+        console.log(`Generuji PIN pro: ${startStr} - ${endStr}`);
 
         const token = await getTTLockToken();
 
-        // 1. PŘÍPRAVA ČASU (MILISEKUNDY!)
+        // 1. CASOVANIE (Milisekundy)
         const startDt = new Date(`${startStr}T${timeStr}:00`);
         const endDt = new Date(`${endStr}T${timeStr}:00`);
         
@@ -101,31 +101,31 @@ async function generatePinCode(startStr, endStr, timeStr) {
         const startMs = startDt.getTime();
         const endMs = endDt.getTime();
 
-        // 2. DATA PRO PODPIS (RAW)
+        // 2. DATA PODPIS
         const params = {
             clientId: TTLOCK_CLIENT_ID,
             accessToken: token,
             lockId: MY_LOCK_ID,
-            keyboardPwdType: 3,        // 3 = Period (Od-Do)
-            keyboardPwdVersion: 4,     // 4 = Standard pro V3/V4 zámky
+            keyboardPwdType: 3,        
+            keyboardPwdVersion: 4,     
             startDate: startMs,
             endDate: endMs,
             date: requestDate
         };
 
-        // 3. VÝPOČET PODPISU (SIGN)
+        // 3. VYPOCET SIGN
         const paramsForSign = { ...params, clientSecret: TTLOCK_CLIENT_SECRET };
         const sortedKeys = Object.keys(paramsForSign).sort();
         const signString = sortedKeys.map(k => `${k}=${paramsForSign[k]}`).join("&");
         const sign = crypto.createHash("md5").update(signString).digest("hex").toUpperCase();
 
-        // 4. PŘÍPRAVA DAT PRO ODESLÁNÍ
+        // 4. PRIDANI SIGN
         params.sign = sign;
         const bodyStr = querystring.stringify(params);
 
-        console.log("📡 Odesílám požadavek na TTLock...");
+        console.log("Odesilam na TTLock...");
 
-        // 5. ODESLÁNÍ
+        // 5. ODESLANI
         const res = await axios.post(
             "https://euapi.ttlock.com/v3/keyboardPwd/add",
             bodyStr,
@@ -133,9 +133,9 @@ async function generatePinCode(startStr, endStr, timeStr) {
         );
 
         if (res.data.keyboardPwdId) {
-            console.log("✅ PIN ID vytvořeno:", res.data.keyboardPwdId);
+            console.log("PIN ID vytvoreno:", res.data.keyboardPwdId);
 
-            // 6. ZÍSKÁNÍ SAMOTNÉHO KÓDU (GET)
+            // 6. ZISKANI KODU (GET)
             const getParams = {
                 clientId: TTLOCK_CLIENT_ID,
                 accessToken: token,
@@ -158,23 +158,22 @@ async function generatePinCode(startStr, endStr, timeStr) {
             );
 
             if (pwdRes.data.keyboardPwd) {
-                console.log("🔑 PIN KÓD:", pwdRes.data.keyboardPwd);
+                console.log("KOD ZAMKU:", pwdRes.data.keyboardPwd);
                 return pwdRes.data.keyboardPwd;
             }
         }
 
-        // Tady byla ta chyba (chybějící uvozovka), teď je to opraveno:
-        console.error("⚠️ TTLock chyba:", res.data);
+        console.log("TTLock chyba (odpoved):", res.data);
         return null;
 
     } catch (e) {
-        console.error("❌ Chyba komunikace:", e.response?.data || e.message);
+        console.error("Chyba komunikace:", e.response?.data || e.message);
         return null;
     }
 }
 
 // ==========================================
-// 3. API ENDPOINTY APLIKACE
+// 3. API ENDPOINTY
 // ==========================================
 
 app.get("/availability", async (req, res) => {
@@ -188,8 +187,8 @@ app.get("/availability", async (req, res) => {
                 let status = "Obsazeno";
                 if (r.startDate === r.endDate) status = `Rezervace: ${r.time}`;
                 else {
-                    if (day === r.startDate) status = `Vyzvednutí: ${r.time}`;
-                    if (day === r.endDate) status = `Vrácení: ${r.time}`;
+                    if (day === r.startDate) status = `Vyzvednuti: ${r.time}`;
+                    if (day === r.endDate) status = `Vraceni: ${r.time}`;
                 }
                 bookedDetails[day] = { isBooked: true, time: r.time, info: status };
             });
@@ -211,3 +210,60 @@ app.get("/availability", async (req, res) => {
         res.json({ days });
     } catch (err) {
         res.status(500).json({ error: "Server error" });
+    }
+});
+
+app.post("/reserve-range", async (req, res) => {
+    const { startDate, endDate, time, name, email, phone } = req.body;
+
+    if (!startDate || !endDate || !time || !name)
+        return res.status(400).json({ error: "Chybi udaje." });
+
+    try {
+        const all = await Reservation.find();
+        const newRange = getRange(startDate, endDate);
+        let collision = false;
+        all.forEach(r => {
+            const existingRange = getRange(r.startDate, r.endDate);
+            if (newRange.some(day => existingRange.includes(day))) collision = true;
+        });
+
+        if (collision) return res.json({ error: "Termin je obsazen." });
+
+        let pin = await generatePinCode(startDate, endDate, time);
+        
+        if (!pin) {
+            pin = "Manualni vytvoreni nutne";
+        }
+
+        const newRes = new Reservation({
+            startDate, endDate, time, name, email, phone, passcode: pin
+        });
+
+        await newRes.save();
+        res.json({ success: true, pin });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Chyba DB" });
+    }
+});
+
+app.get("/admin/reservations", async (req, res) => {
+    if (req.headers["x-admin-password"] !== ADMIN_PASSWORD)
+        return res.status(403).json({ error: "Spatne heslo!" });
+    const all = await Reservation.find().sort({ created: -1 });
+    res.json(all);
+});
+
+app.delete("/admin/reservations/:id", async (req, res) => {
+    if (req.headers["x-admin-password"] !== ADMIN_PASSWORD)
+        return res.status(403).json({ error: "Spatne heslo!" });
+    await Reservation.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, "0.0.0.0", () =>
+    console.log("Server bezi na portu " + PORT)
+);
