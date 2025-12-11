@@ -17,8 +17,8 @@ const MONGO_URI = "mongodb+srv://mhusicka_db_user:s384gWYYuWaCqQBu@cluster0.elhi
 const ADMIN_PASSWORD = "3C1a4d88*";
 
 // --- TTLOCK ÚDAJE ---
-const CLIENT_ID = "17eac95916f44987b3f7fc6c6d224712";
-const CLIENT_SECRET = "de74756cc5eb87301170f29ac82f40c3";
+const TTLOCK_CLIENT_ID = "17eac95916f44987b3f7fc6c6d224712";
+const TTLOCK_CLIENT_SECRET = "de74756cc5eb87301170f29ac82f40c3";
 const USERNAME = "martinhusicka@centrum.cz";
 const PASSWORD_PLAIN = "3C1a4d88*"; // Tvoje normální heslo (skript si ho sám zahashuje)
 const MY_LOCK_ID = 23198305;
@@ -274,3 +274,4 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, "0.0.0.0", () =>
     console.log("Server bezi na portu " + PORT)
 );
+
