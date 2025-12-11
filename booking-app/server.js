@@ -16,11 +16,19 @@ app.use(bodyParser.json());
 const MONGO_URI = "mongodb+srv://mhusicka_db_user:s384gWYYuWaCqQBu@cluster0.elhifrg.mongodb.net/?appName=Cluster0";
 const ADMIN_PASSWORD = "3C1a4d88*";
 
-// --- TTLOCK ÚDAJE ---
+// --- TTLOCK ÚDAJE (OPRAVENO A SJEDNOCENO) ---
 const TTLOCK_CLIENT_ID = "17eac95916f44987b3f7fc6c6d224712";
-const TTLOCK_CLIENT_SECRET = "de74756cc5eb87301170f29ac82f40c3";
-const USERNAME = "martinhusicka@centrum.cz";
-const PASSWORD_PLAIN = "3C1a4d88*"; // Tvoje normální heslo (skript si ho sám zahashuje)
+
+//⚠️ ZDE DOPLŇ TO SECRET Z TESTU (cca 32 znaků):
+const TTLOCK_CLIENT_SECRET = "de74756cc5eb87301170f29ac82f40c3"; 
+
+// ⚠️ ZDE DOPLŇ SVŮJ EMAIL:
+const TTLOCK_USERNAME = "martinhusicka@centrum.cz";
+
+// ⚠️ ZDE DOPLŇ SVÉ NORMÁLNÍ HESLO (ne hash, skript si ho zahashuje sám):
+const TTLOCK_PASSWORD = "3C1a4d88*"; 
+
+// Tvoje ID zámku z testu:
 const MY_LOCK_ID = 23198305;
 
 mongoose.connect(MONGO_URI)
@@ -66,16 +74,17 @@ async function getTTLockToken() {
         params.append('client_id', TTLOCK_CLIENT_ID);
         params.append('client_secret', TTLOCK_CLIENT_SECRET);
         params.append('username', TTLOCK_USERNAME);
-        params.append('password', hashPassword(TTLOCK_PASSWORD));
+        params.append('password', hashPassword(TTLOCK_PASSWORD)); // Zde se heslo zahashuje
         params.append('grant_type', 'password');
         params.append('redirect_uri', 'http://localhost');
 
+        // OPRAVENO NA OAUTH2 (v testu fungovalo oauth2)
         const res = await axios.post('https://euapi.ttlock.com/oauth2/token', params);
 
         if (res.data.access_token) return res.data.access_token;
-        throw new Error("Login failed");
+        throw new Error("Login failed: " + JSON.stringify(res.data));
     } catch (e) {
-        console.error("❌ Chyba Token:", e.message);
+        console.error("❌ Chyba Token:", e.response?.data || e.message);
         throw e;
     }
 }
@@ -95,7 +104,7 @@ async function generatePinCode(startStr, endStr, timeStr) {
         const startMs = startDt.getTime();
         const endMs = endDt.getTime();
 
-        // 2. DATA PRO PODPIS (NEKÓDOVANÁ!)
+        // 2. DATA PRO PODPIS
         const paramsForSign = {
             clientId: TTLOCK_CLIENT_ID,
             accessToken: token,
@@ -113,7 +122,7 @@ async function generatePinCode(startStr, endStr, timeStr) {
         const signString = sortedKeys.map(k => `${k}=${paramsForSign[k]}`).join("&");
         const sign = crypto.createHash("md5").update(signString).digest("hex").toUpperCase();
 
-        // 3. PŘÍPRAVA ODESLÁNÍ (URLSearchParams)
+        // 3. PŘÍPRAVA ODESLÁNÍ
         const params = new URLSearchParams();
         params.append('clientId', TTLOCK_CLIENT_ID);
         params.append('accessToken', token);
@@ -170,7 +179,8 @@ async function generatePinCode(startStr, endStr, timeStr) {
             }
         }
 
-        console.log("⚠️ TTLock chyba (odpoved):", res.data); // ZDE BYLA CHYBA (opraveno)
+        // ZDE BYLA CHYBA (Chybějící uvozovka) - TEĎ JE TO OPRAVENO:
+        console.log("⚠️ TTLock chyba (odpoved):", res.data); 
         return null;
 
     } catch (e) {
@@ -274,4 +284,3 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, "0.0.0.0", () =>
     console.log("Server bezi na portu " + PORT)
 );
-
