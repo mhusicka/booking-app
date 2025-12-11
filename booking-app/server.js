@@ -72,8 +72,6 @@ async function getTTLockToken() {
             redirect_uri: 'http://localhost'
         };
         
-        // Axios automaticky serializuje objekt na form-data, pokud použijeme správný postup,
-        // ale pro jistotu použijeme stringify, to je 100% manual compliant.
         const res = await axios.post(
             'https://euapi.ttlock.com/oauth2/token', 
             querystring.stringify(loginParams),
@@ -96,17 +94,14 @@ async function generatePinCode(startStr, endStr, timeStr) {
         const token = await getTTLockToken();
 
         // 1. PŘÍPRAVA ČASU (MILISEKUNDY!)
-        // Vytvoříme datum z řetězců
         const startDt = new Date(`${startStr}T${timeStr}:00`);
         const endDt = new Date(`${endStr}T${timeStr}:00`);
         
-        // TTLock vyžaduje Long (milisekundy)
         const requestDate = Date.now();
         const startMs = startDt.getTime();
         const endMs = endDt.getTime();
 
         // 2. DATA PRO PODPIS (RAW)
-        // Klíče musí přesně odpovídat manuálu.
         const params = {
             clientId: TTLOCK_CLIENT_ID,
             accessToken: token,
@@ -116,27 +111,16 @@ async function generatePinCode(startStr, endStr, timeStr) {
             startDate: startMs,
             endDate: endMs,
             date: requestDate
-            // addType: 2 // Volitelné, pokud chceme mazat staré cyklické, u Period netřeba
         };
 
         // 3. VÝPOČET PODPISU (SIGN)
-        // a) Přidat clientSecret
         const paramsForSign = { ...params, clientSecret: TTLOCK_CLIENT_SECRET };
-        
-        // b) Seřadit abecedně podle klíče
         const sortedKeys = Object.keys(paramsForSign).sort();
-        
-        // c) Spojit do stringu "key=value&..." (BEZ URL ENCODINGU!)
         const signString = sortedKeys.map(k => `${k}=${paramsForSign[k]}`).join("&");
-        
-        // d) MD5 a UpperCase
         const sign = crypto.createHash("md5").update(signString).digest("hex").toUpperCase();
 
         // 4. PŘÍPRAVA DAT PRO ODESLÁNÍ
-        // Přidáme vypočítaný sign do parametrů
         params.sign = sign;
-
-        // Převedeme na URL Encoded string (application/x-www-form-urlencoded)
         const bodyStr = querystring.stringify(params);
 
         console.log("📡 Odesílám požadavek na TTLock...");
@@ -152,7 +136,6 @@ async function generatePinCode(startStr, endStr, timeStr) {
             console.log("✅ PIN ID vytvořeno:", res.data.keyboardPwdId);
 
             // 6. ZÍSKÁNÍ SAMOTNÉHO KÓDU (GET)
-            // Musíme zavolat /get endpoint, abychom viděli číslo
             const getParams = {
                 clientId: TTLOCK_CLIENT_ID,
                 accessToken: token,
@@ -161,7 +144,6 @@ async function generatePinCode(startStr, endStr, timeStr) {
                 date: Date.now()
             };
             
-            // Sign pro GET
             const getSignParams = { ...getParams, clientSecret: TTLOCK_CLIENT_SECRET };
             const getKeys = Object.keys(getSignParams).sort();
             const getSignStr = getKeys.map(k => `${k}=${getSignParams[k]}`).join("&");
@@ -181,7 +163,8 @@ async function generatePinCode(startStr, endStr, timeStr) {
             }
         }
 
-        console.error(⚠️ TTLock chyba:", res.data);
+        // Tady byla ta chyba (chybějící uvozovka), teď je to opraveno:
+        console.error("⚠️ TTLock chyba:", res.data);
         return null;
 
     } catch (e) {
@@ -228,65 +211,3 @@ app.get("/availability", async (req, res) => {
         res.json({ days });
     } catch (err) {
         res.status(500).json({ error: "Server error" });
-    }
-});
-
-app.post("/reserve-range", async (req, res) => {
-    const { startDate, endDate, time, name, email, phone } = req.body;
-
-    if (!startDate || !endDate || !time || !name)
-        return res.status(400).json({ error: "Chybí údaje." });
-
-    try {
-        // Kontrola kolizí
-        const all = await Reservation.find();
-        const newRange = getRange(startDate, endDate);
-        let collision = false;
-        all.forEach(r => {
-            const existingRange = getRange(r.startDate, r.endDate);
-            if (newRange.some(day => existingRange.includes(day))) collision = true;
-        });
-
-        if (collision) return res.json({ error: "Termín je obsazen." });
-
-        // Generování PINu přes TTLock
-        let pin = await generatePinCode(startDate, endDate, time);
-        
-        // Fallback, kdyby TTLock selhal (aby se rezervace neztratila)
-        if (!pin) {
-            console.log("⚠️ Používám fallback PIN");
-            pin = "CHYBA-GENEROVANI-KONTAKTUJTE-ADMINA";
-        }
-
-        const newRes = new Reservation({
-            startDate, endDate, time, name, email, phone, passcode: pin
-        });
-
-        await newRes.save();
-        res.json({ success: true, pin });
-
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Chyba DB" });
-    }
-});
-
-// Admin endpointy
-app.get("/admin/reservations", async (req, res) => {
-    if (req.headers["x-admin-password"] !== ADMIN_PASSWORD)
-        return res.status(403).json({ error: "Špatné heslo!" });
-    const all = await Reservation.find().sort({ created: -1 });
-    res.json(all);
-});
-
-app.delete("/admin/reservations/:id", async (req, res) => {
-    if (req.headers["x-admin-password"] !== ADMIN_PASSWORD)
-        return res.status(403).json({ error: "Špatné heslo!" });
-    await Reservation.findByIdAndDelete(req.params.id);
-    res.json({ success: true });
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, "0.0.0.0", () =>
-    console.log("Server běží na portu " + PORT)
-);
