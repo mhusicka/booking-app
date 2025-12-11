@@ -4,7 +4,6 @@ const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
 const axios = require("axios");
 const crypto = require("crypto");
-const querystring = require("querystring");
 
 const app = express();
 app.use(cors());
@@ -18,15 +17,15 @@ const MONGO_URI = "mongodb+srv://mhusicka_db_user:s384gWYYuWaCqQBu@cluster0.elhi
 const ADMIN_PASSWORD = "3C1a4d88*";
 
 // --- TTLOCK ÚDAJE ---
-const TTLOCK_CLIENT_ID = "17eac95916f44987b3f7fc6c6d224712";
-const TTLOCK_CLIENT_SECRET = "de74756cc5eb87301170f29ac82f40c3";
-const TTLOCK_USERNAME = "martinhusicka@centrum.cz";
-const TTLOCK_PASSWORD = "3C1a4d88*";
+const CLIENT_ID = "17eac95916f44987b3f7fc6c6d224712";
+const CLIENT_SECRET = "de74756cc5eb87301170f29ac82f40c3";
+const USERNAME = "martinhusicka@centrum.cz";
+const PASSWORD_PLAIN = "3C1a4d88*"; // Tvoje normální heslo (skript si ho sám zahashuje)
 const MY_LOCK_ID = 23198305;
 
 mongoose.connect(MONGO_URI)
-    .then(() => console.log("DB pripojena OK"))
-    .catch(err => console.error("Chyba DB:", err));
+    .then(() => console.log("✅ DB pripojena OK"))
+    .catch(err => console.error("❌ Chyba DB:", err));
 
 // DB Schema
 const ReservationSchema = new mongoose.Schema({
@@ -63,25 +62,20 @@ function hashPassword(password) {
 // Získání Tokenu
 async function getTTLockToken() {
     try {
-        const loginParams = {
-            client_id: TTLOCK_CLIENT_ID,
-            client_secret: TTLOCK_CLIENT_SECRET,
-            username: TTLOCK_USERNAME,
-            password: hashPassword(TTLOCK_PASSWORD),
-            grant_type: 'password',
-            redirect_uri: 'http://localhost'
-        };
-        
-        const res = await axios.post(
-            'https://euapi.ttlock.com/oauth2/token', 
-            querystring.stringify(loginParams),
-            { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
-        );
+        const params = new URLSearchParams();
+        params.append('client_id', TTLOCK_CLIENT_ID);
+        params.append('client_secret', TTLOCK_CLIENT_SECRET);
+        params.append('username', TTLOCK_USERNAME);
+        params.append('password', hashPassword(TTLOCK_PASSWORD));
+        params.append('grant_type', 'password');
+        params.append('redirect_uri', 'http://localhost');
+
+        const res = await axios.post('https://euapi.ttlock.com/oauth2/token', params);
 
         if (res.data.access_token) return res.data.access_token;
         throw new Error("Login failed");
     } catch (e) {
-        console.error("Chyba Token:", e.message);
+        console.error("❌ Chyba Token:", e.message);
         throw e;
     }
 }
@@ -89,11 +83,11 @@ async function getTTLockToken() {
 // Generování PINu
 async function generatePinCode(startStr, endStr, timeStr) {
     try {
-        console.log(`Generuji PIN pro: ${startStr} - ${endStr}`);
+        console.log(`🚀 Generuji PIN pro: ${startStr} - ${endStr}`);
 
         const token = await getTTLockToken();
 
-        // 1. CASOVANIE (Milisekundy)
+        // 1. ČASOVÁNÍ (Milisekundy)
         const startDt = new Date(`${startStr}T${timeStr}:00`);
         const endDt = new Date(`${endStr}T${timeStr}:00`);
         
@@ -101,8 +95,8 @@ async function generatePinCode(startStr, endStr, timeStr) {
         const startMs = startDt.getTime();
         const endMs = endDt.getTime();
 
-        // 2. DATA PODPIS
-        const params = {
+        // 2. DATA PRO PODPIS (NEKÓDOVANÁ!)
+        const paramsForSign = {
             clientId: TTLOCK_CLIENT_ID,
             accessToken: token,
             lockId: MY_LOCK_ID,
@@ -110,70 +104,83 @@ async function generatePinCode(startStr, endStr, timeStr) {
             keyboardPwdVersion: 4,     
             startDate: startMs,
             endDate: endMs,
-            date: requestDate
+            date: requestDate,
+            addType: 2,
+            clientSecret: TTLOCK_CLIENT_SECRET 
         };
 
-        // 3. VYPOCET SIGN
-        const paramsForSign = { ...params, clientSecret: TTLOCK_CLIENT_SECRET };
         const sortedKeys = Object.keys(paramsForSign).sort();
         const signString = sortedKeys.map(k => `${k}=${paramsForSign[k]}`).join("&");
         const sign = crypto.createHash("md5").update(signString).digest("hex").toUpperCase();
 
-        // 4. PRIDANI SIGN
-        params.sign = sign;
-        const bodyStr = querystring.stringify(params);
+        // 3. PŘÍPRAVA ODESLÁNÍ (URLSearchParams)
+        const params = new URLSearchParams();
+        params.append('clientId', TTLOCK_CLIENT_ID);
+        params.append('accessToken', token);
+        params.append('lockId', MY_LOCK_ID);
+        params.append('keyboardPwdType', 3);
+        params.append('keyboardPwdVersion', 4);
+        params.append('startDate', startMs);
+        params.append('endDate', endMs);
+        params.append('date', requestDate);
+        params.append('addType', 2);
+        params.append('sign', sign);
 
-        console.log("Odesilam na TTLock...");
+        console.log("📡 Odesilam na TTLock...");
 
-        // 5. ODESLANI
+        // 4. ODESLÁNÍ
         const res = await axios.post(
             "https://euapi.ttlock.com/v3/keyboardPwd/add",
-            bodyStr,
-            { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
+            params
         );
 
         if (res.data.keyboardPwdId) {
-            console.log("PIN ID vytvoreno:", res.data.keyboardPwdId);
+            console.log("✅ PIN ID vytvoreno:", res.data.keyboardPwdId);
 
-            // 6. ZISKANI KODU (GET)
-            const getParams = {
+            // 5. ZÍSKÁNÍ KÓDU (GET)
+            const getParamsSign = {
                 clientId: TTLOCK_CLIENT_ID,
                 accessToken: token,
                 lockId: MY_LOCK_ID,
                 keyboardPwdId: res.data.keyboardPwdId,
-                date: Date.now()
+                date: Date.now(),
+                clientSecret: TTLOCK_CLIENT_SECRET
             };
             
-            const getSignParams = { ...getParams, clientSecret: TTLOCK_CLIENT_SECRET };
-            const getKeys = Object.keys(getSignParams).sort();
-            const getSignStr = getKeys.map(k => `${k}=${getSignParams[k]}`).join("&");
+            const getKeys = Object.keys(getParamsSign).sort();
+            const getSignStr = getKeys.map(k => `${k}=${getParamsSign[k]}`).join("&");
             const getSign = crypto.createHash("md5").update(getSignStr).digest("hex").toUpperCase();
             
-            getParams.sign = getSign;
+            const getBody = new URLSearchParams();
+            getBody.append('clientId', TTLOCK_CLIENT_ID);
+            getBody.append('accessToken', token);
+            getBody.append('lockId', MY_LOCK_ID);
+            getBody.append('keyboardPwdId', res.data.keyboardPwdId);
+            getBody.append('date', getParamsSign.date);
+            getBody.append('sign', getSign);
 
             const pwdRes = await axios.post(
                 "https://euapi.ttlock.com/v3/keyboardPwd/get",
-                querystring.stringify(getParams),
-                { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
+                getBody
             );
 
             if (pwdRes.data.keyboardPwd) {
-                console.log("KOD ZAMKU:", pwdRes.data.keyboardPwd);
+                console.log("🔑 KOD ZAMKU:", pwdRes.data.keyboardPwd);
                 return pwdRes.data.keyboardPwd;
             }
         }
 
-        console.log("TTLock chyba (odpoved):", res.data);
+        console.log("⚠️ TTLock chyba (odpoved):", res.data); // ZDE BYLA CHYBA (opraveno)
         return null;
 
     } catch (e) {
-        console.error("Chyba komunikace:", e.response?.data || e.message);
+        console.error("❌ Chyba komunikace:", e.response?.data || e.message);
         return null;
     }
 }
 
 // ==========================================
-// 3. API ENDPOINTY
+// 3. API ENDPOINTY APLIKACE
 // ==========================================
 
 app.get("/availability", async (req, res) => {
