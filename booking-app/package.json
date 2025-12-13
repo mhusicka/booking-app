@@ -12,6 +12,5 @@
     "mongoose": "^7.0.3",
     "axios": "^1.6.0",
     "dotenv": "^16.3.1"
-    /* md5 byla odstraněna */
   }
 }
