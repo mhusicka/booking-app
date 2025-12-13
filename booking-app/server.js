@@ -1,4 +1,3 @@
-// Načtení proměnných prostředí a statických souborů
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -14,15 +13,18 @@ app.use(cors());
 app.use(bodyParser.json());
 
 // ==========================================
-// 🚨 ZPŘÍSTUPNĚNÍ FRONTENDU A ADMIN SEKCÍ
+// 1. ZPŘÍSTUPNĚNÍ WEBU (Frontend)
 // ==========================================
+// Server automaticky nabídne soubory ze složky 'public'
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Cesta pro admin stránku
 app.get('/admin', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
 // ==========================================
-// 1. KONFIGURACE (Načteno z .env)
+// 2. KONFIGURACE (Z proměnných prostředí)
 // ==========================================
 const MONGO_URI = process.env.MONGO_URI;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
@@ -31,9 +33,10 @@ const TTLOCK_CLIENT_ID = process.env.TTLOCK_CLIENT_ID;
 const TTLOCK_CLIENT_SECRET = process.env.TTLOCK_CLIENT_SECRET;
 const TTLOCK_USERNAME = process.env.TTLOCK_USERNAME;
 const TTLOCK_PASSWORD = process.env.TTLOCK_PASSWORD;
-const MY_LOCK_ID = parseInt(process.env.MY_LOCK_ID);
+// Převod na číslo, pokud je v env uloženo jako string
+const MY_LOCK_ID = parseInt(process.env.MY_LOCK_ID); 
 
-// ===== DB =====
+// ===== PŘIPOJENÍ K DATABÁZI =====
 mongoose.connect(MONGO_URI)
     .then(() => console.log("✅ DB připojena"))
     .catch(err => console.error("❌ Chyba DB:", err));
@@ -52,37 +55,12 @@ const ReservationSchema = new mongoose.Schema({
 const Reservation = mongoose.model("Reservation", ReservationSchema);
 
 // ==========================================
-// 2. HELPER FUNKCE
+// 3. HELPER FUNKCE
 // ==========================================
 function hashPassword(password) {
     return crypto.createHash("md5").update(password).digest("hex");
 }
 
-async function getTTLockToken() {
-    try {
-        const params = new URLSearchParams();
-        params.append("client_id", TTLOCK_CLIENT_ID);
-        params.append("client_secret", TTLOCK_CLIENT_SECRET);
-        params.append("username", TTLOCK_USERNAME);
-        params.append("password", hashPassword(TTLOCK_PASSWORD));
-        params.append("grant_type", "password");
-        params.append("redirect_uri", "http://localhost");
-
-        const res = await axios.post("https://euapi.ttlock.com/oauth2/token", params.toString(), {
-            headers: { "Content-Type": "application/x-www-form-urlencoded" }
-        });
-
-        if (res.data.access_token) return res.data.access_token;
-        throw new Error("Token error: " + JSON.stringify(res.data));
-
-    } catch (e) {
-        console.error("❌ Chyba při získávání tokenu:", e.response?.data || e.message);
-        // V produkci by nemělo throw e, ale vrátit neutrální chybu, proto ponecháme stávající logiku.
-        throw e;
-    }
-}
-
-// Generuje 6-ciferný PIN
 function generatePin(length = 6) {
     return Array.from({ length }, () => Math.floor(Math.random() * 10)).join("");
 }
@@ -97,17 +75,42 @@ function getRange(from, to) {
     return days;
 }
 
+// Získání tokenu pro TTLock API
+async function getTTLockToken() {
+    try {
+        const params = new URLSearchParams();
+        params.append("client_id", TTLOCK_CLIENT_ID);
+        params.append("client_secret", TTLOCK_CLIENT_SECRET);
+        params.append("username", TTLOCK_USERNAME);
+        params.append("password", hashPassword(TTLOCK_PASSWORD));
+        params.append("grant_type", "password");
+        // ZDE JE DŮLEŽITÁ ZMĚNA PRO PRODUKCI:
+        params.append("redirect_uri", "https://www.vozik247.cz");
+
+        const res = await axios.post("https://euapi.ttlock.com/oauth2/token", params.toString(), {
+            headers: { "Content-Type": "application/x-www-form-urlencoded" }
+        });
+
+        if (res.data.access_token) return res.data.access_token;
+        throw new Error("Token error: " + JSON.stringify(res.data));
+
+    } catch (e) {
+        console.error("❌ Chyba při získávání tokenu:", e.response?.data || e.message);
+        throw e;
+    }
+}
 
 // ==========================================
-// 3. TTLOCK OPERACE (zůstává beze změn)
+// 4. TTLOCK LOGIKA
 // ==========================================
 
-async function addPinToLock(startStr, endStr, timeStr) { /* ... (kód je stejný) ... */
+async function addPinToLock(startStr, endStr, timeStr) {
     try {
         const token = await getTTLockToken();
-        // Zde opravena malá chyba: TTLock API je lepší končit s rezervou
+        
+        // Nastavení času začátku a konce
         const startMs = new Date(`${startStr}T${timeStr}:00`).getTime();
-        // Přidáme 1 minutu, aby konec rezervace (která je od-do) opravdu zahrnoval celý den
+        // Přidáme malou rezervu (1 minutu), aby rezervace pokryla celý interval
         const endMs = new Date(`${endStr}T${timeStr}:00`).getTime() + 60000; 
         const now = Date.now();
         const pin = generatePin(6);
@@ -124,6 +127,7 @@ async function addPinToLock(startStr, endStr, timeStr) { /* ... (kód je stejný
             keyboardPwdName: `Rezervace ${startStr}`
         };
 
+        // Podpis požadavku (Required by TTLock)
         const sortedKeys = Object.keys(params).sort();
         const baseString = sortedKeys.map(k => `${k}=${params[k]}`).join("&");
         const sign = crypto.createHash("md5").update(baseString + TTLOCK_CLIENT_SECRET).digest("hex").toUpperCase();
@@ -146,7 +150,7 @@ async function addPinToLock(startStr, endStr, timeStr) { /* ... (kód je stejný
     }
 }
 
-async function deletePinFromLock(keyboardPwdId) { /* ... (kód je stejný) ... */
+async function deletePinFromLock(keyboardPwdId) {
     try {
         const token = await getTTLockToken();
         const params = {
@@ -180,31 +184,27 @@ async function deletePinFromLock(keyboardPwdId) { /* ... (kód je stejný) ... *
 }
 
 // ==========================================
-// 4. API ENDPOINTY (FRONTEND)
+// 5. API ENDPOINTY
 // ==========================================
 
-// Endpoint, který volá script.js pro zjištění obsazenosti kalendáře
+// Získání obsazenosti
 app.get("/availability", async (req, res) => {
     try {
         const allReservations = await Reservation.find({}, "startDate endDate");
         let bookedDaysSet = new Set();
         
         for (const r of allReservations) {
-            // Použijeme getRange pro získání všech obsazených dní
             const range = getRange(r.startDate, r.endDate);
             range.forEach(day => bookedDaysSet.add(day));
         }
-
-        // Vracíme pouze pole stringů s daty, což je pro frontend nejsnazší
         res.json([...bookedDaysSet]); 
     } catch (err) {
         console.error("Chyba při načítání dostupnosti:", err);
-        res.status(500).json({ error: "Chyba serveru při načítání dat." });
+        res.status(500).json({ error: "Chyba serveru" });
     }
 });
 
-
-// Vytvoření rezervace (Ponecháno téměř beze změny)
+// Vytvoření rezervace
 app.post("/reserve-range", async (req, res) => {
     const { startDate, endDate, time, name, email, phone } = req.body;
     if (!startDate || !endDate || !time || !name)
@@ -217,13 +217,14 @@ app.post("/reserve-range", async (req, res) => {
         for (const r of all) {
             const existing = getRange(r.startDate, r.endDate);
             if (newRange.some(day => existing.includes(day)))
-                // Opravena odpověď na 409 (Conflict) pro přesnější status
-                return res.status(409).json({ error: "Termín je obsazen. Zkuste prosím jiný datum." }); 
+                return res.status(409).json({ error: "Termín je obsazen." }); 
         }
 
+        // Generování PINu
         const result = await addPinToLock(startDate, endDate, time);
-        if (!result) return res.status(503).json({ error: "Nepodařilo se vygenerovat PIN. Zkuste to prosím později." });
+        if (!result) return res.status(503).json({ error: "Nepodařilo se vygenerovat PIN." });
 
+        // Uložení do DB
         const newRes = new Reservation({
             startDate, endDate, time, name, email, phone,
             passcode: result.pin,
@@ -239,12 +240,7 @@ app.post("/reserve-range", async (req, res) => {
     }
 });
 
-
-// ==========================================
-// 5. API ENDPOINTY (ADMINISTRACE)
-// ==========================================
-
-// Middleware pro kontrolu hesla
+// Admin Middleware
 const checkAdminPassword = (req, res, next) => {
     const password = req.headers["x-admin-password"];
     if (password !== ADMIN_PASSWORD) {
@@ -253,58 +249,43 @@ const checkAdminPassword = (req, res, next) => {
     next();
 };
 
-// GET: Seznam všech rezervací
+// Admin API
 app.get("/admin/reservations", checkAdminPassword, async (req, res) => {
     try {
         const reservations = await Reservation.find().sort({ startDate: 1, time: 1 });
         res.json(reservations);
     } catch (err) {
-        res.status(500).json({ error: "Chyba načítání dat" });
+        res.status(500).json({ error: "Chyba" });
     }
 });
 
-// DELETE: Smazání rezervace
 app.delete("/admin/reservations/:id", checkAdminPassword, async (req, res) => {
-    const { id } = req.params;
     try {
-        const reservation = await Reservation.findById(id);
-        if (!reservation) return res.status(404).json({ error: "Rezervace nenalezena" });
+        const reservation = await Reservation.findById(req.params.id);
+        if (!reservation) return res.status(404).json({ error: "Nenalezeno" });
 
-        // Smazání PINu z TTLocku (pokud existuje)
-        if (reservation.keyboardPwdId) {
-            await deletePinFromLock(reservation.keyboardPwdId);
-        }
-
-        // Smazání z databáze
-        await Reservation.findByIdAndDelete(id);
-        res.json({ success: true, message: "Rezervace smazána" });
-
+        if (reservation.keyboardPwdId) await deletePinFromLock(reservation.keyboardPwdId);
+        await Reservation.findByIdAndDelete(req.params.id);
+        res.json({ success: true });
     } catch (err) {
-        console.error("Chyba mazání rezervace:", err);
         res.status(500).json({ error: "Chyba serveru" });
     }
 });
 
-
-// ==========================================
-// 6. AUTOMATICKÉ MAZÁNÍ VYPRŠENÝCH PINŮ
-// ==========================================
-// (Zůstává beze změn)
+// Automatické mazání vypršených rezervací (každou minutu)
 setInterval(async () => {
     const now = Date.now();
     const expired = await Reservation.find();
     for (const r of expired) {
         const endMs = new Date(`${r.endDate}T${r.time}:00`).getTime();
         if (endMs < now) {
-            console.log("🕒 Vypršela rezervace, smažu PIN:", r.passcode);
+            console.log("🕒 Vypršela rezervace, mazání:", r.passcode);
             if (r.keyboardPwdId) await deletePinFromLock(r.keyboardPwdId);
             await Reservation.findByIdAndDelete(r._id);
         }
     }
-}, 60 * 1000); 
+}, 60 * 1000);
 
-// ==========================================
-// START SERVERU
-// ==========================================
+// START
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, "0.0.0.0", () => console.log(`🚀 Server běží na portu ${PORT}`));
