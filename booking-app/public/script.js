@@ -1,4 +1,5 @@
-const API_BASE = "https://booking-app1-6kdy.onrender.com";
+// Necháváme prázdné - automaticky použije doménu, na které web běží (www.vozik247.cz)
+const API_BASE = ""; 
 const PRICE_PER_DAY = 230;
 
 let viewStartMonth = new Date().getMonth();
@@ -6,7 +7,7 @@ let viewStartYear = new Date().getFullYear();
 
 let startDate = null;
 let endDate = null;
-let cachedAvailability = [];
+let cachedAvailability = []; // Pole obsazených dat
 
 async function init() {
     await updateCalendar();
@@ -47,7 +48,8 @@ async function updateCalendar() {
     try {
         const res = await fetch(`${API_BASE}/availability`);
         if (!res.ok) throw new Error("Server neodpovídá");
-        cachedAvailability = (await res.json()).days;
+        // Očekáváme pole stringů ["2023-12-01", "2023-12-02"]
+        cachedAvailability = await res.json();
         renderSingleCalendar();
     } catch (e) { 
         console.error(e);
@@ -80,14 +82,11 @@ function renderSingleCalendar() {
         const dayEl = document.createElement("div");
         dayEl.className = "day"; dayEl.innerText = d; dayEl.dataset.date = dateStr;
 
-        const found = cachedAvailability.find(x => x.date === dateStr);
-        const isBooked = found ? !found.available : false;
+        const isBooked = cachedAvailability.includes(dateStr);
 
         if (dateStr < todayStr) dayEl.classList.add("past");
         else if (isBooked) {
             dayEl.classList.add("booked");
-            dayEl.onmouseenter = (e) => { showTooltip(e, found.info); handleHoverLogic(dateStr); };
-            dayEl.onmouseleave = hideTooltip;
         } else {
             dayEl.classList.add("available");
             dayEl.onclick = () => handleDayClick(dateStr);
@@ -135,8 +134,21 @@ function handleDayClick(dateStr) {
 }
 
 function checkIfRangeIsFree(start, end) {
-    return cachedAvailability.filter(d => d.date >= start && d.date <= end && d.available === false).length === 0;
+    const range = getRange(start, end);
+    // Kontrola, zda žádný den v rozsahu není v poli obsazených
+    return range.every(day => !cachedAvailability.includes(day));
 }
+
+function getRange(from, to) {
+    const a = new Date(from);
+    const b = new Date(to);
+    const days = [];
+    for (let d = new Date(a); d <= b; d.setDate(d.getDate() + 1)) {
+        days.push(d.toLocaleDateString('en-CA'));
+    }
+    return days;
+}
+
 function formatCzDate(isoDateStr) { return new Date(isoDateStr).toLocaleString("cs-CZ", { day: "numeric", month: "numeric", year: "numeric" }); }
 
 function updateSummaryUI(previewEndDate = null) {
@@ -166,7 +178,6 @@ function showTooltip(e, text) {
 }
 function hideTooltip() { tooltip.classList.add("hidden"); }
 
-// --- HLAVNÍ FUNKCE ODESLÁNÍ ---
 async function submitReservation() {
     if (!startDate) { alert("Vyberte termín."); return; }
     if (!endDate) endDate = getNextDay(startDate);
@@ -190,7 +201,6 @@ async function submitReservation() {
         const result = await res.json();
 
         if (result.success) {
-            // ZOBRAZENÍ PINU
             let msg = `✅ Rezervace potvrzena!\n\n`;
             msg += `🔑 VÁŠ KÓD K ZÁMKU: ${result.pin}\n\n`;
             msg += `Platnost: ${formatCzDate(startDate)} ${time} - ${formatCzDate(endDate)} ${time}`;
