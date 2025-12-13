@@ -7,6 +7,7 @@ const axios = require("axios");
 const crypto = require("crypto");
 const { URLSearchParams } = require("url");
 const path = require("path");
+const nodemailer = require("nodemailer"); // <--- NOVÉ
 
 const app = express();
 app.use(cors());
@@ -15,10 +16,8 @@ app.use(bodyParser.json());
 // ==========================================
 // 1. ZPŘÍSTUPNĚNÍ WEBU (Frontend)
 // ==========================================
-// Server automaticky nabídne soubory ze složky 'public'
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Cesta pro admin stránku
 app.get('/admin', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
@@ -33,8 +32,22 @@ const TTLOCK_CLIENT_ID = process.env.TTLOCK_CLIENT_ID;
 const TTLOCK_CLIENT_SECRET = process.env.TTLOCK_CLIENT_SECRET;
 const TTLOCK_USERNAME = process.env.TTLOCK_USERNAME;
 const TTLOCK_PASSWORD = process.env.TTLOCK_PASSWORD;
-// Převod na číslo, pokud je v env uloženo jako string
-const MY_LOCK_ID = parseInt(process.env.MY_LOCK_ID); 
+const MY_LOCK_ID = parseInt(process.env.MY_LOCK_ID);
+
+// --- NOVÉ: Konfigurace Emailu ---
+const SMTP_HOST = process.env.SMTP_HOST;
+const SMTP_USER = process.env.SMTP_USER;
+const SMTP_PASS = process.env.SMTP_PASS;
+
+const transporter = nodemailer.createTransport({
+    host: SMTP_HOST,
+    port: 465,       // Wedos používá pro SSL port 465
+    secure: true,    // true pro 465, false pro ostatní
+    auth: {
+        user: SMTP_USER,
+        pass: SMTP_PASS,
+    },
+});
 
 // ===== PŘIPOJENÍ K DATABÁZI =====
 mongoose.connect(MONGO_URI)
@@ -75,6 +88,54 @@ function getRange(from, to) {
     return days;
 }
 
+function formatCzDate(isoDateStr) {
+    return new Date(isoDateStr).toLocaleDateString("cs-CZ");
+}
+
+// --- NOVÉ: Funkce pro odeslání emailu ---
+async function sendReservationEmail(toEmail, pin, start, end, time) {
+    try {
+        const mailOptions = {
+            from: `"Vozík 24/7" <${SMTP_USER}>`,
+            to: toEmail,
+            subject: 'Potvrzení rezervace - Váš PIN kód',
+            html: `
+                <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; padding: 20px; border-radius: 8px;">
+                    <h2 style="color: #bfa37c; text-align: center;">Děkujeme za rezervaci!</h2>
+                    <p>Dobrý den,</p>
+                    <p>Vaše rezervace přívěsného vozíku byla úspěšně vytvořena.</p>
+                    
+                    <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0; text-align: center;">
+                        <p style="margin: 0; font-size: 14px; color: #666;">Váš přístupový kód (PIN):</p>
+                        <p style="margin: 5px 0; font-size: 32px; font-weight: bold; color: #333; letter-spacing: 2px;">${pin}</p>
+                    </div>
+
+                    <h3>Detaily rezervace:</h3>
+                    <ul>
+                        <li><strong>Vyzvednutí:</strong> ${formatCzDate(start)} v ${time}</li>
+                        <li><strong>Vrácení:</strong> ${formatCzDate(end)} v ${time}</li>
+                    </ul>
+
+                    <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+                    
+                    <p style="font-size: 12px; color: #888;">
+                        Při vyzvednutí zadejte PIN na klávesnici zámku a zmáčkněte křížek nebo zámek (dle typu).<br>
+                        V případě potíží volejte: +420 777 123 456
+                    </p>
+                </div>
+            `
+        };
+
+        const info = await transporter.sendMail(mailOptions);
+        console.log("📧 Email odeslán: %s", info.messageId);
+        return true;
+    } catch (error) {
+        console.error("❌ Chyba při odesílání emailu:", error);
+        return false;
+    }
+}
+
+
 // Získání tokenu pro TTLock API
 async function getTTLockToken() {
     try {
@@ -84,7 +145,6 @@ async function getTTLockToken() {
         params.append("username", TTLOCK_USERNAME);
         params.append("password", hashPassword(TTLOCK_PASSWORD));
         params.append("grant_type", "password");
-        // ZDE JE DŮLEŽITÁ ZMĚNA PRO PRODUKCI:
         params.append("redirect_uri", "https://www.vozik247.cz");
 
         const res = await axios.post("https://euapi.ttlock.com/oauth2/token", params.toString(), {
@@ -107,10 +167,7 @@ async function getTTLockToken() {
 async function addPinToLock(startStr, endStr, timeStr) {
     try {
         const token = await getTTLockToken();
-        
-        // Nastavení času začátku a konce
         const startMs = new Date(`${startStr}T${timeStr}:00`).getTime();
-        // Přidáme malou rezervu (1 minutu), aby rezervace pokryla celý interval
         const endMs = new Date(`${endStr}T${timeStr}:00`).getTime() + 60000; 
         const now = Date.now();
         const pin = generatePin(6);
@@ -127,7 +184,6 @@ async function addPinToLock(startStr, endStr, timeStr) {
             keyboardPwdName: `Rezervace ${startStr}`
         };
 
-        // Podpis požadavku (Required by TTLock)
         const sortedKeys = Object.keys(params).sort();
         const baseString = sortedKeys.map(k => `${k}=${params[k]}`).join("&");
         const sign = crypto.createHash("md5").update(baseString + TTLOCK_CLIENT_SECRET).digest("hex").toUpperCase();
@@ -187,31 +243,26 @@ async function deletePinFromLock(keyboardPwdId) {
 // 5. API ENDPOINTY
 // ==========================================
 
-// Získání obsazenosti
 app.get("/availability", async (req, res) => {
     try {
         const allReservations = await Reservation.find({}, "startDate endDate");
         let bookedDaysSet = new Set();
-        
         for (const r of allReservations) {
             const range = getRange(r.startDate, r.endDate);
             range.forEach(day => bookedDaysSet.add(day));
         }
         res.json([...bookedDaysSet]); 
     } catch (err) {
-        console.error("Chyba při načítání dostupnosti:", err);
         res.status(500).json({ error: "Chyba serveru" });
     }
 });
 
-// Vytvoření rezervace
 app.post("/reserve-range", async (req, res) => {
     const { startDate, endDate, time, name, email, phone } = req.body;
     if (!startDate || !endDate || !time || !name)
         return res.status(400).json({ error: "Chybí údaje." });
 
     try {
-        // Kontrola kolize
         const all = await Reservation.find();
         const newRange = getRange(startDate, endDate);
         for (const r of all) {
@@ -220,18 +271,20 @@ app.post("/reserve-range", async (req, res) => {
                 return res.status(409).json({ error: "Termín je obsazen." }); 
         }
 
-        // Generování PINu
         const result = await addPinToLock(startDate, endDate, time);
         if (!result) return res.status(503).json({ error: "Nepodařilo se vygenerovat PIN." });
 
-        // Uložení do DB
         const newRes = new Reservation({
             startDate, endDate, time, name, email, phone,
             passcode: result.pin,
             keyboardPwdId: result.keyboardPwdId
         });
-
         await newRes.save();
+
+        // --- ODESLÁNÍ EMAILU ---
+        // Email odešleme "na pozadí" (nečekáme na něj, aby se stránka načetla rychle)
+        sendReservationEmail(email, result.pin, startDate, endDate, time);
+
         res.json({ success: true, pin: result.pin });
 
     } catch (err) {
@@ -249,7 +302,6 @@ const checkAdminPassword = (req, res, next) => {
     next();
 };
 
-// Admin API
 app.get("/admin/reservations", checkAdminPassword, async (req, res) => {
     try {
         const reservations = await Reservation.find().sort({ startDate: 1, time: 1 });
@@ -272,7 +324,6 @@ app.delete("/admin/reservations/:id", checkAdminPassword, async (req, res) => {
     }
 });
 
-// Automatické mazání vypršených rezervací (každou minutu)
 setInterval(async () => {
     const now = Date.now();
     const expired = await Reservation.find();
@@ -286,6 +337,5 @@ setInterval(async () => {
     }
 }, 60 * 1000);
 
-// START
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, "0.0.0.0", () => console.log(`🚀 Server běží na portu ${PORT}`));
