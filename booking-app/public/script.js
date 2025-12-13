@@ -1,4 +1,3 @@
-// Automaticky použije doménu, na které web běží
 const API_BASE = ""; 
 const PRICE_PER_DAY = 230;
 
@@ -12,29 +11,21 @@ let cachedAvailability = [];
 async function init() {
     await updateCalendar();
     
-    // --- 1. OMEZENÍ A PŘEDVYPLNĚNÍ TELEFONU ---
+    // --- OMEZENÍ A PŘEDVYPLNĚNÍ TELEFONU ---
     const phoneInput = document.getElementById("inp-phone");
-    
     if (phoneInput) {
-        // A) Automatické předvyplnění +420, pokud je prázdný
-        if (!phoneInput.value) {
-            phoneInput.value = "+420 ";
-        }
-
-        // B) Zákaz psaní nesmyslů (povolí jen čísla, + a mezery)
+        if (!phoneInput.value) phoneInput.value = "+420 ";
+        
         phoneInput.addEventListener("input", function(e) {
-            // Nahradí vše, co NENÍ číslice (0-9), plus (+) nebo mezera (\s), prázdným znakem
             this.value = this.value.replace(/[^0-9+\s]/g, '');
         });
         
-        // C) Pojistka: Pokud uživatel smaže vše, vrátíme tam +420 (volitelné, pro lepší UX)
         phoneInput.addEventListener("blur", function() {
              if (this.value.trim() === "" || this.value.trim() === "+") {
                  this.value = "+420 ";
              }
         });
     }
-    // ---------------------------------------------
 
     document.getElementById("prev").onclick = () => changeMonth(-1);
     document.getElementById("next").onclick = () => changeMonth(1);
@@ -109,9 +100,8 @@ function renderSingleCalendar() {
         const isBooked = cachedAvailability.includes(dateStr);
 
         if (dateStr < todayStr) dayEl.classList.add("past");
-        else if (isBooked) {
-            dayEl.classList.add("booked");
-        } else {
+        else if (isBooked) dayEl.classList.add("booked");
+        else {
             dayEl.classList.add("available");
             dayEl.onclick = () => handleDayClick(dateStr);
             dayEl.onmouseenter = () => handleHoverLogic(dateStr);
@@ -205,14 +195,8 @@ async function submitReservation() {
 
     if(!name || !email || !phone || !time) { alert("Vyplňte všechny údaje."); return; }
 
-    // --- 2. VALIDACE EMAILU ---
-    // Musí obsahovat zavináč (@) a tečku (.)
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-        alert("Zadejte prosím platný email (např. jmeno@email.cz).");
-        return;
-    }
-    // ----------------------------
+    if (!emailRegex.test(email)) { alert("Zadejte prosím platný email."); return; }
 
     btn.innerText = "Generuji přístup...";
     btn.disabled = true;
