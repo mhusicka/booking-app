@@ -7,14 +7,14 @@ const axios = require("axios");
 const crypto = require("crypto");
 const { URLSearchParams } = require("url");
 const path = require("path");
-const nodemailer = require("nodemailer"); // <--- NOVÉ
+const nodemailer = require("nodemailer"); // <--- NOVÉ: Knihovna pro emaily
 
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
 // ==========================================
-// 1. ZPŘÍSTUPNĚNÍ WEBU (Frontend)
+// 1. ZPŘÍSTUPNĚNÍ WEBU
 // ==========================================
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -34,22 +34,23 @@ const TTLOCK_USERNAME = process.env.TTLOCK_USERNAME;
 const TTLOCK_PASSWORD = process.env.TTLOCK_PASSWORD;
 const MY_LOCK_ID = parseInt(process.env.MY_LOCK_ID);
 
-// --- NOVÉ: Konfigurace Emailu ---
+// --- NOVÉ: Nastavení Emailu ---
 const SMTP_HOST = process.env.SMTP_HOST;
 const SMTP_USER = process.env.SMTP_USER;
 const SMTP_PASS = process.env.SMTP_PASS;
 
+// Vytvoření "pošťáka"
 const transporter = nodemailer.createTransport({
     host: SMTP_HOST,
-    port: 465,       // Wedos používá pro SSL port 465
-    secure: true,    // true pro 465, false pro ostatní
+    port: 465,       // Wedos používá port 465 pro SSL
+    secure: true,    // true pro port 465
     auth: {
         user: SMTP_USER,
         pass: SMTP_PASS,
     },
 });
 
-// ===== PŘIPOJENÍ K DATABÁZI =====
+// ===== DB PŘIPOJENÍ =====
 mongoose.connect(MONGO_URI)
     .then(() => console.log("✅ DB připojena"))
     .catch(err => console.error("❌ Chyba DB:", err));
@@ -96,7 +97,7 @@ function formatCzDate(isoDateStr) {
 async function sendReservationEmail(toEmail, pin, start, end, time) {
     try {
         const mailOptions = {
-            from: `"Vozík 24/7" <${SMTP_USER}>`,
+            from: `"Vozík 24/7" <${SMTP_USER}>`, // Musí být shodné s přihlašovacím emailem
             to: toEmail,
             subject: 'Potvrzení rezervace - Váš PIN kód',
             html: `
@@ -119,15 +120,15 @@ async function sendReservationEmail(toEmail, pin, start, end, time) {
                     <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
                     
                     <p style="font-size: 12px; color: #888;">
-                        Při vyzvednutí zadejte PIN na klávesnici zámku a zmáčkněte křížek nebo zámek (dle typu).<br>
-                        V případě potíží volejte: +420 777 123 456
+                        Při vyzvednutí zadejte PIN na klávesnici zámku a potvrďte (křížek nebo zámek).<br>
+                        V případě potíží nás kontaktujte.
                     </p>
                 </div>
             `
         };
 
         const info = await transporter.sendMail(mailOptions);
-        console.log("📧 Email odeslán: %s", info.messageId);
+        console.log("📧 Email odeslán na: " + toEmail);
         return true;
     } catch (error) {
         console.error("❌ Chyba při odesílání emailu:", error);
@@ -135,8 +136,7 @@ async function sendReservationEmail(toEmail, pin, start, end, time) {
     }
 }
 
-
-// Získání tokenu pro TTLock API
+// --- TTLOCK LOGIKA ---
 async function getTTLockToken() {
     try {
         const params = new URLSearchParams();
@@ -159,10 +159,6 @@ async function getTTLockToken() {
         throw e;
     }
 }
-
-// ==========================================
-// 4. TTLOCK LOGIKA
-// ==========================================
 
 async function addPinToLock(startStr, endStr, timeStr) {
     try {
@@ -240,7 +236,7 @@ async function deletePinFromLock(keyboardPwdId) {
 }
 
 // ==========================================
-// 5. API ENDPOINTY
+// 4. API ENDPOINTY
 // ==========================================
 
 app.get("/availability", async (req, res) => {
@@ -282,7 +278,7 @@ app.post("/reserve-range", async (req, res) => {
         await newRes.save();
 
         // --- ODESLÁNÍ EMAILU ---
-        // Email odešleme "na pozadí" (nečekáme na něj, aby se stránka načetla rychle)
+        // Voláme funkci pro odeslání. Nepoužíváme "await", aby zákazník nečekal.
         sendReservationEmail(email, result.pin, startDate, endDate, time);
 
         res.json({ success: true, pin: result.pin });
