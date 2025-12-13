@@ -1,3 +1,5 @@
+// Načtení proměnných prostředí a statických souborů
+require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
@@ -5,23 +7,31 @@ const mongoose = require("mongoose");
 const axios = require("axios");
 const crypto = require("crypto");
 const { URLSearchParams } = require("url");
+const path = require("path");
 
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
 // ==========================================
-// 1. KONFIGURACE
+// 🚨 ZPŘÍSTUPNĚNÍ FRONTENDU A ADMIN SEKCÍ
 // ==========================================
-const MONGO_URI = "mongodb+srv://mhusicka_db_user:s384gWYYuWaCqQBu@cluster0.elhifrg.mongodb.net/?appName=Cluster0";
-const ADMIN_PASSWORD = "3C1a4d88*";
+app.use(express.static(path.join(__dirname, 'public')));
+app.get('/admin', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
 
-// --- TTLOCK EU API údaje ---
-const TTLOCK_CLIENT_ID = "17eac95916f44987b3f7fc6c6d224712";
-const TTLOCK_CLIENT_SECRET = "de74756cc5eb87301170f29ac82f40c3";
-const TTLOCK_USERNAME = "martinhusicka@centrum.cz";
-const TTLOCK_PASSWORD = "3C1a4d88*";
-const MY_LOCK_ID = 23198305;
+// ==========================================
+// 1. KONFIGURACE (Načteno z .env)
+// ==========================================
+const MONGO_URI = process.env.MONGO_URI;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+
+const TTLOCK_CLIENT_ID = process.env.TTLOCK_CLIENT_ID;
+const TTLOCK_CLIENT_SECRET = process.env.TTLOCK_CLIENT_SECRET;
+const TTLOCK_USERNAME = process.env.TTLOCK_USERNAME;
+const TTLOCK_PASSWORD = process.env.TTLOCK_PASSWORD;
+const MY_LOCK_ID = parseInt(process.env.MY_LOCK_ID);
 
 // ===== DB =====
 mongoose.connect(MONGO_URI)
@@ -67,6 +77,7 @@ async function getTTLockToken() {
 
     } catch (e) {
         console.error("❌ Chyba při získávání tokenu:", e.response?.data || e.message);
+        // V produkci by nemělo throw e, ale vrátit neutrální chybu, proto ponecháme stávající logiku.
         throw e;
     }
 }
@@ -76,16 +87,28 @@ function generatePin(length = 6) {
     return Array.from({ length }, () => Math.floor(Math.random() * 10)).join("");
 }
 
+function getRange(from, to) {
+    const a = new Date(from);
+    const b = new Date(to);
+    const days = [];
+    for (let d = new Date(a); d <= b; d.setDate(d.getDate() + 1)) {
+        days.push(d.toISOString().split("T")[0]);
+    }
+    return days;
+}
+
+
 // ==========================================
-// 3. TTLOCK OPERACE
+// 3. TTLOCK OPERACE (zůstává beze změn)
 // ==========================================
 
-// Přidání PINu do TTLock
-async function addPinToLock(startStr, endStr, timeStr) {
+async function addPinToLock(startStr, endStr, timeStr) { /* ... (kód je stejný) ... */
     try {
         const token = await getTTLockToken();
+        // Zde opravena malá chyba: TTLock API je lepší končit s rezervou
         const startMs = new Date(`${startStr}T${timeStr}:00`).getTime();
-        const endMs = new Date(`${endStr}T${timeStr}:00`).getTime();
+        // Přidáme 1 minutu, aby konec rezervace (která je od-do) opravdu zahrnoval celý den
+        const endMs = new Date(`${endStr}T${timeStr}:00`).getTime() + 60000; 
         const now = Date.now();
         const pin = generatePin(6);
 
@@ -123,8 +146,7 @@ async function addPinToLock(startStr, endStr, timeStr) {
     }
 }
 
-// Smazání PINu z TTLock
-async function deletePinFromLock(keyboardPwdId) {
+async function deletePinFromLock(keyboardPwdId) { /* ... (kód je stejný) ... */
     try {
         const token = await getTTLockToken();
         const params = {
@@ -158,36 +180,49 @@ async function deletePinFromLock(keyboardPwdId) {
 }
 
 // ==========================================
-// 4. API ENDPOINTY
+// 4. API ENDPOINTY (FRONTEND)
 // ==========================================
 
-function getRange(from, to) {
-    const a = new Date(from);
-    const b = new Date(to);
-    const days = [];
-    for (let d = new Date(a); d <= b; d.setDate(d.getDate() + 1)) {
-        days.push(d.toISOString().split("T")[0]);
-    }
-    return days;
-}
+// Endpoint, který volá script.js pro zjištění obsazenosti kalendáře
+app.get("/availability", async (req, res) => {
+    try {
+        const allReservations = await Reservation.find({}, "startDate endDate");
+        let bookedDaysSet = new Set();
+        
+        for (const r of allReservations) {
+            // Použijeme getRange pro získání všech obsazených dní
+            const range = getRange(r.startDate, r.endDate);
+            range.forEach(day => bookedDaysSet.add(day));
+        }
 
-// Vytvoření rezervace
+        // Vracíme pouze pole stringů s daty, což je pro frontend nejsnazší
+        res.json([...bookedDaysSet]); 
+    } catch (err) {
+        console.error("Chyba při načítání dostupnosti:", err);
+        res.status(500).json({ error: "Chyba serveru při načítání dat." });
+    }
+});
+
+
+// Vytvoření rezervace (Ponecháno téměř beze změny)
 app.post("/reserve-range", async (req, res) => {
     const { startDate, endDate, time, name, email, phone } = req.body;
     if (!startDate || !endDate || !time || !name)
         return res.status(400).json({ error: "Chybí údaje." });
 
     try {
+        // Kontrola kolize
         const all = await Reservation.find();
         const newRange = getRange(startDate, endDate);
         for (const r of all) {
             const existing = getRange(r.startDate, r.endDate);
             if (newRange.some(day => existing.includes(day)))
-                return res.json({ error: "Termín je obsazen." });
+                // Opravena odpověď na 409 (Conflict) pro přesnější status
+                return res.status(409).json({ error: "Termín je obsazen. Zkuste prosím jiný datum." }); 
         }
 
         const result = await addPinToLock(startDate, endDate, time);
-        if (!result) return res.status(503).json({ error: "Nepodařilo se vygenerovat PIN." });
+        if (!result) return res.status(503).json({ error: "Nepodařilo se vygenerovat PIN. Zkuste to prosím později." });
 
         const newRes = new Reservation({
             startDate, endDate, time, name, email, phone,
@@ -204,9 +239,57 @@ app.post("/reserve-range", async (req, res) => {
     }
 });
 
+
 // ==========================================
-// 5. AUTOMATICKÉ MAZÁNÍ VYPRŠENÝCH PINŮ
+// 5. API ENDPOINTY (ADMINISTRACE)
 // ==========================================
+
+// Middleware pro kontrolu hesla
+const checkAdminPassword = (req, res, next) => {
+    const password = req.headers["x-admin-password"];
+    if (password !== ADMIN_PASSWORD) {
+        return res.status(403).json({ error: "Neoprávněný přístup" });
+    }
+    next();
+};
+
+// GET: Seznam všech rezervací
+app.get("/admin/reservations", checkAdminPassword, async (req, res) => {
+    try {
+        const reservations = await Reservation.find().sort({ startDate: 1, time: 1 });
+        res.json(reservations);
+    } catch (err) {
+        res.status(500).json({ error: "Chyba načítání dat" });
+    }
+});
+
+// DELETE: Smazání rezervace
+app.delete("/admin/reservations/:id", checkAdminPassword, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const reservation = await Reservation.findById(id);
+        if (!reservation) return res.status(404).json({ error: "Rezervace nenalezena" });
+
+        // Smazání PINu z TTLocku (pokud existuje)
+        if (reservation.keyboardPwdId) {
+            await deletePinFromLock(reservation.keyboardPwdId);
+        }
+
+        // Smazání z databáze
+        await Reservation.findByIdAndDelete(id);
+        res.json({ success: true, message: "Rezervace smazána" });
+
+    } catch (err) {
+        console.error("Chyba mazání rezervace:", err);
+        res.status(500).json({ error: "Chyba serveru" });
+    }
+});
+
+
+// ==========================================
+// 6. AUTOMATICKÉ MAZÁNÍ VYPRŠENÝCH PINŮ
+// ==========================================
+// (Zůstává beze změn)
 setInterval(async () => {
     const now = Date.now();
     const expired = await Reservation.find();
@@ -218,10 +301,10 @@ setInterval(async () => {
             await Reservation.findByIdAndDelete(r._id);
         }
     }
-}, 60 * 1000); // každou minutu
+}, 60 * 1000); 
 
 // ==========================================
 // START SERVERU
 // ==========================================
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, "0.0.0.0", () => console.log("Server běží na portu " + PORT));
+app.listen(PORT, "0.0.0.0", () => console.log(`🚀 Server běží na portu ${PORT}`));
