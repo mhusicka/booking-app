@@ -34,25 +34,37 @@ const TTLOCK_USERNAME = process.env.TTLOCK_USERNAME;
 const TTLOCK_PASSWORD = process.env.TTLOCK_PASSWORD;
 const MY_LOCK_ID = parseInt(process.env.MY_LOCK_ID);
 
-// --- NASTAVENÍ EMAILU (OPRAVA CHYBY) ---
-// Pokud Render nenajde proměnnou, použije se "smtp.wedos.net"
+// --- NASTAVENÍ EMAILU ---
 const SMTP_HOST = process.env.SMTP_HOST || "smtp.wedos.net";
 const SMTP_USER = process.env.SMTP_USER || "info@vozik247.cz";
-// Heslo musí být v Render Environment Variables (SMTP_PASS)
 const SMTP_PASS = process.env.SMTP_PASS;
 
-if (!SMTP_PASS) {
-    console.error("❌ VAROVÁNÍ: Chybí heslo k emailu (SMTP_PASS) v nastavení Renderu!");
-}
+console.log("⚙️  Nastavení emailu:");
+console.log("   HOST:", SMTP_HOST);
+console.log("   USER:", SMTP_USER);
+console.log("   PASS:", SMTP_PASS ? "******* (Nastaveno)" : "❌ CHYBÍ!");
 
 const transporter = nodemailer.createTransport({
     host: SMTP_HOST,
     port: 465,
-    secure: true, // Wedos vyžaduje SSL na portu 465
+    secure: true, 
     auth: {
         user: SMTP_USER,
         pass: SMTP_PASS,
     },
+    // Přidáno pro lepší debugování
+    logger: true,
+    debug: true 
+});
+
+// --- DIAGNOSTIKA PŘI STARTU ---
+// Toto zkusí spojení s Wedosem hned po startu
+transporter.verify(function (error, success) {
+    if (error) {
+        console.error("❌ CHYBA SMTP PŘI STARTU:", error);
+    } else {
+        console.log("✅ SMTP server je připraven k odesílání zpráv.");
+    }
 });
 
 // ===== DB =====
@@ -100,43 +112,24 @@ function formatCzDate(isoDateStr) {
 
 // --- FUNKCE PRO ODESLÁNÍ EMAILU ---
 async function sendReservationEmail(toEmail, pin, start, end, time) {
+    console.log(`📨 Zahajuji odesílání emailu na: ${toEmail}`);
     try {
         const mailOptions = {
             from: `"Vozík 24/7" <${SMTP_USER}>`,
             to: toEmail,
             subject: 'Potvrzení rezervace - Váš PIN kód',
             html: `
-                <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; padding: 20px; border-radius: 8px;">
-                    <h2 style="color: #bfa37c; text-align: center;">Děkujeme za rezervaci!</h2>
-                    <p>Dobrý den,</p>
-                    <p>Vaše rezervace přívěsného vozíku byla úspěšně vytvořena.</p>
-                    
-                    <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0; text-align: center;">
-                        <p style="margin: 0; font-size: 14px; color: #666;">Váš přístupový kód (PIN):</p>
-                        <p style="margin: 5px 0; font-size: 32px; font-weight: bold; color: #333; letter-spacing: 2px;">${pin}</p>
-                    </div>
-
-                    <h3>Detaily rezervace:</h3>
-                    <ul>
-                        <li><strong>Vyzvednutí:</strong> ${formatCzDate(start)} v ${time}</li>
-                        <li><strong>Vrácení:</strong> ${formatCzDate(end)} v ${time}</li>
-                    </ul>
-
-                    <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-                    
-                    <p style="font-size: 12px; color: #888;">
-                        Při vyzvednutí zadejte PIN na klávesnici zámku a zmáčkněte křížek nebo zámek (dle typu).<br>
-                        V případě potíží nás kontaktujte.
-                    </p>
-                </div>
+                <h3>Děkujeme za rezervaci!</h3>
+                <p>Váš PIN kód je: <strong>${pin}</strong></p>
+                <p>Termín: ${formatCzDate(start)} - ${formatCzDate(end)} (${time})</p>
             `
         };
 
         const info = await transporter.sendMail(mailOptions);
-        console.log("📧 Email odeslán: %s", info.messageId);
+        console.log("✅ Email úspěšně odeslán! ID zprávy:", info.messageId);
         return true;
     } catch (error) {
-        console.error("❌ Chyba při odesílání emailu:", error);
+        console.error("❌ KRITICKÁ CHYBA ODESÍLÁNÍ EMAILU:", error);
         return false;
     }
 }
@@ -256,9 +249,13 @@ app.get("/availability", async (req, res) => {
 });
 
 app.post("/reserve-range", async (req, res) => {
+    console.log("📥 Přijat požadavek na novou rezervaci..."); // LOG
     const { startDate, endDate, time, name, email, phone } = req.body;
-    if (!startDate || !endDate || !time || !name)
+    
+    if (!startDate || !endDate || !time || !name) {
+        console.log("❌ Chyba: Chybí údaje v požadavku");
         return res.status(400).json({ error: "Chybí údaje." });
+    }
 
     try {
         const all = await Reservation.find();
@@ -269,6 +266,7 @@ app.post("/reserve-range", async (req, res) => {
                 return res.status(409).json({ error: "Termín je obsazen." }); 
         }
 
+        console.log("🔐 Generuji PIN v TTLock..."); // LOG
         const result = await addPinToLock(startDate, endDate, time);
         if (!result) return res.status(503).json({ error: "Nepodařilo se vygenerovat PIN." });
 
@@ -278,14 +276,16 @@ app.post("/reserve-range", async (req, res) => {
             keyboardPwdId: result.keyboardPwdId
         });
         await newRes.save();
+        console.log("💾 Rezervace uložena do DB"); // LOG
 
-        // --- ODESLÁNÍ EMAILU ---
+        // --- ODESLÁNÍ EMAILU (LOGOVÁNÍ) ---
+        console.log(`📤 Volám funkci odeslání emailu pro: ${email}`);
         sendReservationEmail(email, result.pin, startDate, endDate, time);
 
         res.json({ success: true, pin: result.pin });
 
     } catch (err) {
-        console.error("Chyba rezervace:", err);
+        console.error("❌ Chyba rezervace:", err);
         res.status(500).json({ error: "Chyba serveru" });
     }
 });
@@ -318,7 +318,6 @@ app.delete("/admin/reservations/:id", checkAdminPassword, async (req, res) => {
     }
 });
 
-// Automatické mazání
 setInterval(async () => {
     const now = Date.now();
     const expired = await Reservation.find();
