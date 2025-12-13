@@ -11,6 +11,14 @@ let cachedAvailability = []; // Pole obsazených dat
 
 async function init() {
     await updateCalendar();
+    
+    // --- NOVÉ: Automatické předvyplnění telefonu ---
+    const phoneInput = document.getElementById("inp-phone");
+    if (phoneInput && !phoneInput.value) {
+        phoneInput.value = "+420 ";
+    }
+    // ---------------------------------------------
+
     document.getElementById("prev").onclick = () => changeMonth(-1);
     document.getElementById("next").onclick = () => changeMonth(1);
     document.getElementById("inp-time").onchange = () => updateSummaryUI();
@@ -170,14 +178,6 @@ function updateSummaryUI(previewEndDate = null) {
     priceEl.innerText = (diffDays * PRICE_PER_DAY).toLocaleString("cs-CZ") + " Kč";
 }
 
-const tooltip = document.getElementById("tooltip");
-function showTooltip(e, text) {
-    if(!text) return; tooltip.innerText = text; tooltip.classList.remove("hidden");
-    const rect = e.target.getBoundingClientRect();
-    tooltip.style.top = (rect.top - 40) + "px"; tooltip.style.left = (rect.left + (rect.width/2) - 60) + "px";
-}
-function hideTooltip() { tooltip.classList.add("hidden"); }
-
 async function submitReservation() {
     if (!startDate) { alert("Vyberte termín."); return; }
     if (!endDate) endDate = getNextDay(startDate);
@@ -189,6 +189,15 @@ async function submitReservation() {
     const btn = document.querySelector(".btn-pay");
 
     if(!name || !email || !phone || !time) { alert("Vyplňte všechny údaje."); return; }
+
+    // --- NOVÉ: Validace emailu ---
+    // Jednoduchý regex: něco @ něco . něco
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        alert("Zadejte prosím platný email (např. jmeno@email.cz).");
+        return;
+    }
+    // ----------------------------
 
     btn.innerText = "Generuji přístup...";
     btn.disabled = true;
