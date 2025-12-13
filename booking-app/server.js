@@ -7,7 +7,7 @@ const axios = require("axios");
 const crypto = require("crypto");
 const { URLSearchParams } = require("url");
 const path = require("path");
-const nodemailer = require("nodemailer"); // <--- NOVÉ: Knihovna pro emaily
+const nodemailer = require("nodemailer");
 
 const app = express();
 app.use(cors());
@@ -23,7 +23,7 @@ app.get('/admin', (req, res) => {
 });
 
 // ==========================================
-// 2. KONFIGURACE (Z proměnných prostředí)
+// 2. KONFIGURACE
 // ==========================================
 const MONGO_URI = process.env.MONGO_URI;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
@@ -34,23 +34,28 @@ const TTLOCK_USERNAME = process.env.TTLOCK_USERNAME;
 const TTLOCK_PASSWORD = process.env.TTLOCK_PASSWORD;
 const MY_LOCK_ID = parseInt(process.env.MY_LOCK_ID);
 
-// --- NOVÉ: Nastavení Emailu ---
-const SMTP_HOST = process.env.SMTP_HOST;
-const SMTP_USER = process.env.SMTP_USER;
+// --- NASTAVENÍ EMAILU (OPRAVA CHYBY) ---
+// Pokud Render nenajde proměnnou, použije se "smtp.wedos.net"
+const SMTP_HOST = process.env.SMTP_HOST || "smtp.wedos.net";
+const SMTP_USER = process.env.SMTP_USER || "info@vozik247.cz";
+// Heslo musí být v Render Environment Variables (SMTP_PASS)
 const SMTP_PASS = process.env.SMTP_PASS;
 
-// Vytvoření "pošťáka"
+if (!SMTP_PASS) {
+    console.error("❌ VAROVÁNÍ: Chybí heslo k emailu (SMTP_PASS) v nastavení Renderu!");
+}
+
 const transporter = nodemailer.createTransport({
     host: SMTP_HOST,
-    port: 465,       // Wedos používá port 465 pro SSL
-    secure: true,    // true pro port 465
+    port: 465,
+    secure: true, // Wedos vyžaduje SSL na portu 465
     auth: {
         user: SMTP_USER,
         pass: SMTP_PASS,
     },
 });
 
-// ===== DB PŘIPOJENÍ =====
+// ===== DB =====
 mongoose.connect(MONGO_URI)
     .then(() => console.log("✅ DB připojena"))
     .catch(err => console.error("❌ Chyba DB:", err));
@@ -93,11 +98,11 @@ function formatCzDate(isoDateStr) {
     return new Date(isoDateStr).toLocaleDateString("cs-CZ");
 }
 
-// --- NOVÉ: Funkce pro odeslání emailu ---
+// --- FUNKCE PRO ODESLÁNÍ EMAILU ---
 async function sendReservationEmail(toEmail, pin, start, end, time) {
     try {
         const mailOptions = {
-            from: `"Vozík 24/7" <${SMTP_USER}>`, // Musí být shodné s přihlašovacím emailem
+            from: `"Vozík 24/7" <${SMTP_USER}>`,
             to: toEmail,
             subject: 'Potvrzení rezervace - Váš PIN kód',
             html: `
@@ -120,7 +125,7 @@ async function sendReservationEmail(toEmail, pin, start, end, time) {
                     <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
                     
                     <p style="font-size: 12px; color: #888;">
-                        Při vyzvednutí zadejte PIN na klávesnici zámku a potvrďte (křížek nebo zámek).<br>
+                        Při vyzvednutí zadejte PIN na klávesnici zámku a zmáčkněte křížek nebo zámek (dle typu).<br>
                         V případě potíží nás kontaktujte.
                     </p>
                 </div>
@@ -128,7 +133,7 @@ async function sendReservationEmail(toEmail, pin, start, end, time) {
         };
 
         const info = await transporter.sendMail(mailOptions);
-        console.log("📧 Email odeslán na: " + toEmail);
+        console.log("📧 Email odeslán: %s", info.messageId);
         return true;
     } catch (error) {
         console.error("❌ Chyba při odesílání emailu:", error);
@@ -224,11 +229,8 @@ async function deletePinFromLock(keyboardPwdId) {
         if (res.data.errcode === 0) {
             console.log("✅ PIN úspěšně smazán z TTLocku:", keyboardPwdId);
             return true;
-        } else {
-            console.log("❌ Nepodařilo se smazat PIN:", res.data);
-            return false;
         }
-
+        return false;
     } catch (err) {
         console.error("❌ Chyba TTLock (delete):", err.response?.data || err.message);
         return false;
@@ -278,7 +280,6 @@ app.post("/reserve-range", async (req, res) => {
         await newRes.save();
 
         // --- ODESLÁNÍ EMAILU ---
-        // Voláme funkci pro odeslání. Nepoužíváme "await", aby zákazník nečekal.
         sendReservationEmail(email, result.pin, startDate, endDate, time);
 
         res.json({ success: true, pin: result.pin });
@@ -289,12 +290,10 @@ app.post("/reserve-range", async (req, res) => {
     }
 });
 
-// Admin Middleware
+// Admin funkce
 const checkAdminPassword = (req, res, next) => {
     const password = req.headers["x-admin-password"];
-    if (password !== ADMIN_PASSWORD) {
-        return res.status(403).json({ error: "Neoprávněný přístup" });
-    }
+    if (password !== ADMIN_PASSWORD) return res.status(403).json({ error: "Neoprávněný přístup" });
     next();
 };
 
@@ -311,7 +310,6 @@ app.delete("/admin/reservations/:id", checkAdminPassword, async (req, res) => {
     try {
         const reservation = await Reservation.findById(req.params.id);
         if (!reservation) return res.status(404).json({ error: "Nenalezeno" });
-
         if (reservation.keyboardPwdId) await deletePinFromLock(reservation.keyboardPwdId);
         await Reservation.findByIdAndDelete(req.params.id);
         res.json({ success: true });
@@ -320,6 +318,7 @@ app.delete("/admin/reservations/:id", checkAdminPassword, async (req, res) => {
     }
 });
 
+// Automatické mazání
 setInterval(async () => {
     const now = Date.now();
     const expired = await Reservation.find();
