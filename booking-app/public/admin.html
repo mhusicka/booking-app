@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Vozík 24/7</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        .admin-box { max-width: 1100px; margin: 40px auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .login-screen { text-align: center; margin-top: 50px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.9rem; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; }
+        th { background: #f9f9f9; color: #bfa37c; text-transform: uppercase; font-size: 0.8rem; }
+        tr:hover { background: #fafafa; }
+        .btn-delete { background: #ffcccc; color: #a00; border: none; padding: 5px 10px; cursor: pointer; border-radius: 4px; font-weight: bold; }
+        .btn-delete:hover { background: #cc0000; color: white; }
+        .info-row { display: flex; gap: 20px; align-items: center; margin-bottom: 20px; justify-content: space-between; }
+        .pin-cell { color: #28a745; font-weight: bold; font-family: monospace; font-size: 1.1rem; }
+        .pin-missing { color: #ccc; }
+    </style>
+</head>
+<body>
+
+    <div id="login-section" class="main-container login-screen">
+        <h1>Administrace</h1>
+        <div class="form-group" style="max-width: 300px; margin: 0 auto;">
+            <label>Zadejte admin heslo:</label>
+            <input type="password" id="admin-pass">
+            <button onclick="loadReservations()" class="btn-pay" style="margin-top:10px;">Vstoupit</button>
+        </div>
+    </div>
+
+    <div id="data-section" class="admin-box" style="display:none;">
+        <div class="info-row">
+            <h2>Seznam rezervací</h2>
+            <div>
+                <button onclick="loadReservations()" class="btn-small" style="display:inline-block; margin-right:10px;">Obnovit data</button>
+                <button onclick="logout()" class="btn-small" style="background:#ddd;">Odhlásit</button>
+            </div>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Termín</th>
+                    <th>PIN Kód</th> <th>Jméno</th>
+                    <th>Kontakt</th>
+                    <th>Vytvořeno</th>
+                    <th>Akce</th>
+                </tr>
+            </thead>
+            <tbody id="table-body">
+                </tbody>
+        </table>
+    </div>
+
+    <script>
+        // Relativní cesta = použije aktuální doménu (vozik247.cz)
+        const API_BASE = ""; 
+
+        async function loadReservations() {
+            const password = document.getElementById("admin-pass").value;
+            if (!password) { alert("Zadejte heslo"); return; }
+
+            try {
+                const res = await fetch(`${API_BASE}/admin/reservations`, {
+                    headers: { "x-admin-password": password }
+                });
+
+                if (res.status === 403) {
+                    alert("Špatné heslo!");
+                    return;
+                }
+
+                const data = await res.json();
+                renderTable(data);
+                
+                document.getElementById("login-section").style.display = "none";
+                document.getElementById("data-section").style.display = "block";
+                localStorage.setItem("adminPass", password);
+
+            } catch (e) {
+                alert("Chyba spojení se serverem.");
+            }
+        }
+
+        function renderTable(data) {
+            const tbody = document.getElementById("table-body");
+            tbody.innerHTML = "";
+
+            if (data.length === 0) {
+                tbody.innerHTML = "<tr><td colspan='6' style='text-align:center'>Žádné rezervace</td></tr>";
+                return;
+            }
+
+            data.forEach(r => {
+                const tr = document.createElement("tr");
+                const start = new Date(r.startDate).toLocaleDateString("cs-CZ");
+                const end = new Date(r.endDate).toLocaleDateString("cs-CZ");
+                const created = new Date(r.created).toLocaleString("cs-CZ");
+                
+                let dateStr = `${start} (${r.time})`;
+                if (r.startDate !== r.endDate) {
+                    dateStr = `${start} – ${end} (${r.time})`;
+                }
+
+                const pinHtml = r.passcode 
+                    ? `<span class="pin-cell">${r.passcode}</span>` 
+                    : `<span class="pin-missing">-</span>`;
+
+                tr.innerHTML = `
+                    <td><strong>${dateStr}</strong></td>
+                    <td>${pinHtml}</td>
+                    <td>${r.name}</td>
+                    <td>${r.phone}<br><small>${r.email}</small></td>
+                    <td><small>${created}</small></td>
+                    <td>
+                        <button class="btn-delete" onclick="deleteReservation('${r._id}')">SMAZAT</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function deleteReservation(id) {
+            if (!confirm("Opravdu chcete tuto rezervaci trvale smazat?")) return;
+            const password = document.getElementById("admin-pass").value;
+            try {
+                const res = await fetch(`${API_BASE}/admin/reservations/${id}`, {
+                    method: "DELETE",
+                    headers: { "x-admin-password": password }
+                });
+                if (res.ok) {
+                    loadReservations(); 
+                } else {
+                    alert("Chyba při mazání.");
+                }
+            } catch (e) { alert("Chyba serveru."); }
+        }
+
+        function logout() {
+            localStorage.removeItem("adminPass");
+            location.reload();
+        }
+
+        window.onload = () => {
+            const saved = localStorage.getItem("adminPass");
+            if (saved) {
+                document.getElementById("admin-pass").value = saved;
+                loadReservations();
+            }
+        };
+    </script>
+</body>
+</html>
