@@ -209,16 +209,24 @@ async function submitReservation() {
         const result = await res.json();
 
         if (result.success) {
-            let msg = `✅ Rezervace potvrzena!\n\n`;
-            msg += `🔑 VÁŠ KÓD K ZÁMKU: ${result.pin}\n\n`;
-            msg += `Platnost: ${formatCzDate(startDate)} ${time} - ${formatCzDate(endDate)} ${time}`;
-            alert(msg);
-            location.reload();
+            // PŘESMĚROVÁNÍ NA SUCCESS STRÁNKU
+            const params = new URLSearchParams({
+                pin: result.pin,
+                start: startDate,
+                end: endDate,
+                time: time
+            });
+            window.location.href = `success.html?${params.toString()}`;
         } else {
             alert("Chyba: " + (result.error || "Neznámá chyba"));
+            btn.innerText = "Rezervovat (Test)"; 
+            btn.disabled = false;
         }
-    } catch (e) { alert("Chyba komunikace."); } 
-    finally { btn.innerText = "Rezervovat (Test)"; btn.disabled = false; }
+    } catch (e) { 
+        alert("Chyba komunikace."); 
+        btn.innerText = "Rezervovat (Test)"; 
+        btn.disabled = false;
+    } 
 }
 
 init();
