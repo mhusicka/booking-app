@@ -7,7 +7,7 @@ const axios = require("axios");
 const crypto = require("crypto");
 const { URLSearchParams } = require("url");
 const path = require("path");
-const nodemailer = require("nodemailer"); // ZAPNUTO
+const nodemailer = require("nodemailer"); 
 
 const app = express();
 app.use(cors());
@@ -30,15 +30,21 @@ const TTLOCK_USERNAME = process.env.TTLOCK_USERNAME;
 const TTLOCK_PASSWORD = process.env.TTLOCK_PASSWORD;
 const MY_LOCK_ID = parseInt(process.env.MY_LOCK_ID);
 
-// Konfigurace Emailu (Wedos)
+// --- OPRAVENÁ KONFIGURACE EMAILU (WEDOS FIX) ---
 const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
-    port: parseInt(process.env.SMTP_PORT) || 465,
-    secure: true, // true pro port 465, false pro ostatní
+    port: parseInt(process.env.SMTP_PORT) || 587,
+    secure: false, // Musí být false pro port 587 (STARTTLS)
     auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS
-    }
+    },
+    tls: {
+        rejectUnauthorized: false, // Ignorovat chyby certifikátu
+        ciphers: 'SSLv3'
+    },
+    family: 4, // DŮLEŽITÉ: Vynutí IPv4 (řeší ETIMEDOUT na Renderu)
+    connectionTimeout: 10000 // Timeout 10 sekund
 });
 
 // ===== DB =====
@@ -87,7 +93,7 @@ function formatDateCz(dateStr) {
 // Odeslání emailu
 async function sendReservationEmail(data) { 
     if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-        console.log("⚠️ Email nebyl odeslán: Chybí nastavení SMTP v .env");
+        console.log("⚠️ Email neodeslán: Chybí nastavení SMTP v .env");
         return;
     }
 
@@ -120,10 +126,11 @@ async function sendReservationEmail(data) {
     };
 
     try {
+        await transporter.verify(); // Rychlé ověření spojení před odesláním
         await transporter.sendMail(mailOptions);
         console.log(`📨 Email úspěšně odeslán na: ${data.email}`);
     } catch (error) {
-        console.error("❌ Chyba při odesílání emailu:", error);
+        console.error("❌ Chyba při odesílání emailu:", error.message);
     }
 }
 
@@ -177,13 +184,12 @@ async function addPinToLock(startStr, endStr, timeStr) {
         const sign = crypto.createHash("md5").update(baseString + TTLOCK_CLIENT_SECRET).digest("hex").toUpperCase();
         const body = new URLSearchParams({ ...params, sign });
         
-        console.log(`🔑 Odesílám požadavek na vytvoření PINu (${pin})...`);
         const res = await axios.post("https://euapi.ttlock.com/v3/keyboardPwd/add", body.toString(), {
             headers: { "Content-Type": "application/x-www-form-urlencoded" }
         });
 
         if (!res.data.keyboardPwdId) {
-            console.error("❌ TTLock NEVRÁTIL ID PINu. CHYBOVÁ ODPOVĚĎ TTLOCK:", JSON.stringify(res.data));
+            console.error("❌ TTLock NEVRÁTIL ID PINu:", JSON.stringify(res.data));
             return null;
         }
         console.log(`✅ PIN vytvořen (ID: ${res.data.keyboardPwdId}).`);
@@ -262,8 +268,9 @@ app.post("/reserve-range", async (req, res) => {
         await newRes.save();
         console.log("💾 Rezervace uložena do DB.");
         
-        // Odeslání emailu
-        await sendReservationEmail({ startDate, endDate, time, name, email, passcode: result.pin });
+        // Odeslání emailu BEZ await (na pozadí), aby klient nečekal
+        sendReservationEmail({ startDate, endDate, time, name, email, passcode: result.pin })
+            .catch(err => console.error("⚠️ Email chyba (na pozadí):", err));
 
         res.json({ success: true, pin: result.pin });
 
@@ -293,7 +300,6 @@ app.get("/admin/reservations", checkAdminPassword, async (req, res) => {
     }
 });
 
-// Ruční archivace
 app.post("/admin/reservations/:id/archive", checkAdminPassword, async (req, res) => {
     const id = req.params.id;
     try {
@@ -305,7 +311,6 @@ app.post("/admin/reservations/:id/archive", checkAdminPassword, async (req, res)
             await deletePinFromLock(reservation.keyboardPwdId);
             reservation.keyboardPwdId = null;
             await reservation.save();
-            console.log(`✅ Rezervace ${id} přesunuta do archivu.`);
         }
         res.json({ success: true });
     } catch (err) { 
@@ -314,7 +319,6 @@ app.post("/admin/reservations/:id/archive", checkAdminPassword, async (req, res)
     }
 });
 
-// Trvalé smazání
 app.delete("/admin/reservations/:id", checkAdminPassword, async (req, res) => {
     const id = req.params.id;
     try {
@@ -327,7 +331,6 @@ app.delete("/admin/reservations/:id", checkAdminPassword, async (req, res) => {
         }
         
         await Reservation.findByIdAndDelete(id);
-        console.log(`🗑️ Rezervace ${id} trvale smazána z DB.`);
         res.json({ success: true });
     } catch (err) { 
         console.error("❌ Chyba při trvalém mazání jedné rezervace:", err); 
@@ -335,7 +338,6 @@ app.delete("/admin/reservations/:id", checkAdminPassword, async (req, res) => {
     }
 });
 
-// Hromadné smazání
 app.delete("/admin/reservations/bulk", checkAdminPassword, async (req, res) => {
     const { ids } = req.body;
     if (!Array.isArray(ids) || ids.length === 0) {
@@ -366,7 +368,7 @@ app.delete("/admin/reservations/bulk", checkAdminPassword, async (req, res) => {
     }
 });
 
-// AUTOMATICKÁ SPRÁVA (ARCHIVACE)
+// AUTOMATICKÁ SPRÁVA
 setInterval(async () => {
     try {
         const now = Date.now();
