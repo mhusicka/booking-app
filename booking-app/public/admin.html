@@ -9,25 +9,23 @@
     <style>
         .admin-box { max-width: 1100px; margin: 40px auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
         .login-screen { text-align: center; margin-top: 50px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.9rem; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9rem; margin-bottom: 30px; }
         th, td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; }
         th { background: #f9f9f9; color: #bfa37c; text-transform: uppercase; font-size: 0.8rem; }
         tr:hover { background: #fafafa; }
+        h3.section-title { border-bottom: 2px solid #ddd; padding-bottom: 10px; margin-top: 40px; color: #444; }
+        h3.active-title { border-color: #28a745; color: #28a745; }
+        h3.archive-title { border-color: #999; color: #999; }
         .btn-delete { background: #ffcccc; color: #a00; border: none; padding: 5px 10px; cursor: pointer; border-radius: 4px; font-weight: bold; }
         .btn-delete:hover { background: #cc0000; color: white; }
         .info-row { display: flex; gap: 20px; align-items: center; margin-bottom: 20px; justify-content: space-between; }
         .pin-cell { color: #28a745; font-weight: bold; font-family: monospace; font-size: 1.1rem; }
-        .pin-missing { color: #ccc; }
-        
-        /* Styly pro formulář v adminu */
+        .pin-inactive { color: #999; text-decoration: line-through; }
         .create-form { background: #f8f9fa; padding: 20px; border-radius: 6px; border: 1px solid #eee; margin-bottom: 30px; }
-        .create-form h3 { margin-top: 0; color: #333; font-size: 1.1rem; border-bottom: 2px solid #bfa37c; display: inline-block; padding-bottom: 5px; margin-bottom: 15px; }
         .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; }
-        .full-width { grid-column: 1 / -1; }
     </style>
 </head>
 <body>
-
     <div id="login-section" class="main-container login-screen">
         <h1>Administrace</h1>
         <div class="form-group" style="max-width: 300px; margin: 0 auto;">
@@ -36,171 +34,79 @@
             <button onclick="login()" class="btn-pay" style="margin-top:10px;">Vstoupit</button>
         </div>
     </div>
-
     <div id="data-section" class="admin-box" style="display:none;">
-        
         <div class="info-row">
             <h2>Správa Rezervací</h2>
             <div>
-                <button onclick="loadReservations()" class="btn-small" style="display:inline-block; margin-right:10px;">Obnovit data</button>
+                <button onclick="loadReservations()" class="btn-small">Obnovit data</button>
                 <button onclick="logout()" class="btn-small" style="background:#ddd;">Odhlásit</button>
             </div>
         </div>
-
         <div class="create-form">
-            <h3>+ Nová rezervace (Bez platby)</h3>
+            <h3>+ Nová rezervace (Admin)</h3>
             <div class="form-grid">
-                <div>
-                    <label>Od:</label>
-                    <input type="date" id="admin-start">
-                </div>
-                <div>
-                    <label>Do:</label>
-                    <input type="date" id="admin-end">
-                </div>
-                <div>
-                    <label>Čas:</label>
-                    <input type="time" id="admin-time" value="09:00">
-                </div>
-                <div>
-                    <label>Jméno:</label>
-                    <input type="text" id="admin-name" placeholder="Jméno Zákazníka">
-                </div>
-                <div>
-                    <label>Email:</label>
-                    <input type="email" id="admin-email" placeholder="email@zakaznik.cz">
-                </div>
-                <div>
-                    <label>Telefon:</label>
-                    <input type="tel" id="admin-phone" value="+420 ">
-                </div>
+                <div><label>Od:</label><input type="date" id="admin-start"></div>
+                <div><label>Do:</label><input type="date" id="admin-end"></div>
+                <div><label>Čas:</label><input type="time" id="admin-time" value="09:00"></div>
+                <div><label>Jméno:</label><input type="text" id="admin-name"></div>
+                <div><label>Email:</label><input type="email" id="admin-email"></div>
+                <div><label>Telefon:</label><input type="tel" id="admin-phone" value="+420 "></div>
             </div>
-            <button onclick="createAdminReservation()" class="btn-pay" style="margin-top: 15px; width: auto; padding: 10px 30px;">Vytvořit rezervaci a PIN</button>
+            <button onclick="createAdminReservation()" class="btn-pay" style="margin-top: 15px; width: auto;">Vytvořit</button>
         </div>
-
-        <h3>Seznam existujících rezervací</h3>
+        <h3 class="section-title active-title">🟢 Aktuální a Budoucí</h3>
         <table>
-            <thead>
-                <tr>
-                    <th>Termín</th>
-                    <th>PIN Kód</th> 
-                    <th>Jméno</th>
-                    <th>Kontakt</th>
-                    <th>Vytvořeno</th>
-                    <th>Akce</th>
-                </tr>
-            </thead>
-            <tbody id="table-body">
-                </tbody>
+            <thead><tr><th>Termín</th><th>PIN</th><th>Jméno</th><th>Kontakt</th><th>Akce</th></tr></thead>
+            <tbody id="table-body-active"></tbody>
+        </table>
+        <h3 class="section-title archive-title">📂 Archiv</h3>
+        <table>
+            <thead><tr><th>Termín</th><th>Stav PINu</th><th>Jméno</th><th>Kontakt</th><th>Akce</th></tr></thead>
+            <tbody id="table-body-archive"></tbody>
         </table>
     </div>
-
     <script>
         const API_BASE = ""; 
-
-        // --- PŘIHLÁŠENÍ ---
         function login() {
             const password = document.getElementById("admin-pass").value;
-            if (!password) { alert("Zadejte heslo"); return; }
-            // Zkusíme načíst data pro ověření hesla
             loadReservations(password);
         }
-
-        // --- NAČTENÍ REZERVACÍ ---
         async function loadReservations(pwd = null) {
-            // Pokud nepředáme heslo, zkusíme ho vzít z localStorage nebo inputu
-            const password = pwd || localStorage.getItem("adminPass") || document.getElementById("admin-pass").value;
-
+            const password = pwd || localStorage.getItem("adminPass");
             try {
-                const res = await fetch(`${API_BASE}/admin/reservations`, {
-                    headers: { "x-admin-password": password }
-                });
-
-                if (res.status === 403) {
-                    alert("Špatné heslo!");
-                    return;
-                }
-
+                const res = await fetch(`${API_BASE}/admin/reservations`, { headers: { "x-admin-password": password } });
+                if (res.status === 403) { alert("Špatné heslo!"); return; }
                 const data = await res.json();
-                renderTable(data);
-                
-                // Přepnutí obrazovky
+                renderTables(data);
                 document.getElementById("login-section").style.display = "none";
                 document.getElementById("data-section").style.display = "block";
-                
-                // Uložení hesla pro příště
                 localStorage.setItem("adminPass", password);
-                
-                // Inicializace validace pro admin telefon
-                initAdminPhone();
-
-            } catch (e) {
-                console.error(e);
-                alert("Chyba spojení se serverem.");
-            }
+                const p = document.getElementById("admin-phone");
+                if (p && !p.value) p.value = "+420 ";
+            } catch (e) { console.error(e); }
         }
-
-        // --- VYKRESLENÍ TABULKY ---
-        function renderTable(data) {
-            const tbody = document.getElementById("table-body");
-            tbody.innerHTML = "";
-
-            if (data.length === 0) {
-                tbody.innerHTML = "<tr><td colspan='6' style='text-align:center'>Žádné rezervace</td></tr>";
-                return;
-            }
-
-            // Seřadíme data (nejnovější nahoře, nebo podle data rezervace)
-            // Server už to posílá seřazené, ale můžeme to otočit, aby nové byly nahoře?
-            // Necháme jak posílá server (podle startDate).
-
+        function renderTables(data) {
+            const activeBody = document.getElementById("table-body-active");
+            const archiveBody = document.getElementById("table-body-archive");
+            activeBody.innerHTML = ""; archiveBody.innerHTML = "";
+            if (data.length === 0) return;
+            data.sort((a, b) => new Date(b.startDate) - new Date(a.startDate)); // Od nejnovějších
             data.forEach(r => {
-                const tr = document.createElement("tr");
                 const start = new Date(r.startDate).toLocaleDateString("cs-CZ");
                 const end = new Date(r.endDate).toLocaleDateString("cs-CZ");
-                const created = new Date(r.created).toLocaleString("cs-CZ");
-                
-                let dateStr = `${start} (${r.time})`;
-                if (r.startDate !== r.endDate) {
-                    dateStr = `${start} – ${end} (${r.time})`;
-                }
-
-                const pinHtml = r.passcode 
-                    ? `<span class="pin-cell">${r.passcode}</span>` 
-                    : `<span class="pin-missing">-</span>`;
-
-                tr.innerHTML = `
-                    <td><strong>${dateStr}</strong></td>
-                    <td>${pinHtml}</td>
-                    <td>${r.name}</td>
-                    <td>${r.phone}<br><small>${r.email}</small></td>
-                    <td><small>${created}</small></td>
-                    <td>
-                        <button class="btn-delete" onclick="deleteReservation('${r._id}')">SMAZAT</button>
-                    </td>
-                `;
-                tbody.appendChild(tr);
+                let dateStr = r.startDate !== r.endDate ? `${start} – ${end} (${r.time})` : `${start} (${r.time})`;
+                const tr = document.createElement("tr");
+                let pinHtml = r.keyboardPwdId ? `<span class="pin-cell">${r.passcode}</span>` : `<span class="pin-inactive">${r.passcode} (Vypršel)</span>`;
+                tr.innerHTML = `<td><strong>${dateStr}</strong></td><td>${pinHtml}</td><td>${r.name}</td><td>${r.phone}<br><small>${r.email}</small></td><td><button class="btn-delete" onclick="deleteReservation('${r._id}')">SMAZAT</button></td>`;
+                if (!r.keyboardPwdId) archiveBody.appendChild(tr);
+                else activeBody.appendChild(tr);
             });
         }
-
-        // --- SMAZÁNÍ REZERVACE ---
         async function deleteReservation(id) {
-            if (!confirm("Opravdu chcete tuto rezervaci trvale smazat? Smaže se i PIN ze zámku.")) return;
-            const password = localStorage.getItem("adminPass");
-            try {
-                const res = await fetch(`${API_BASE}/admin/reservations/${id}`, {
-                    method: "DELETE",
-                    headers: { "x-admin-password": password }
-                });
-                if (res.ok) {
-                    loadReservations(); 
-                } else {
-                    alert("Chyba při mazání.");
-                }
-            } catch (e) { alert("Chyba serveru."); }
+            if (!confirm("Trvale smazat?")) return;
+            const res = await fetch(`${API_BASE}/admin/reservations/${id}`, { method: "DELETE", headers: { "x-admin-password": localStorage.getItem("adminPass") } });
+            if (res.ok) loadReservations();
         }
-
-        // --- NOVÉ: RUČNÍ VYTVOŘENÍ REZERVACE (ADMIN) ---
         async function createAdminReservation() {
             const startDate = document.getElementById("admin-start").value;
             const endDate = document.getElementById("admin-end").value;
@@ -208,81 +114,17 @@
             const name = document.getElementById("admin-name").value;
             const email = document.getElementById("admin-email").value;
             const phone = document.getElementById("admin-phone").value;
-
-            if (!startDate || !endDate || !time || !name || !email || !phone) {
-                alert("Vyplňte prosím všechna pole.");
-                return;
-            }
-
-            // Validace emailu
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (!emailRegex.test(email)) {
-                alert("Neplatný formát emailu.");
-                return;
-            }
-
-            if (!confirm(`Vytvořit rezervaci pro ${name}?\nTermín: ${startDate} až ${endDate}`)) return;
-
-            try {
-                // Voláme stejný endpoint jako veřejný web -> vytvoří rezervaci + PIN
-                const res = await fetch(`${API_BASE}/reserve-range`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ startDate, endDate, time, name, email, phone })
-                });
-
-                const result = await res.json();
-
-                if (result.success) {
-                    alert(`✅ Hotovo!\nPIN kód: ${result.pin}\nRezervace byla uložena.`);
-                    // Vyčistit formulář
-                    document.getElementById("admin-name").value = "";
-                    document.getElementById("admin-email").value = "";
-                    document.getElementById("admin-phone").value = "+420 ";
-                    // Obnovit tabulku
-                    loadReservations();
-                } else {
-                    alert("Chyba: " + (result.error || "Neznámá chyba"));
-                }
-            } catch (e) {
-                console.error(e);
-                alert("Chyba komunikace se serverem.");
-            }
-        }
-
-        // --- POMOCNÉ FUNKCE (VALIDACE TELEFONU) ---
-        function initAdminPhone() {
-            const phoneInput = document.getElementById("admin-phone");
-            if (!phoneInput) return;
-
-            // Automatické +420 pokud je prázdné
-            if (!phoneInput.value) phoneInput.value = "+420 ";
-
-            // Povolit jen čísla, +, mezeru
-            phoneInput.addEventListener("input", function(e) {
-                this.value = this.value.replace(/[^0-9+\s]/g, '');
+            if (!name) { alert("Vyplňte údaje"); return; }
+            const res = await fetch(`${API_BASE}/reserve-range`, {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ startDate, endDate, time, name, email, phone })
             });
-
-            phoneInput.addEventListener("blur", function() {
-                 if (this.value.trim() === "" || this.value.trim() === "+") {
-                     this.value = "+420 ";
-                 }
-            });
+            const result = await res.json();
+            if (result.success) { alert(`PIN: ${result.pin}`); loadReservations(); }
+            else alert(result.error);
         }
-
-        function logout() {
-            localStorage.removeItem("adminPass");
-            location.reload();
-        }
-
-        // Auto-start
-        window.onload = () => {
-            const saved = localStorage.getItem("adminPass");
-            if (saved) {
-                document.getElementById("admin-pass").value = saved;
-                loadReservations(saved);
-            }
-        };
+        function logout() { localStorage.removeItem("adminPass"); location.reload(); }
+        window.onload = () => { if(localStorage.getItem("adminPass")) loadReservations(); };
     </script>
 </body>
 </html>
