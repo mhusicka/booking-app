@@ -7,7 +7,7 @@ const axios = require("axios");
 const crypto = require("crypto");
 const { URLSearchParams } = require("url");
 const path = require("path");
-// const nodemailer = require("nodemailer"); // DEAKTIVACE EMAILU
+const nodemailer = require("nodemailer"); // ZAPNUTO
 
 const app = express();
 app.use(cors());
@@ -29,6 +29,17 @@ const TTLOCK_CLIENT_SECRET = process.env.TTLOCK_CLIENT_SECRET;
 const TTLOCK_USERNAME = process.env.TTLOCK_USERNAME;
 const TTLOCK_PASSWORD = process.env.TTLOCK_PASSWORD;
 const MY_LOCK_ID = parseInt(process.env.MY_LOCK_ID);
+
+// Konfigurace Emailu (Wedos)
+const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: parseInt(process.env.SMTP_PORT) || 465,
+    secure: true, // true pro port 465, false pro ostatní
+    auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS
+    }
+});
 
 // ===== DB =====
 mongoose.connect(MONGO_URI)
@@ -69,9 +80,51 @@ function getRange(from, to) {
     return days;
 }
 
-// E-mailová funkce přeskočena
-async function sendReservationEmail() { 
-    console.log("📨 E-mailová funkce přeskočena (Deaktivováno).");
+function formatDateCz(dateStr) {
+    return new Date(dateStr).toLocaleDateString("cs-CZ");
+}
+
+// Odeslání emailu
+async function sendReservationEmail(data) { 
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+        console.log("⚠️ Email nebyl odeslán: Chybí nastavení SMTP v .env");
+        return;
+    }
+
+    const mailOptions = {
+        from: `"Vozík 24/7" <${process.env.SMTP_USER}>`,
+        to: data.email,
+        subject: "Potvrzení rezervace - Vozík 24/7",
+        html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; padding: 20px; border-radius: 8px;">
+                <h2 style="color: #333; text-align: center;">Rezervace potvrzena ✔</h2>
+                <p>Dobrý den, <strong>${data.name}</strong>,</p>
+                <p>Děkujeme za vaši rezervaci. Níže naleznete přístupové údaje.</p>
+                
+                <div style="background: #f9f9f9; padding: 15px; margin: 20px 0; border-left: 4px solid #bfa37c;">
+                    <p style="margin: 5px 0;"><strong>Termín:</strong> ${formatDateCz(data.startDate)} – ${formatDateCz(data.endDate)}</p>
+                    <p style="margin: 5px 0;"><strong>Čas vyzvednutí:</strong> ${data.time}</p>
+                    <p style="margin: 15px 0 5px 0; font-size: 0.9rem; text-transform: uppercase; color: #666;">Váš PIN k zámku:</p>
+                    <div style="font-size: 24px; font-weight: bold; color: #333; letter-spacing: 2px;">${data.passcode}</div>
+                </div>
+
+                <p><strong>Jak odemknout?</strong><br>
+                1. Probbuďte klávesnici zámku dotykem.<br>
+                2. Zadejte výše uvedený PIN.<br>
+                3. Potvrďte stisknutím tlačítka 🔓 (nebo #).</p>
+                
+                <hr style="border:0; border-top:1px solid #eee; margin: 20px 0;">
+                <p style="font-size: 12px; color: #888; text-align: center;">Případné dotazy směřujte na tento email.</p>
+            </div>
+        `
+    };
+
+    try {
+        await transporter.sendMail(mailOptions);
+        console.log(`📨 Email úspěšně odeslán na: ${data.email}`);
+    } catch (error) {
+        console.error("❌ Chyba při odesílání emailu:", error);
+    }
 }
 
 // --- TTLOCK LOGIKA ---
@@ -171,7 +224,6 @@ async function deletePinFromLock(keyboardPwdId) {
 // ==========================================
 
 app.get("/availability", async (req, res) => {
-    // ... (beze změny)
     try {
         const allReservations = await Reservation.find({}, "startDate endDate");
         let bookedDaysSet = new Set();
@@ -184,7 +236,6 @@ app.get("/availability", async (req, res) => {
 });
 
 app.post("/reserve-range", async (req, res) => {
-    // ... (beze změny)
     console.log("==================================================");
     console.log("📥 Přijat požadavek na novou rezervaci..."); 
     const { startDate, endDate, time, name, email, phone } = req.body;
@@ -211,7 +262,8 @@ app.post("/reserve-range", async (req, res) => {
         await newRes.save();
         console.log("💾 Rezervace uložena do DB.");
         
-        sendReservationEmail(); 
+        // Odeslání emailu
+        await sendReservationEmail({ startDate, endDate, time, name, email, passcode: result.pin });
 
         res.json({ success: true, pin: result.pin });
 
@@ -229,13 +281,11 @@ const checkAdminPassword = (req, res, next) => {
 
 app.get("/admin/reservations", checkAdminPassword, async (req, res) => {
     try {
-        const reservations = await Reservation.find().sort({ created: -1 }); // Seřadit od nejnovější
-        
+        const reservations = await Reservation.find().sort({ created: -1 });
         const indexedReservations = reservations.map((res, index) => ({
             index: index + 1,
             ...res.toObject() 
         }));
-        
         res.json(indexedReservations);
     } catch (err) { 
         console.error("Chyba při získávání rezervací:", err);
@@ -243,9 +293,7 @@ app.get("/admin/reservations", checkAdminPassword, async (req, res) => {
     }
 });
 
-/**
- * NOVÝ ENDPOINT: Ruční archivace (Smazání PINu, ale ponechání v DB)
- */
+// Ruční archivace
 app.post("/admin/reservations/:id/archive", checkAdminPassword, async (req, res) => {
     const id = req.params.id;
     try {
@@ -258,10 +306,7 @@ app.post("/admin/reservations/:id/archive", checkAdminPassword, async (req, res)
             reservation.keyboardPwdId = null;
             await reservation.save();
             console.log(`✅ Rezervace ${id} přesunuta do archivu.`);
-        } else {
-             console.log(`Rezervace ${id} už je v archivu.`);
         }
-        
         res.json({ success: true });
     } catch (err) { 
         console.error("❌ Chyba při ruční archivaci:", err);
@@ -269,23 +314,18 @@ app.post("/admin/reservations/:id/archive", checkAdminPassword, async (req, res)
     }
 });
 
-
-/**
- * UPRAVENÝ ENDPOINT: Smazání jedné rezervace (Trvalé smazání z DB).
- */
+// Trvalé smazání
 app.delete("/admin/reservations/:id", checkAdminPassword, async (req, res) => {
     const id = req.params.id;
     try {
         const reservation = await Reservation.findById(id);
         if (!reservation) return res.status(404).json({ error: "Nenalezeno" });
         
-        // Smaže PIN ze zámku, POUZE pokud je ID aktivní (není archivovaná)
         if (reservation.keyboardPwdId) {
             console.log(`🗑️ Trvalé mazání: Mažu PIN ${reservation.keyboardPwdId} z TTLocku...`);
             await deletePinFromLock(reservation.keyboardPwdId);
         }
         
-        // Trvalé smazání z DB (Ať už je v archivu, nebo aktivní)
         await Reservation.findByIdAndDelete(id);
         console.log(`🗑️ Rezervace ${id} trvale smazána z DB.`);
         res.json({ success: true });
@@ -295,11 +335,7 @@ app.delete("/admin/reservations/:id", checkAdminPassword, async (req, res) => {
     }
 });
 
-
-/**
- * Hromadné smazání rezervací a jejich PINů z TTLocku.
- * Endpoint je určen pouze pro TRVALÉ SMAZÁNÍ (jak z aktivních, tak z archivu).
- */
+// Hromadné smazání
 app.delete("/admin/reservations/bulk", checkAdminPassword, async (req, res) => {
     const { ids } = req.body;
     if (!Array.isArray(ids) || ids.length === 0) {
@@ -319,7 +355,6 @@ app.delete("/admin/reservations/bulk", checkAdminPassword, async (req, res) => {
         }
 
         await Promise.allSettled(pinDeletionPromises);
-        
         const result = await Reservation.deleteMany({ _id: { $in: ids } });
         
         console.log(`✅ Hromadné mazání dokončeno. Smazáno ${result.deletedCount} záznamů z DB.`);
@@ -330,7 +365,6 @@ app.delete("/admin/reservations/bulk", checkAdminPassword, async (req, res) => {
         res.status(500).json({ error: "Chyba serveru" });
     }
 });
-
 
 // AUTOMATICKÁ SPRÁVA (ARCHIVACE)
 setInterval(async () => {
@@ -352,4 +386,3 @@ setInterval(async () => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, "0.0.0.0", () => console.log(`🚀 Server běží na portu ${PORT}`));
-
