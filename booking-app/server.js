@@ -30,21 +30,20 @@ const TTLOCK_USERNAME = process.env.TTLOCK_USERNAME;
 const TTLOCK_PASSWORD = process.env.TTLOCK_PASSWORD;
 const MY_LOCK_ID = parseInt(process.env.MY_LOCK_ID);
 
-// --- OPRAVENÁ KONFIGURACE EMAILU (WEDOS FIX) ---
+// --- KONFIGURACE EMAILU (WEDOS FIX - Port 465 + IPv4) ---
 const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
-    port: parseInt(process.env.SMTP_PORT) || 587,
-    secure: false, // Musí být false pro port 587 (STARTTLS)
+    port: parseInt(process.env.SMTP_PORT) || 465,
+    secure: true, // PRO PORT 465 MUSÍ BÝT TRUE
     auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS
     },
     tls: {
-        rejectUnauthorized: false, // Ignorovat chyby certifikátu
-        ciphers: 'SSLv3'
+        rejectUnauthorized: false // Ignorovat chyby certifikátu
     },
-    family: 4, // DŮLEŽITÉ: Vynutí IPv4 (řeší ETIMEDOUT na Renderu)
-    connectionTimeout: 10000 // Timeout 10 sekund
+    family: 4, // !!! DŮLEŽITÉ: Vynutí IPv4 (řeší Timeout na Renderu) !!!
+    connectionTimeout: 10000 // 10s timeout
 });
 
 // ===== DB =====
@@ -126,7 +125,6 @@ async function sendReservationEmail(data) {
     };
 
     try {
-        await transporter.verify(); // Rychlé ověření spojení před odesláním
         await transporter.sendMail(mailOptions);
         console.log(`📨 Email úspěšně odeslán na: ${data.email}`);
     } catch (error) {
@@ -268,7 +266,7 @@ app.post("/reserve-range", async (req, res) => {
         await newRes.save();
         console.log("💾 Rezervace uložena do DB.");
         
-        // Odeslání emailu BEZ await (na pozadí), aby klient nečekal
+        // Odeslání emailu BEZ await (na pozadí)
         sendReservationEmail({ startDate, endDate, time, name, email, passcode: result.pin })
             .catch(err => console.error("⚠️ Email chyba (na pozadí):", err));
 
@@ -297,6 +295,37 @@ app.get("/admin/reservations", checkAdminPassword, async (req, res) => {
     } catch (err) { 
         console.error("Chyba při získávání rezervací:", err);
         res.status(500).json({ error: "Chyba" }); 
+    }
+});
+
+// !!! DŮLEŽITÉ: Hromadné smazání (/bulk) musí být PŘED smazáním podle ID (/:id) !!!
+app.delete("/admin/reservations/bulk", checkAdminPassword, async (req, res) => {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ error: "Chybný seznam ID." });
+    }
+
+    try {
+        const reservationsToDelete = await Reservation.find({ _id: { $in: ids } });
+        let pinDeletionPromises = [];
+
+        console.log(`🗑️ Zahajuji hromadné TRVALÉ mazání pro ${reservationsToDelete.length} rezervací...`);
+
+        for (const reservation of reservationsToDelete) {
+            if (reservation.keyboardPwdId) {
+                pinDeletionPromises.push(deletePinFromLock(reservation.keyboardPwdId));
+            }
+        }
+
+        await Promise.allSettled(pinDeletionPromises);
+        const result = await Reservation.deleteMany({ _id: { $in: ids } });
+        
+        console.log(`✅ Hromadné mazání dokončeno. Smazáno ${result.deletedCount} záznamů z DB.`);
+        res.json({ success: true, deletedCount: result.deletedCount });
+
+    } catch (err) {
+        console.error("❌ Chyba při hromadném mazání rezervací:", err);
+        res.status(500).json({ error: "Chyba serveru" });
     }
 });
 
@@ -335,36 +364,6 @@ app.delete("/admin/reservations/:id", checkAdminPassword, async (req, res) => {
     } catch (err) { 
         console.error("❌ Chyba při trvalém mazání jedné rezervace:", err); 
         res.status(500).json({ error: "Chyba serveru" }); 
-    }
-});
-
-app.delete("/admin/reservations/bulk", checkAdminPassword, async (req, res) => {
-    const { ids } = req.body;
-    if (!Array.isArray(ids) || ids.length === 0) {
-        return res.status(400).json({ error: "Chybný seznam ID." });
-    }
-
-    try {
-        const reservationsToDelete = await Reservation.find({ _id: { $in: ids } });
-        let pinDeletionPromises = [];
-
-        console.log(`🗑️ Zahajuji hromadné TRVALÉ mazání pro ${reservationsToDelete.length} rezervací...`);
-
-        for (const reservation of reservationsToDelete) {
-            if (reservation.keyboardPwdId) {
-                pinDeletionPromises.push(deletePinFromLock(reservation.keyboardPwdId));
-            }
-        }
-
-        await Promise.allSettled(pinDeletionPromises);
-        const result = await Reservation.deleteMany({ _id: { $in: ids } });
-        
-        console.log(`✅ Hromadné mazání dokončeno. Smazáno ${result.deletedCount} záznamů z DB.`);
-        res.json({ success: true, deletedCount: result.deletedCount });
-
-    } catch (err) {
-        console.error("❌ Chyba při hromadném mazání rezervací:", err);
-        res.status(500).json({ error: "Chyba serveru" });
     }
 });
 
