@@ -9,23 +9,6 @@ const { URLSearchParams } = require("url");
 const path = require("path");
 // const nodemailer = require("nodemailer"); // DEAKTIVACE EMAILU
 
-// =========================================================================
-// 🌎 DIAGNOSTIKA VEŘEJNÉ IP ADRESY SERVERU (PRO WEDOS)
-// !!! Tuto sekci nezapomeňte smazat po získání IP! !!!
-// =========================================================================
-axios.get('https://api.ipify.org?format=json')
-    .then(response => {
-        console.log("=================================================================================");
-        console.log(`🌍 VEŘEJNÁ IP ADRESA SERVERU (Frankfurt): ${response.data.ip}`);
-        console.log("---------------------------------------------------------------------------------");
-        console.log("!!! TUTO SEKCI S ODPOVEDI EMAILEM SMAZAT !!!");
-        console.log("=================================================================================");
-    })
-    .catch(error => {
-        console.error('Nepodařilo se zjistit veřejnou IP adresu:', error.message);
-    });
-// =========================================================================
-
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
@@ -369,3 +352,4 @@ setInterval(async () => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, "0.0.0.0", () => console.log(`🚀 Server běží na portu ${PORT}`));
+
