@@ -9,6 +9,7 @@ let endDate = null;
 let cachedAvailability = []; 
 
 async function init() {
+    // Odstranění zbytečného volání updateCalendar z init()
     await updateCalendar();
     
     // --- OMEZENÍ A PŘEDVYPLNĚNÍ TELEFONU ---
@@ -58,6 +59,7 @@ function changeMonth(delta) {
     renderSingleCalendar();
 }
 
+// Funkce opravená: Odstraněno rekurzivní volání sebe sama
 async function updateCalendar() {
     const wrapper = document.getElementById("calendar-wrapper");
     wrapper.innerHTML = '<div style="text-align:center; padding: 40px; color: #666;">⏳ Načítám dostupnost...</div>';
@@ -68,12 +70,16 @@ async function updateCalendar() {
         renderSingleCalendar();
     } catch (e) { 
         console.error(e);
-        wrapper.innerHTML = `<div style="text-align:center; padding: 30px; color: #d9534f;">⚠️ Chyba načítání.<br><button onclick="updateCalendar()">Zkusit znovu</button></div>`;
+        // Tuto část volání "updateCalendar()" jsme odstranili pro stabilizaci.
+        wrapper.innerHTML = `<div style="text-align:center; padding: 30px; color: #d9534f;">⚠️ Chyba načítání dostupnosti.</div>`;
     }
 }
 
 function renderSingleCalendar() {
     const wrapper = document.getElementById("calendar-wrapper");
+    // Zajištění, že se kalendář nezobrazí v chybovém stavu
+    if (wrapper.innerHTML.includes('Chyba načítání dostupnosti')) return;
+    
     wrapper.innerHTML = "";
     const grid = document.createElement("div");
     grid.className = "days-grid";
