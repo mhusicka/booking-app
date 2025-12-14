@@ -3,11 +3,28 @@ const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
-const axios = require("axios");
+const axios = require("axios"); 
 const crypto = require("crypto");
 const { URLSearchParams } = require("url");
 const path = require("path");
 // const nodemailer = require("nodemailer"); // DEAKTIVACE EMAILU
+
+// =========================================================================
+// 🌎 DIAGNOSTIKA VEŘEJNÉ IP ADRESY SERVERU (PRO WEDOS)
+// !!! Tuto sekci nezapomeňte smazat po získání IP! !!!
+// =========================================================================
+axios.get('https://api.ipify.org?format=json')
+    .then(response => {
+        console.log("=================================================================================");
+        console.log(`🌍 VEŘEJNÁ IP ADRESA SERVERU (Frankfurt): ${response.data.ip}`);
+        console.log("---------------------------------------------------------------------------------");
+        console.log("!!! TUTO SEKCI S ODPOVEDI EMAILEM SMAZAT !!!");
+        console.log("=================================================================================");
+    })
+    .catch(error => {
+        console.error('Nepodařilo se zjistit veřejnou IP adresu:', error.message);
+    });
+// =========================================================================
 
 const app = express();
 app.use(cors());
@@ -86,21 +103,15 @@ async function getTTLockToken() {
         params.append("grant_type", "password");
         params.append("redirect_uri", "https://www.vozik247.cz");
         
-        const tokenStart = Date.now();
         const res = await axios.post("https://euapi.ttlock.com/oauth2/token", params.toString(), {
             headers: { "Content-Type": "application/x-www-form-urlencoded" }
         });
 
-        if (res.data.access_token) {
-            console.log(`✅ Token získán. Trvalo: ${Date.now() - tokenStart}ms`);
-            return res.data.access_token;
-        }
+        if (res.data.access_token) return res.data.access_token;
         throw new Error("Token error: " + JSON.stringify(res.data));
 
     } catch (e) {
-        console.error("❌ CHYBA ZÍSKÁVÁNÍ TOKENU (TTLock):");
-        console.error("   -> Důvod: Pravděpodobně špatné TTLOCK_USERNAME nebo TTLOCK_PASSWORD.");
-        console.error("   -> Chyba:", e.response?.data || e.message);
+        console.error("❌ CHYBA ZÍSKÁVÁNÍ TOKENU (TTLock):", e.response?.data || e.message);
         throw e;
     }
 }
@@ -131,18 +142,15 @@ async function addPinToLock(startStr, endStr, timeStr) {
         const body = new URLSearchParams({ ...params, sign });
         
         console.log(`🔑 Odesílám požadavek na vytvoření PINu (${pin})...`);
-        const pinStart = Date.now();
         const res = await axios.post("https://euapi.ttlock.com/v3/keyboardPwd/add", body.toString(), {
             headers: { "Content-Type": "application/x-www-form-urlencoded" }
         });
 
         if (!res.data.keyboardPwdId) {
-            console.error(`❌ TTLock NEVRÁTIL ID PINu. Trvalo: ${Date.now() - pinStart}ms`);
-            console.error("   -> CHYBOVÁ ODPOVĚĎ TTLOCK:", JSON.stringify(res.data));
-            console.error("   -> Důvod: Pravděpodobně chyba Tokenu (viz log výše) nebo termín rezervace je MIMO povolený rozsah API (např. 90 dní dopředu).");
+            console.error("❌ TTLock NEVRÁTIL ID PINu. CHYBOVÁ ODPOVĚĎ TTLOCK:", JSON.stringify(res.data));
             return null;
         }
-        console.log(`✅ PIN vytvořen (ID: ${res.data.keyboardPwdId}). Trvalo: ${Date.now() - pinStart}ms`);
+        console.log(`✅ PIN vytvořen (ID: ${res.data.keyboardPwdId}).`);
 
         return { pin, keyboardPwdId: res.data.keyboardPwdId };
 
@@ -180,6 +188,7 @@ async function deletePinFromLock(keyboardPwdId) {
 // ==========================================
 
 app.get("/availability", async (req, res) => {
+    // ... (beze změny)
     try {
         const allReservations = await Reservation.find({}, "startDate endDate");
         let bookedDaysSet = new Set();
@@ -192,6 +201,7 @@ app.get("/availability", async (req, res) => {
 });
 
 app.post("/reserve-range", async (req, res) => {
+    // ... (beze změny)
     console.log("==================================================");
     console.log("📥 Přijat požadavek na novou rezervaci..."); 
     const { startDate, endDate, time, name, email, phone } = req.body;
@@ -199,7 +209,6 @@ app.post("/reserve-range", async (req, res) => {
     if (!startDate || !endDate || !time || !name) return res.status(400).json({ error: "Chybí údaje." });
 
     try {
-        // Kontrola kolize
         const all = await Reservation.find(); 
         const newRange = getRange(startDate, endDate);
         for (const r of all) {
@@ -208,11 +217,9 @@ app.post("/reserve-range", async (req, res) => {
                 return res.status(409).json({ error: "Termín je obsazen." }); 
         }
 
-        // --- TTLOCK OPERACE ---
         const result = await addPinToLock(startDate, endDate, time);
         if (!result) return res.status(503).json({ error: "Nepodařilo se vygenerovat PIN." });
 
-        // Uložení do DB
         const newRes = new Reservation({
             startDate, endDate, time, name, email, phone,
             passcode: result.pin,
@@ -221,8 +228,7 @@ app.post("/reserve-range", async (req, res) => {
         await newRes.save();
         console.log("💾 Rezervace uložena do DB.");
         
-        // E-mail se NEVOLÁ
-        // sendReservationEmail(); 
+        sendReservationEmail(); 
 
         res.json({ success: true, pin: result.pin });
 
@@ -238,17 +244,13 @@ const checkAdminPassword = (req, res, next) => {
     next();
 };
 
-/**
- * Zobrazí všechny rezervace seřazené podle data a přidá sekvenční index.
- */
 app.get("/admin/reservations", checkAdminPassword, async (req, res) => {
     try {
-        const reservations = await Reservation.find().sort({ startDate: 1, time: 1 });
+        const reservations = await Reservation.find().sort({ created: -1 }); // Seřadit od nejnovější
         
-        // Přidání sekvenčního indexu pro lepší přehled
         const indexedReservations = reservations.map((res, index) => ({
-            index: index + 1, // Číslování od 1
-            ...res.toObject() // Převod na plain JavaScript objekt
+            index: index + 1,
+            ...res.toObject() 
         }));
         
         res.json(indexedReservations);
@@ -259,30 +261,61 @@ app.get("/admin/reservations", checkAdminPassword, async (req, res) => {
 });
 
 /**
- * Smaže jednu rezervaci a její PIN z TTLocku.
+ * NOVÝ ENDPOINT: Ruční archivace (Smazání PINu, ale ponechání v DB)
  */
-app.delete("/admin/reservations/:id", checkAdminPassword, async (req, res) => {
+app.post("/admin/reservations/:id/archive", checkAdminPassword, async (req, res) => {
+    const id = req.params.id;
     try {
-        const reservation = await Reservation.findById(req.params.id);
+        const reservation = await Reservation.findById(id);
         if (!reservation) return res.status(404).json({ error: "Nenalezeno" });
-        
+
         if (reservation.keyboardPwdId) {
-            console.log(`🗑️ Mažu PIN ${reservation.keyboardPwdId} z TTLocku...`);
+            console.log(`Manual archive: 🗑️ Mažu PIN ${reservation.keyboardPwdId} z TTLocku...`);
             await deletePinFromLock(reservation.keyboardPwdId);
+            reservation.keyboardPwdId = null;
+            await reservation.save();
+            console.log(`✅ Rezervace ${id} přesunuta do archivu.`);
+        } else {
+             console.log(`Rezervace ${id} už je v archivu.`);
         }
         
-        await Reservation.findByIdAndDelete(req.params.id);
-        console.log(`🗑️ Rezervace ${req.params.id} smazána z DB.`);
         res.json({ success: true });
     } catch (err) { 
-        console.error("Chyba při mazání jedné rezervace:", err); 
+        console.error("❌ Chyba při ruční archivaci:", err);
         res.status(500).json({ error: "Chyba serveru" }); 
     }
 });
 
+
+/**
+ * UPRAVENÝ ENDPOINT: Smazání jedné rezervace (Trvalé smazání z DB).
+ */
+app.delete("/admin/reservations/:id", checkAdminPassword, async (req, res) => {
+    const id = req.params.id;
+    try {
+        const reservation = await Reservation.findById(id);
+        if (!reservation) return res.status(404).json({ error: "Nenalezeno" });
+        
+        // Smaže PIN ze zámku, POUZE pokud je ID aktivní (není archivovaná)
+        if (reservation.keyboardPwdId) {
+            console.log(`🗑️ Trvalé mazání: Mažu PIN ${reservation.keyboardPwdId} z TTLocku...`);
+            await deletePinFromLock(reservation.keyboardPwdId);
+        }
+        
+        // Trvalé smazání z DB (Ať už je v archivu, nebo aktivní)
+        await Reservation.findByIdAndDelete(id);
+        console.log(`🗑️ Rezervace ${id} trvale smazána z DB.`);
+        res.json({ success: true });
+    } catch (err) { 
+        console.error("❌ Chyba při trvalém mazání jedné rezervace:", err); 
+        res.status(500).json({ error: "Chyba serveru" }); 
+    }
+});
+
+
 /**
  * Hromadné smazání rezervací a jejich PINů z TTLocku.
- * Očekává pole ID v těle požadavku: { "ids": ["id1", "id2", ...] }
+ * Endpoint je určen pouze pro TRVALÉ SMAZÁNÍ (jak z aktivních, tak z archivu).
  */
 app.delete("/admin/reservations/bulk", checkAdminPassword, async (req, res) => {
     const { ids } = req.body;
@@ -294,27 +327,16 @@ app.delete("/admin/reservations/bulk", checkAdminPassword, async (req, res) => {
         const reservationsToDelete = await Reservation.find({ _id: { $in: ids } });
         let pinDeletionPromises = [];
 
-        console.log(`🗑️ Zahajuji hromadné mazání pro ${reservationsToDelete.length} rezervací...`);
+        console.log(`🗑️ Zahajuji hromadné TRVALÉ mazání pro ${reservationsToDelete.length} rezervací...`);
 
-        // Získání a smazání PINů z TTLocku paralelně
         for (const reservation of reservationsToDelete) {
             if (reservation.keyboardPwdId) {
-                pinDeletionPromises.push(deletePinFromLock(reservation.keyboardPwdId)
-                    .then(success => {
-                        if (success) {
-                            console.log(`   -> PIN ${reservation.keyboardPwdId} úspěšně smazán z TTLock.`);
-                        } else {
-                            console.warn(`   -> PIN ${reservation.keyboardPwdId} se nepodařilo smazat z TTLock (Mohl již být neaktivní).`);
-                        }
-                    })
-                );
+                pinDeletionPromises.push(deletePinFromLock(reservation.keyboardPwdId));
             }
         }
 
-        // Počkáme na dokončení všech TTLock operací
         await Promise.allSettled(pinDeletionPromises);
         
-        // Smazání záznamů z MongoDB
         const result = await Reservation.deleteMany({ _id: { $in: ids } });
         
         console.log(`✅ Hromadné mazání dokončeno. Smazáno ${result.deletedCount} záznamů z DB.`);
