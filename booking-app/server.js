@@ -30,20 +30,22 @@ const TTLOCK_USERNAME = process.env.TTLOCK_USERNAME;
 const TTLOCK_PASSWORD = process.env.TTLOCK_PASSWORD;
 const MY_LOCK_ID = parseInt(process.env.MY_LOCK_ID);
 
-// --- KONFIGURACE EMAILU (WEDOS FIX - Port 465 + IPv4) ---
+// --- KONFIGURACE EMAILU (WEDOS - POKUS O PORT 587) ---
 const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
-    port: parseInt(process.env.SMTP_PORT) || 465,
-    secure: true, // PRO PORT 465 MUSÍ BÝT TRUE
+    port: parseInt(process.env.SMTP_PORT) || 587,
+    secure: false, // Pro port 587 musí být false
     auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS
     },
     tls: {
-        rejectUnauthorized: false // Ignorovat chyby certifikátu
+        ciphers: 'SSLv3', // Často pomáhá u Wedos
+        rejectUnauthorized: false
     },
-    family: 4, // !!! DŮLEŽITÉ: Vynutí IPv4 (řeší Timeout na Renderu) !!!
-    connectionTimeout: 10000 // 10s timeout
+    family: 4, // Vynucení IPv4 (kritické pro Render)
+    debug: true, // Zapne výpis komunikace do konzole
+    logger: true // Zapne logování chyb
 });
 
 // ===== DB =====
@@ -125,10 +127,19 @@ async function sendReservationEmail(data) {
     };
 
     try {
-        await transporter.sendMail(mailOptions);
-        console.log(`📨 Email úspěšně odeslán na: ${data.email}`);
+        // Zkustime verify, abychom viděli chybu v logu hned, ale neblokujeme tím hlavní vlákno dlouho
+        transporter.verify((error, success) => {
+            if (error) {
+                console.error("❌ SMTP Verify chyba:", error);
+            } else {
+                console.log("✅ SMTP Server je připraven.");
+                transporter.sendMail(mailOptions).then(() => {
+                    console.log(`📨 Email úspěšně odeslán na: ${data.email}`);
+                }).catch(err => console.error("❌ Chyba při odesílání (sendMail):", err));
+            }
+        });
     } catch (error) {
-        console.error("❌ Chyba při odesílání emailu:", error.message);
+        console.error("❌ Chyba při inicializaci emailu:", error.message);
     }
 }
 
@@ -267,8 +278,7 @@ app.post("/reserve-range", async (req, res) => {
         console.log("💾 Rezervace uložena do DB.");
         
         // Odeslání emailu BEZ await (na pozadí)
-        sendReservationEmail({ startDate, endDate, time, name, email, passcode: result.pin })
-            .catch(err => console.error("⚠️ Email chyba (na pozadí):", err));
+        sendReservationEmail({ startDate, endDate, time, name, email, passcode: result.pin });
 
         res.json({ success: true, pin: result.pin });
 
@@ -298,7 +308,7 @@ app.get("/admin/reservations", checkAdminPassword, async (req, res) => {
     }
 });
 
-// !!! DŮLEŽITÉ: Hromadné smazání (/bulk) musí být PŘED smazáním podle ID (/:id) !!!
+// !!! HROMADNÉ MAZÁNÍ MUSÍ BÝT PŘED MAZÁNÍM PODLE ID !!!
 app.delete("/admin/reservations/bulk", checkAdminPassword, async (req, res) => {
     const { ids } = req.body;
     if (!Array.isArray(ids) || ids.length === 0) {
