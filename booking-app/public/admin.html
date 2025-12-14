@@ -23,6 +23,8 @@
         .pin-inactive { color: #999; text-decoration: line-through; }
         .create-form { background: #f8f9fa; padding: 20px; border-radius: 6px; border: 1px solid #eee; margin-bottom: 30px; }
         .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; }
+        .select-all-header { text-align: center; }
+        .bulk-action-bar { display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-bottom: 15px; }
     </style>
 </head>
 <body>
@@ -42,6 +44,7 @@
                 <button onclick="logout()" class="btn-small" style="background:#ddd;">Odhlásit</button>
             </div>
         </div>
+        
         <div class="create-form">
             <h3>+ Nová rezervace (Admin)</h3>
             <div class="form-grid">
@@ -54,59 +57,200 @@
             </div>
             <button onclick="createAdminReservation()" class="btn-pay" style="margin-top: 15px; width: auto;">Vytvořit</button>
         </div>
+
+        <div class="bulk-action-bar">
+            <label for="bulk-select">Vybráno (<span id="selected-count">0</span>)</label>
+            <button class="btn-delete" onclick="bulkDelete()" style="padding: 10px;">
+                TRVALE SMAZAT VŠE VYBRANÉ
+            </button>
+        </div>
+
         <h3 class="section-title active-title">🟢 Aktuální a Budoucí</h3>
         <table>
-            <thead><tr><th>Termín</th><th>PIN</th><th>Jméno</th><th>Kontakt</th><th>Akce</th></tr></thead>
+            <thead>
+                <tr>
+                    <th class="select-all-header"><input type="checkbox" id="select-active-all" onclick="toggleAll('active')"></th>
+                    <th>#ID</th>
+                    <th>Termín</th>
+                    <th>PIN</th>
+                    <th>Jméno</th>
+                    <th>Akce</th>
+                </tr>
+            </thead>
             <tbody id="table-body-active"></tbody>
         </table>
+
         <h3 class="section-title archive-title">📂 Archiv</h3>
         <table>
-            <thead><tr><th>Termín</th><th>Stav PINu</th><th>Jméno</th><th>Kontakt</th><th>Akce</th></tr></thead>
+            <thead>
+                <tr>
+                    <th class="select-all-header"><input type="checkbox" id="select-archive-all" onclick="toggleAll('archive')"></th>
+                    <th>#ID</th>
+                    <th>Termín</th>
+                    <th>Stav PINu</th>
+                    <th>Jméno</th>
+                    <th>Akce</th>
+                </tr>
+            </thead>
             <tbody id="table-body-archive"></tbody>
         </table>
     </div>
+
     <script>
         const API_BASE = ""; 
+        let allReservationsData = [];
+        
         function login() {
             const password = document.getElementById("admin-pass").value;
             loadReservations(password);
         }
+
         async function loadReservations(pwd = null) {
             const password = pwd || localStorage.getItem("adminPass");
             try {
                 const res = await fetch(`${API_BASE}/admin/reservations`, { headers: { "x-admin-password": password } });
                 if (res.status === 403) { alert("Špatné heslo!"); return; }
                 const data = await res.json();
+                allReservationsData = data;
                 renderTables(data);
+                
                 document.getElementById("login-section").style.display = "none";
                 document.getElementById("data-section").style.display = "block";
                 localStorage.setItem("adminPass", password);
                 const p = document.getElementById("admin-phone");
                 if (p && !p.value) p.value = "+420 ";
-            } catch (e) { console.error(e); }
+                updateSelectedCount();
+
+            } catch (e) { console.error(e); alert("Chyba spojení."); }
         }
+
         function renderTables(data) {
             const activeBody = document.getElementById("table-body-active");
             const archiveBody = document.getElementById("table-body-archive");
             activeBody.innerHTML = ""; archiveBody.innerHTML = "";
-            if (data.length === 0) return;
-            data.sort((a, b) => new Date(b.startDate) - new Date(a.startDate)); // Od nejnovějších
+            
+            // Seřadit od nejnovější (nová rezervační logika)
+            data.sort((a, b) => new Date(b.created) - new Date(a.created)); 
+
             data.forEach(r => {
                 const start = new Date(r.startDate).toLocaleDateString("cs-CZ");
                 const end = new Date(r.endDate).toLocaleDateString("cs-CZ");
                 let dateStr = r.startDate !== r.endDate ? `${start} – ${end} (${r.time})` : `${start} (${r.time})`;
+
                 const tr = document.createElement("tr");
+                tr.dataset.id = r._id;
+                
                 let pinHtml = r.keyboardPwdId ? `<span class="pin-cell">${r.passcode}</span>` : `<span class="pin-inactive">${r.passcode} (Vypršel)</span>`;
-                tr.innerHTML = `<td><strong>${dateStr}</strong></td><td>${pinHtml}</td><td>${r.name}</td><td>${r.phone}<br><small>${r.email}</small></td><td><button class="btn-delete" onclick="deleteReservation('${r._id}')">SMAZAT</button></td>`;
-                if (!r.keyboardPwdId) archiveBody.appendChild(tr);
-                else activeBody.appendChild(tr);
+                
+                // Určení, zda je rezervace aktivní nebo archivní
+                const isActive = !!r.keyboardPwdId;
+
+                tr.innerHTML = `
+                    <td class="select-cell"><input type="checkbox" data-id="${r._id}" onclick="updateSelectedCount()"></td>
+                    <td>#${r.index}</td>
+                    <td><strong>${dateStr}</strong><br><small>${r.name}</small></td>
+                    <td>${pinHtml}</td>
+                    <td>${r.phone}<br><small>${r.email}</small></td>
+                    <td>
+                        <select onchange="handleAction('${r._id}', this.value)" style="padding: 5px; border-radius: 4px; border: 1px solid #ccc;">
+                            <option value="">-- Vybrat akci --</option>
+                            ${isActive ? '<option value="archive">Přesunout do archivu</option>' : ''}
+                            <option value="delete">TRVALE SMAZAT</option>
+                        </select>
+                    </td>
+                `;
+
+                if (isActive) {
+                    activeBody.appendChild(tr);
+                } else {
+                    archiveBody.appendChild(tr);
+                }
             });
+
+            if (activeBody.innerHTML === "") activeBody.innerHTML = "<tr><td colspan='6' style='text-align:center; color:#999;'>Žádné aktivní rezervace</td></tr>";
+            if (archiveBody.innerHTML === "") archiveBody.innerHTML = "<tr><td colspan='6' style='text-align:center; color:#999;'>Archiv je prázdný</td></tr>";
         }
-        async function deleteReservation(id) {
-            if (!confirm("Trvale smazat?")) return;
-            const res = await fetch(`${API_BASE}/admin/reservations/${id}`, { method: "DELETE", headers: { "x-admin-password": localStorage.getItem("adminPass") } });
-            if (res.ok) loadReservations();
+
+        // --- HROMADNÉ MAZÁNÍ ---
+        function toggleAll(type) {
+            const selectAllCheckbox = document.getElementById(`select-${type}-all`);
+            const targetBody = document.getElementById(`table-body-${type}`);
+            const checkboxes = targetBody.querySelectorAll('input[type="checkbox"]');
+            
+            checkboxes.forEach(cb => cb.checked = selectAllCheckbox.checked);
+            updateSelectedCount();
         }
+
+        function updateSelectedCount() {
+            const selected = document.querySelectorAll('#data-section input[type="checkbox"]:checked:not(#select-active-all):not(#select-archive-all)').length;
+            document.getElementById('selected-count').innerText = selected;
+        }
+
+        async function bulkDelete() {
+            const selectedIds = Array.from(document.querySelectorAll('#data-section input[type="checkbox"]:checked:not(#select-active-all):not(#select-archive-all)')).map(cb => cb.dataset.id);
+
+            if (selectedIds.length === 0) { alert("Není vybrána žádná rezervace!"); return; }
+
+            if (!confirm(`Opravdu chcete TRVALE SMAZAT ${selectedIds.length} rezervací (včetně PINů z TTLock)? Tato akce je nevratná.`)) return;
+
+            const password = localStorage.getItem("adminPass");
+            try {
+                const res = await fetch(`${API_BASE}/admin/reservations/bulk`, {
+                    method: "DELETE",
+                    headers: { "x-admin-password": password, "Content-Type": "application/json" },
+                    body: JSON.stringify({ ids: selectedIds })
+                });
+
+                if (res.ok) {
+                    alert(`✅ ${selectedIds.length} rezervací bylo trvale smazáno.`);
+                    loadReservations();
+                } else {
+                    alert("Chyba při hromadném mazání.");
+                }
+            } catch (e) { alert("Chyba komunikace."); }
+        }
+
+        // --- RUČNÍ AKCE ŘÁDKU ---
+        async function handleAction(id, action) {
+            const password = localStorage.getItem("adminPass");
+            let url = '';
+            let method = '';
+            let confirmMsg = '';
+
+            if (action === 'archive') {
+                url = `${API_BASE}/admin/reservations/${id}/archive`;
+                method = 'POST';
+                confirmMsg = 'Opravdu přesunout do archivu? PIN bude smazán ze zámku.';
+            } else if (action === 'delete') {
+                url = `${API_BASE}/admin/reservations/${id}`;
+                method = 'DELETE';
+                confirmMsg = 'Opravdu TRVALE SMAZAT tuto rezervaci?';
+            } else {
+                return; // Žádná akce
+            }
+
+            if (!confirm(confirmMsg)) {
+                // Vrátíme select zpět na původní hodnotu, pokud uživatel zruší akci
+                document.querySelector(`tr[data-id="${id}"] select`).value = ""; 
+                return;
+            }
+
+            try {
+                const res = await fetch(url, {
+                    method: method,
+                    headers: { "x-admin-password": password, "Content-Type": "application/json" }
+                });
+
+                if (res.ok) {
+                    alert(`✅ Akce "${action}" provedena.`);
+                    loadReservations();
+                } else {
+                    alert(`Chyba při provádění akce: ${res.statusText}`);
+                }
+            } catch (e) { alert("Chyba komunikace."); }
+        }
+
+        // --- FUNKCE PRO RUČNÍ REZERVACI (Stejné jako dříve) ---
         async function createAdminReservation() {
             const startDate = document.getElementById("admin-start").value;
             const endDate = document.getElementById("admin-end").value;
@@ -114,17 +258,29 @@
             const name = document.getElementById("admin-name").value;
             const email = document.getElementById("admin-email").value;
             const phone = document.getElementById("admin-phone").value;
-            if (!name) { alert("Vyplňte údaje"); return; }
-            const res = await fetch(`${API_BASE}/reserve-range`, {
-                method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ startDate, endDate, time, name, email, phone })
-            });
-            const result = await res.json();
-            if (result.success) { alert(`PIN: ${result.pin}`); loadReservations(); }
-            else alert(result.error);
+
+            if (!startDate || !endDate || !time || !name || !email || !phone) { alert("Vyplňte vše."); return; }
+            if (!confirm(`Vytvořit rezervaci pro ${name}?`)) return;
+
+            try {
+                const res = await fetch(`${API_BASE}/reserve-range`, {
+                    method: "POST", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ startDate, endDate, time, name, email, phone })
+                });
+                const result = await res.json();
+                if (result.success) {
+                    alert(`✅ Hotovo! PIN: ${result.pin}`);
+                    loadReservations();
+                } else { alert("Chyba: " + result.error); }
+            } catch (e) { alert("Chyba komunikace."); }
         }
+
         function logout() { localStorage.removeItem("adminPass"); location.reload(); }
-        window.onload = () => { if(localStorage.getItem("adminPass")) loadReservations(); };
+        
+        window.onload = () => {
+            const saved = localStorage.getItem("adminPass");
+            if (saved) { document.getElementById("admin-pass").value = saved; loadReservations(saved); }
+        };
     </script>
 </body>
 </html>
