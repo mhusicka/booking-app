@@ -16,8 +16,16 @@
         h3.section-title { border-bottom: 2px solid #ddd; padding-bottom: 10px; margin-top: 40px; color: #444; }
         h3.active-title { border-color: #28a745; color: #28a745; }
         h3.archive-title { border-color: #999; color: #999; }
+        
         .btn-delete { background: #ffcccc; color: #a00; border: none; padding: 5px 10px; cursor: pointer; border-radius: 4px; font-weight: bold; }
         .btn-delete:hover { background: #cc0000; color: white; }
+        
+        /* Styl pro akce v tabulce */
+        .action-group { display: flex; gap: 5px; align-items: center; }
+        .action-select { padding: 5px; border-radius: 4px; border: 1px solid #ccc; font-size: 0.85rem; }
+        .btn-execute { background: #333; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 4px; font-size: 0.85rem; }
+        .btn-execute:hover { background: #bfa37c; }
+
         .info-row { display: flex; gap: 20px; align-items: center; margin-bottom: 20px; justify-content: space-between; }
         .pin-cell { color: #28a745; font-weight: bold; font-family: monospace; font-size: 1.1rem; }
         .pin-inactive { color: #999; text-decoration: line-through; }
@@ -129,7 +137,6 @@
             const archiveBody = document.getElementById("table-body-archive");
             activeBody.innerHTML = ""; archiveBody.innerHTML = "";
             
-            // Seřadit od nejnovější (nová rezervační logika)
             data.sort((a, b) => new Date(b.created) - new Date(a.created)); 
 
             data.forEach(r => {
@@ -142,8 +149,19 @@
                 
                 let pinHtml = r.keyboardPwdId ? `<span class="pin-cell">${r.passcode}</span>` : `<span class="pin-inactive">${r.passcode} (Vypršel)</span>`;
                 
-                // Určení, zda je rezervace aktivní nebo archivní
                 const isActive = !!r.keyboardPwdId;
+
+                // Vytvoření HTML pro výběr akce a tlačítko provést
+                const actionHtml = `
+                    <div class="action-group">
+                        <select id="action-select-${r._id}" class="action-select">
+                            <option value="">-- Vybrat --</option>
+                            ${isActive ? '<option value="archive">Archivovat</option>' : ''}
+                            <option value="delete">Smazat</option>
+                        </select>
+                        <button onclick="executeAction('${r._id}')" class="btn-execute">Provést</button>
+                    </div>
+                `;
 
                 tr.innerHTML = `
                     <td class="select-cell"><input type="checkbox" data-id="${r._id}" onclick="updateSelectedCount()"></td>
@@ -151,13 +169,7 @@
                     <td><strong>${dateStr}</strong><br><small>${r.name}</small></td>
                     <td>${pinHtml}</td>
                     <td>${r.phone}<br><small>${r.email}</small></td>
-                    <td>
-                        <select onchange="handleAction('${r._id}', this.value)" style="padding: 5px; border-radius: 4px; border: 1px solid #ccc;">
-                            <option value="">-- Vybrat akci --</option>
-                            ${isActive ? '<option value="archive">Přesunout do archivu</option>' : ''}
-                            <option value="delete">TRVALE SMAZAT</option>
-                        </select>
-                    </td>
+                    <td>${actionHtml}</td>
                 `;
 
                 if (isActive) {
@@ -210,8 +222,16 @@
             } catch (e) { alert("Chyba komunikace."); }
         }
 
-        // --- RUČNÍ AKCE ŘÁDKU ---
-        async function handleAction(id, action) {
+        // --- RUČNÍ AKCE ŘÁDKU (NOVÁ LOGIKA) ---
+        async function executeAction(id) {
+            const selectEl = document.getElementById(`action-select-${id}`);
+            const action = selectEl.value;
+
+            if (!action) {
+                alert("Prosím vyberte akci.");
+                return;
+            }
+
             const password = localStorage.getItem("adminPass");
             let url = '';
             let method = '';
@@ -225,15 +245,9 @@
                 url = `${API_BASE}/admin/reservations/${id}`;
                 method = 'DELETE';
                 confirmMsg = 'Opravdu TRVALE SMAZAT tuto rezervaci?';
-            } else {
-                return; // Žádná akce
             }
 
-            if (!confirm(confirmMsg)) {
-                // Vrátíme select zpět na původní hodnotu, pokud uživatel zruší akci
-                document.querySelector(`tr[data-id="${id}"] select`).value = ""; 
-                return;
-            }
+            if (!confirm(confirmMsg)) return;
 
             try {
                 const res = await fetch(url, {
@@ -242,7 +256,7 @@
                 });
 
                 if (res.ok) {
-                    alert(`✅ Akce "${action}" provedena.`);
+                    alert(`✅ Akce provedena.`);
                     loadReservations();
                 } else {
                     alert(`Chyba při provádění akce: ${res.statusText}`);
@@ -250,7 +264,7 @@
             } catch (e) { alert("Chyba komunikace."); }
         }
 
-        // --- FUNKCE PRO RUČNÍ REZERVACI (Stejné jako dříve) ---
+        // --- FUNKCE PRO RUČNÍ REZERVACI ---
         async function createAdminReservation() {
             const startDate = document.getElementById("admin-start").value;
             const endDate = document.getElementById("admin-end").value;
