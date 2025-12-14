@@ -7,7 +7,6 @@ const axios = require("axios");
 const crypto = require("crypto");
 const { URLSearchParams } = require("url");
 const path = require("path");
-const nodemailer = require("nodemailer"); 
 
 const app = express();
 app.use(cors());
@@ -29,22 +28,6 @@ const TTLOCK_CLIENT_SECRET = process.env.TTLOCK_CLIENT_SECRET;
 const TTLOCK_USERNAME = process.env.TTLOCK_USERNAME;
 const TTLOCK_PASSWORD = process.env.TTLOCK_PASSWORD;
 const MY_LOCK_ID = parseInt(process.env.MY_LOCK_ID);
-
-// --- KONFIGURACE EMAILU (BREVO / RELAY) ---
-const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || "smtp-relay.brevo.com",
-    port: parseInt(process.env.SMTP_PORT) || 2525, // Port 2525 je na cloudu nejspolehlivější
-    secure: false, // Pro port 2525/587 musí být false
-    auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS
-    },
-    tls: {
-        rejectUnauthorized: false
-    },
-    connectionTimeout: 10000, 
-    debug: true
-});
 
 // ===== DB =====
 mongoose.connect(MONGO_URI)
@@ -89,22 +72,24 @@ function formatDateCz(dateStr) {
     return new Date(dateStr).toLocaleDateString("cs-CZ");
 }
 
-// Odeslání emailu
+// --- ODESÍLÁNÍ EMAILU PŘES BREVO API (HTTP) ---
+// Toto řešení obchází blokované SMTP porty na hostingu
 async function sendReservationEmail(data) { 
-    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-        console.log("⚠️ Email neodeslán: Chybí nastavení SMTP v .env");
+    const apiKey = process.env.BREVO_API_KEY;
+    
+    if (!apiKey) {
+        console.log("⚠️ Email neodeslán: Chybí BREVO_API_KEY v .env");
         return;
     }
 
-    // Nastavení odesílatele - bere z .env nebo použije výchozí
     const senderEmail = process.env.SENDER_EMAIL || "info@vozik247.cz";
-    const sender = `"Vozík 24/7" <${senderEmail}>`;
-
-    const mailOptions = {
-        from: sender,
-        to: data.email,
+    
+    // Tělo emailu
+    const emailData = {
+        sender: { name: "Vozík 24/7", email: senderEmail },
+        to: [{ email: data.email, name: data.name }],
         subject: "Potvrzení rezervace - Vozík 24/7",
-        html: `
+        htmlContent: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; padding: 20px; border-radius: 8px;">
                 <h2 style="color: #333; text-align: center;">Rezervace potvrzena ✔</h2>
                 <p>Dobrý den, <strong>${data.name}</strong>,</p>
@@ -129,10 +114,16 @@ async function sendReservationEmail(data) {
     };
 
     try {
-        await transporter.sendMail(mailOptions);
-        console.log(`📨 Email úspěšně odeslán na: ${data.email} (Odesílatel: ${sender})`);
+        await axios.post("https://api.brevo.com/v3/smtp/email", emailData, {
+            headers: {
+                "api-key": apiKey,
+                "Content-Type": "application/json",
+                "accept": "application/json"
+            }
+        });
+        console.log(`📨 Email úspěšně odeslán (přes API) na: ${data.email}`);
     } catch (error) {
-        console.error("❌ Chyba při odesílání emailu:", error.message);
+        console.error("❌ Chyba při odesílání emailu (API):", error.response?.data || error.message);
     }
 }
 
@@ -270,9 +261,8 @@ app.post("/reserve-range", async (req, res) => {
         await newRes.save();
         console.log("💾 Rezervace uložena do DB.");
         
-        // Odeslání emailu BEZ await (na pozadí)
-        sendReservationEmail({ startDate, endDate, time, name, email, passcode: result.pin })
-            .catch(err => console.error("⚠️ Email chyba (na pozadí):", err));
+        // Odeslání emailu (bez čekání)
+        sendReservationEmail({ startDate, endDate, time, name, email, passcode: result.pin });
 
         res.json({ success: true, pin: result.pin });
 
