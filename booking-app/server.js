@@ -13,18 +13,12 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
-// ==========================================
-// 1. ZPŘÍSTUPNĚNÍ WEBU
-// ==========================================
 app.use(express.static(path.join(__dirname, 'public')));
-
 app.get('/admin', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
-// ==========================================
-// 2. KONFIGURACE
-// ==========================================
+// KONFIGURACE
 const MONGO_URI = process.env.MONGO_URI;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 
@@ -34,42 +28,24 @@ const TTLOCK_USERNAME = process.env.TTLOCK_USERNAME;
 const TTLOCK_PASSWORD = process.env.TTLOCK_PASSWORD;
 const MY_LOCK_ID = parseInt(process.env.MY_LOCK_ID);
 
-// --- NASTAVENÍ EMAILU (Upravený port 587 pro Wedos) ---
+// NASTAVENÍ EMAILU
 const SMTP_HOST = process.env.SMTP_HOST || "smtp.wedos.net";
 const SMTP_USER = process.env.SMTP_USER || "info@vozik247.cz";
 const SMTP_PASS = process.env.SMTP_PASS;
 
-if (!SMTP_PASS) {
-    console.error("❌ VAROVÁNÍ: Chybí heslo k emailu (SMTP_PASS) v nastavení Renderu!");
-}
-
 const transporter = nodemailer.createTransport({
     host: SMTP_HOST,
-    port: 587,         // ZMĚNA: Port 587 je pro STARTTLS
-    secure: false,     // ZMĚNA: false znamená "použij STARTTLS", ne přímé SSL
+    port: 587,
+    secure: false, // TLS
     auth: {
         user: SMTP_USER,
         pass: SMTP_PASS,
     },
-    tls: {
-        // Toto pomáhá, pokud má server problém s certifikátem
-        rejectUnauthorized: false
-    },
-    // Diagnostika
+    tls: { rejectUnauthorized: false }, // Pomocník pro certifikáty
     logger: true,
     debug: true 
 });
 
-// Ověření spojení při startu
-transporter.verify(function (error, success) {
-    if (error) {
-        console.error("❌ CHYBA SMTP PŘI STARTU:", error);
-    } else {
-        console.log("✅ SMTP server je připraven (Port 587).");
-    }
-});
-
-// ===== DB =====
 mongoose.connect(MONGO_URI)
     .then(() => console.log("✅ DB připojena"))
     .catch(err => console.error("❌ Chyba DB:", err));
@@ -82,14 +58,12 @@ const ReservationSchema = new mongoose.Schema({
     email: String,
     phone: String,
     passcode: String,
-    keyboardPwdId: Number,
+    keyboardPwdId: Number, // Pokud je null, je to archivovaná rezervace
     created: { type: Date, default: Date.now }
 });
 const Reservation = mongoose.model("Reservation", ReservationSchema);
 
-// ==========================================
-// 3. HELPER FUNKCE
-// ==========================================
+// HELPER FUNKCE
 function hashPassword(password) {
     return crypto.createHash("md5").update(password).digest("hex");
 }
@@ -112,7 +86,6 @@ function formatCzDate(isoDateStr) {
     return new Date(isoDateStr).toLocaleDateString("cs-CZ");
 }
 
-// --- FUNKCE PRO ODESLÁNÍ EMAILU ---
 async function sendReservationEmail(toEmail, pin, start, end, time) {
     console.log(`📨 Zahajuji odesílání emailu na: ${toEmail}`);
     try {
@@ -130,33 +103,24 @@ async function sendReservationEmail(toEmail, pin, start, end, time) {
                         <p style="margin: 0; font-size: 14px; color: #666;">Váš přístupový kód (PIN):</p>
                         <p style="margin: 5px 0; font-size: 32px; font-weight: bold; color: #333; letter-spacing: 2px;">${pin}</p>
                     </div>
-
                     <h3>Detaily rezervace:</h3>
                     <ul>
                         <li><strong>Vyzvednutí:</strong> ${formatCzDate(start)} v ${time}</li>
                         <li><strong>Vrácení:</strong> ${formatCzDate(end)} v ${time}</li>
                     </ul>
-
                     <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-                    
-                    <p style="font-size: 12px; color: #888;">
-                        Při vyzvednutí zadejte PIN na klávesnici zámku a zmáčkněte křížek nebo zámek (dle typu).<br>
-                        V případě potíží nás kontaktujte.
-                    </p>
+                    <p style="font-size: 12px; color: #888;">Při vyzvednutí zadejte PIN na zámku.</p>
                 </div>
             `
         };
-
         const info = await transporter.sendMail(mailOptions);
         console.log("✅ Email úspěšně odeslán! ID:", info.messageId);
-        return true;
     } catch (error) {
         console.error("❌ CHYBA ODESÍLÁNÍ EMAILU:", error);
-        return false;
     }
 }
 
-// --- TTLOCK LOGIKA ---
+// TTLOCK LOGIKA
 async function getTTLockToken() {
     try {
         const params = new URLSearchParams();
@@ -170,12 +134,9 @@ async function getTTLockToken() {
         const res = await axios.post("https://euapi.ttlock.com/oauth2/token", params.toString(), {
             headers: { "Content-Type": "application/x-www-form-urlencoded" }
         });
-
-        if (res.data.access_token) return res.data.access_token;
-        throw new Error("Token error: " + JSON.stringify(res.data));
-
+        return res.data.access_token;
     } catch (e) {
-        console.error("❌ Chyba při získávání tokenu:", e.response?.data || e.message);
+        console.error("❌ Token error:", e.response?.data || e.message);
         throw e;
     }
 }
@@ -199,7 +160,6 @@ async function addPinToLock(startStr, endStr, timeStr) {
             addType: 2,
             keyboardPwdName: `Rezervace ${startStr}`
         };
-
         const sortedKeys = Object.keys(params).sort();
         const baseString = sortedKeys.map(k => `${k}=${params[k]}`).join("&");
         const sign = crypto.createHash("md5").update(baseString + TTLOCK_CLIENT_SECRET).digest("hex").toUpperCase();
@@ -209,17 +169,9 @@ async function addPinToLock(startStr, endStr, timeStr) {
             headers: { "Content-Type": "application/x-www-form-urlencoded" }
         });
 
-        if (!res.data.keyboardPwdId) {
-            console.error("❌ TTLock nepřijal PIN:", res.data);
-            return null;
-        }
-
+        if (!res.data.keyboardPwdId) { console.error("Lock error:", res.data); return null; }
         return { pin, keyboardPwdId: res.data.keyboardPwdId };
-
-    } catch (err) {
-        console.error("❌ Chyba TTLock (add):", err.response?.data || err.message);
-        return null;
-    }
+    } catch (err) { console.error("Chyba TTLock Add:", err); return null; }
 }
 
 async function deletePinFromLock(keyboardPwdId) {
@@ -240,24 +192,17 @@ async function deletePinFromLock(keyboardPwdId) {
         const res = await axios.post("https://euapi.ttlock.com/v3/keyboardPwd/delete", body.toString(), {
             headers: { "Content-Type": "application/x-www-form-urlencoded" }
         });
-
-        if (res.data.errcode === 0) {
-            console.log("✅ PIN úspěšně smazán z TTLocku:", keyboardPwdId);
-            return true;
-        }
-        return false;
-    } catch (err) {
-        console.error("❌ Chyba TTLock (delete):", err.response?.data || err.message);
-        return false;
-    }
+        return res.data.errcode === 0;
+    } catch (err) { console.error("Chyba TTLock Delete:", err); return false; }
 }
 
-// ==========================================
-// 4. API ENDPOINTY
-// ==========================================
-
+// API
 app.get("/availability", async (req, res) => {
     try {
+        // Zde bereme pouze ty rezervace, které NEJSOU archivované (mají keyboardPwdId)
+        // nebo případně všechny (aby se historie neukazovala jako volná?). 
+        // Správně: Obsazenost se počítá ze všech (i minulých), nebo jen budoucích.
+        // Pro jednoduchost bereme všechny v DB.
         const allReservations = await Reservation.find({}, "startDate endDate");
         let bookedDaysSet = new Set();
         for (const r of allReservations) {
@@ -265,22 +210,17 @@ app.get("/availability", async (req, res) => {
             range.forEach(day => bookedDaysSet.add(day));
         }
         res.json([...bookedDaysSet]); 
-    } catch (err) {
-        res.status(500).json({ error: "Chyba serveru" });
-    }
+    } catch (err) { res.status(500).json({ error: "Chyba" }); }
 });
 
 app.post("/reserve-range", async (req, res) => {
-    console.log("📥 Přijat požadavek na novou rezervaci..."); 
+    console.log("📥 Nová rezervace..."); 
     const { startDate, endDate, time, name, email, phone } = req.body;
     
-    if (!startDate || !endDate || !time || !name) {
-        console.log("❌ Chyba: Chybí údaje");
-        return res.status(400).json({ error: "Chybí údaje." });
-    }
+    if (!startDate || !endDate || !time || !name) return res.status(400).json({ error: "Chybí údaje." });
 
     try {
-        const all = await Reservation.find();
+        const all = await Reservation.find(); // Kontrola kolize
         const newRange = getRange(startDate, endDate);
         for (const r of all) {
             const existing = getRange(r.startDate, r.endDate);
@@ -288,7 +228,6 @@ app.post("/reserve-range", async (req, res) => {
                 return res.status(409).json({ error: "Termín je obsazen." }); 
         }
 
-        console.log("🔐 Generuji PIN..."); 
         const result = await addPinToLock(startDate, endDate, time);
         if (!result) return res.status(503).json({ error: "Nepodařilo se vygenerovat PIN." });
 
@@ -298,23 +237,15 @@ app.post("/reserve-range", async (req, res) => {
             keyboardPwdId: result.keyboardPwdId
         });
         await newRes.save();
-        console.log("💾 Rezervace uložena"); 
-
-        // --- ODESLÁNÍ EMAILU ---
-        console.log(`📤 Posílám email na: ${email}`);
+        
         sendReservationEmail(email, result.pin, startDate, endDate, time);
-
         res.json({ success: true, pin: result.pin });
 
-    } catch (err) {
-        console.error("❌ Chyba rezervace:", err);
-        res.status(500).json({ error: "Chyba serveru" });
-    }
+    } catch (err) { console.error(err); res.status(500).json({ error: "Chyba serveru" }); }
 });
 
 const checkAdminPassword = (req, res, next) => {
-    const password = req.headers["x-admin-password"];
-    if (password !== ADMIN_PASSWORD) return res.status(403).json({ error: "Neoprávněný přístup" });
+    if (req.headers["x-admin-password"] !== ADMIN_PASSWORD) return res.status(403).json({ error: "Neoprávněný přístup" });
     next();
 };
 
@@ -322,34 +253,42 @@ app.get("/admin/reservations", checkAdminPassword, async (req, res) => {
     try {
         const reservations = await Reservation.find().sort({ startDate: 1, time: 1 });
         res.json(reservations);
-    } catch (err) {
-        res.status(500).json({ error: "Chyba" });
-    }
+    } catch (err) { res.status(500).json({ error: "Chyba" }); }
 });
 
 app.delete("/admin/reservations/:id", checkAdminPassword, async (req, res) => {
     try {
         const reservation = await Reservation.findById(req.params.id);
         if (!reservation) return res.status(404).json({ error: "Nenalezeno" });
+        
+        // Pokud má ID zámku, smažeme ho i ze zámku
         if (reservation.keyboardPwdId) await deletePinFromLock(reservation.keyboardPwdId);
+        
+        // Trvalé smazání z DB
         await Reservation.findByIdAndDelete(req.params.id);
         res.json({ success: true });
-    } catch (err) {
-        res.status(500).json({ error: "Chyba serveru" });
-    }
+    } catch (err) { res.status(500).json({ error: "Chyba serveru" }); }
 });
 
+// AUTOMATICKÁ SPRÁVA (ARCHIVACE)
 setInterval(async () => {
-    const now = Date.now();
-    const expired = await Reservation.find();
-    for (const r of expired) {
-        const endMs = new Date(`${r.endDate}T${r.time}:00`).getTime();
-        if (endMs < now) {
-            console.log("🕒 Vypršela rezervace, mazání:", r.passcode);
-            if (r.keyboardPwdId) await deletePinFromLock(r.keyboardPwdId);
-            await Reservation.findByIdAndDelete(r._id);
+    try {
+        const now = Date.now();
+        // Hledáme jen ty, které mají aktivní zámek
+        const activeReservations = await Reservation.find({ keyboardPwdId: { $ne: null } });
+
+        for (const r of activeReservations) {
+            const endMs = new Date(`${r.endDate}T${r.time}:00`).getTime();
+            if (endMs < now) {
+                console.log(`🕒 Vypršela rezervace (${r.name}), deaktivuji PIN.`);
+                // 1. Smažeme PIN ze zámku
+                await deletePinFromLock(r.keyboardPwdId);
+                // 2. V DB záznam necháme, jen smažeme ID zámku = ARCHIVACE
+                r.keyboardPwdId = null;
+                await r.save();
+            }
         }
-    }
+    } catch (err) { console.error("Chyba auto-clean:", err); }
 }, 60 * 1000);
 
 const PORT = process.env.PORT || 3000;
