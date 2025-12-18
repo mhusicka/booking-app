@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ceník služeb - Vozík 24/7</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Montserrat', sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; background: #f8f9fa; }
+        .container { background: white; padding: 40px; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
+        h1 { text-align: center; color: #444; border-bottom: 2px solid #bfa37c; padding-bottom: 10px; display: inline-block; margin-bottom: 30px; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 15px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background-color: #f9f9f9; color: #bfa37c; text-transform: uppercase; font-size: 0.9rem; }
+        tr:hover { background-color: #fafafa; }
+        .price { font-weight: bold; color: #333; text-align: right; }
+        .note { font-size: 0.85rem; color: #777; margin-top: 30px; font-style: italic; }
+
+        .back-btn { display: inline-block; margin-top: 30px; padding: 10px 20px; background: #333; color: white; text-decoration: none; border-radius: 4px; font-weight: bold; }
+        .back-btn:hover { background: #bfa37c; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div style="text-align: center;">
+            <h1>Ceník služeb a poplatků</h1>
+        </div>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>Položka</th>
+                    <th style="text-align: right;">Cena (vč. DPH)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Pronájem přívěsného vozíku</strong> (24 hodin)</td>
+                    <td class="price">230 Kč</td>
+                </tr>
+
+                <tr>
+                    <td>Znečištění vozíku (poplatek za mytí)</td>
+                    <td class="price">500 Kč</td>
+                </tr>
+                <tr>
+                    <td>Ztráta osvědčení o registraci (malý technický průkaz)</td>
+                    <td class="price">2 000 Kč</td>
+                </tr>
+                <tr>
+                    <td>Ztráta registrační značky (SPZ)</td>
+                    <td class="price">2 000 Kč</td>
+                </tr>
+                <tr>
+                    <td>Ztráta nebo poškození zámku / klíče</td>
+                    <td class="price">2 000 Kč</td>
+                </tr>
+                <tr>
+                    <td>Pozdní vrácení vozíku (bez předchozí domluvy)</td>
+                    <td class="price">Denní sazba</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="note">
+            * Ceny jsou konečné. Provozovatel není plátce DPH (pokud jste, upravte tuto větu).<br>
+            * V případě poškození vozíku bude účtována částka odpovídající nákladům na opravu.
+        </div>
+
+        <center><a href="javascript:window.close();" class="back-btn">Zavřít okno</a></center>
+    </div>
+</body>
+</html>
