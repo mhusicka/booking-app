@@ -72,8 +72,9 @@ function formatDateCz(dateStr) {
     return new Date(dateStr).toLocaleDateString("cs-CZ");
 }
 
-// --- ODESÍLÁNÍ EMAILU PŘES BREVO API (HTTP) ---
-// Toto řešení obchází blokované SMTP porty na hostingu
+// ==========================================
+// 4. ODESÍLÁNÍ EMAILU (BREVO API + HEZKÝ VZHLED)
+// ==========================================
 async function sendReservationEmail(data) { 
     const apiKey = process.env.BREVO_API_KEY;
     
@@ -84,33 +85,92 @@ async function sendReservationEmail(data) {
 
     const senderEmail = process.env.SENDER_EMAIL || "info@vozik247.cz";
     
-    // Tělo emailu
+    // Formátování data pro email
+    const startF = formatDateCz(data.startDate);
+    const endF = formatDateCz(data.endDate);
+
+    // HTML Emailu (Design podle success.html)
+    const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            /* Základní reset */
+            body { margin: 0; padding: 0; font-family: 'Arial', sans-serif; background-color: #f8f9fa; color: #333333; }
+            .container { width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05); border: 1px solid #eeeeee; }
+            .header { text-align: center; padding: 40px 20px 20px 20px; }
+            .icon-check { font-size: 60px; color: #28a745; margin-bottom: 10px; line-height: 1; }
+            h1 { margin: 0; font-size: 24px; text-transform: uppercase; letter-spacing: 1px; color: #444444; }
+            .content { padding: 20px 40px; text-align: center; }
+            
+            /* PIN Box */
+            .pin-box { background-color: #f8f9fa; border: 2px dashed #bfa37c; border-radius: 8px; padding: 20px; margin: 25px 0; display: inline-block; width: 80%; }
+            .pin-label { display: block; font-size: 12px; text-transform: uppercase; color: #666666; margin-bottom: 5px; }
+            .pin-code { display: block; font-size: 32px; font-weight: bold; color: #333333; letter-spacing: 4px; font-family: 'Courier New', monospace; }
+            
+            /* Detaily */
+            .details-box { background-color: #fafafa; border-radius: 6px; padding: 20px; text-align: left; margin-bottom: 25px; border: 1px solid #eeeeee; }
+            .details-item { margin-bottom: 10px; font-size: 14px; color: #555555; }
+            .details-item strong { color: #333333; }
+            
+            /* Instrukce */
+            .instructions { font-size: 13px; color: #666666; line-height: 1.6; border-top: 1px solid #eeeeee; padding-top: 20px; margin-top: 20px; text-align: left; }
+            .footer { background-color: #333333; color: #aaaaaa; text-align: center; padding: 15px; font-size: 11px; }
+            a { color: #bfa37c; text-decoration: none; }
+        </style>
+    </head>
+    <body style="background-color: #f8f9fa; padding: 20px;">
+        
+        <div class="container">
+            <div class="header">
+                <div class="icon-check">✔</div>
+                <h1>Rezervace úspěšná!</h1>
+            </div>
+
+            <div class="content">
+                <p style="font-size: 16px; margin-bottom: 20px;">Dobrý den, <strong>${data.name}</strong>,<br>děkujeme za vaši rezervaci.</p>
+
+                <div class="pin-box">
+                    <span class="pin-label">Váš kód k zámku</span>
+                    <span class="pin-code">${data.passcode}</span>
+                </div>
+
+                <div class="details-box">
+                    <div class="details-item">
+                        <strong>Termín:</strong> ${startF} – ${endF}
+                    </div>
+                    <div class="details-item">
+                        <strong>Čas vyzvednutí:</strong> ${data.time}
+                    </div>
+                    <div class="details-item">
+                        <strong>Telefon:</strong> ${data.phone}
+                    </div>
+                </div>
+
+                <div class="instructions">
+                    <strong>Jak odemknout?</strong><br>
+                    1. Probuďte klávesnici zámku dotykem.<br>
+                    2. Zadejte váš PIN kód: <strong>${data.passcode}</strong><br>
+                    3. Potvrďte stisknutím tlačítka 🔓 (vpravo dole) nebo #.
+                </div>
+            </div>
+
+            <div class="footer">
+                Přívěsný vozík 24/7<br>
+                V případě potíží odpovězte na tento email.
+            </div>
+        </div>
+
+    </body>
+    </html>
+    `;
+
     const emailData = {
         sender: { name: "Vozík 24/7", email: senderEmail },
         to: [{ email: data.email, name: data.name }],
         subject: "Potvrzení rezervace - Vozík 24/7",
-        htmlContent: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; padding: 20px; border-radius: 8px;">
-                <h2 style="color: #333; text-align: center;">Rezervace potvrzena ✔</h2>
-                <p>Dobrý den, <strong>${data.name}</strong>,</p>
-                <p>Děkujeme za vaši rezervaci. Níže naleznete přístupové údaje.</p>
-                
-                <div style="background: #f9f9f9; padding: 15px; margin: 20px 0; border-left: 4px solid #bfa37c;">
-                    <p style="margin: 5px 0;"><strong>Termín:</strong> ${formatDateCz(data.startDate)} – ${formatDateCz(data.endDate)}</p>
-                    <p style="margin: 5px 0;"><strong>Čas vyzvednutí:</strong> ${data.time}</p>
-                    <p style="margin: 15px 0 5px 0; font-size: 0.9rem; text-transform: uppercase; color: #666;">Váš PIN k zámku:</p>
-                    <div style="font-size: 24px; font-weight: bold; color: #333; letter-spacing: 2px;">${data.passcode}</div>
-                </div>
-
-                <p><strong>Jak odemknout?</strong><br>
-                1. Probbuďte klávesnici zámku dotykem.<br>
-                2. Zadejte výše uvedený PIN.<br>
-                3. Potvrďte stisknutím tlačítka 🔓 (nebo #).</p>
-                
-                <hr style="border:0; border-top:1px solid #eee; margin: 20px 0;">
-                <p style="font-size: 12px; color: #888; text-align: center;">Případné dotazy směřujte na tento email.</p>
-            </div>
-        `
+        htmlContent: htmlContent
     };
 
     try {
@@ -127,7 +187,9 @@ async function sendReservationEmail(data) {
     }
 }
 
-// --- TTLOCK LOGIKA ---
+// ==========================================
+// 5. TTLOCK LOGIKA
+// ==========================================
 async function getTTLockToken() {
     try {
         // console.log("🔐 Získávám TTLock Token...");
@@ -219,7 +281,7 @@ async function deletePinFromLock(keyboardPwdId) {
 }
 
 // ==========================================
-// 4. API ENDPOINTY
+// 6. API ENDPOINTY
 // ==========================================
 
 app.get("/availability", async (req, res) => {
@@ -261,8 +323,9 @@ app.post("/reserve-range", async (req, res) => {
         await newRes.save();
         console.log("💾 Rezervace uložena do DB.");
         
-        // Odeslání emailu (bez čekání)
-        sendReservationEmail({ startDate, endDate, time, name, email, passcode: result.pin });
+        // Odeslání emailu BEZ await
+        sendReservationEmail({ startDate, endDate, time, name, email, passcode: result.pin, phone })
+            .catch(err => console.error("⚠️ Email chyba (na pozadí):", err));
 
         res.json({ success: true, pin: result.pin });
 
