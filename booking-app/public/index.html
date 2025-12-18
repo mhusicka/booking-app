@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vozík 24/7</title>
+    <title>Vozík 24/7 - Půjčovna přívěsných vozíků Mohelnice</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
 </head>
@@ -12,6 +12,31 @@
     <div class="main-container">
         <h1>Vozík 24/7</h1>
 
+        <div class="about-section">
+            <p>
+                Potřebujete převézt nábytek, stavební materiál nebo zahradní techniku? 
+                Nabízíme <strong>samoobslužný pronájem přívěsného vozíku v Mohelnici</strong>. 
+                Rezervujte online, zaplaťte kartou a vyzvedněte si vozík kdykoliv – ve dne i v noci.
+            </p>
+            
+            <div class="features-grid">
+                <div class="feature-item">
+                    <span class="feature-icon">🕒</span>
+                    <strong>NONSTOP provoz</strong><br>
+                    Vyzvednutí i vrácení 24 hodin denně.
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">📱</span>
+                    <strong>Vše online</strong><br>
+                    Žádné papírování. Stačí mobil a karta.
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">🔒</span>
+                    <strong>Bezpečný zámek</strong><br>
+                    Unikátní PIN kód pro každou rezervaci.
+                </div>
+            </div>
+        </div>
         <div class="content-wrapper">
             <div class="calendar-section">
                 <div class="controls">
@@ -35,11 +60,8 @@
                 <div class="summary-box">
                     <p>Vyzvednutí: <span id="date-start-text" style="color:#bfa37c; font-weight:bold">-</span></p>
                     <p>Vrácení: <span id="date-end-text" style="color:#bfa37c; font-weight:bold">-</span></p>
-                    
                     <hr style="border: 0; border-top: 1px solid #eee; margin: 10px 0;">
-
                     <p>Počet dní: <span id="day-count">0</span></p>
-                    
                     <div class="price-tag">
                         Cena: <span id="total-price">0 Kč</span>
                     </div>
@@ -72,11 +94,11 @@
                     REZERVOVAT A ZAPLATIT
                 </button>
 
-                <div class="terms-container" style="margin-top: 15px; padding: 10px; background: transparent; text-align: center;">
-                    <div style="display: flex; align-items: center; justify-content: center; gap: 10px;">
-                        <input type="checkbox" id="inp-agree" style="width: 18px; height: 18px; cursor: pointer;">
+                <div class="terms-container" style="margin-top: 15px; padding: 10px; text-align: center;">
+                    <div style="display: flex; align-items: flex-start; justify-content: center; gap: 10px;">
+                        <input type="checkbox" id="inp-agree" style="width: 20px; height: 20px; cursor: pointer; margin-top: 2px;">
                         <label for="inp-agree" style="font-size: 13px; line-height: 1.4; color: #555; cursor: pointer; text-align: left;">
-                            Souhlasím se <a href="conditions.html" target="_blank" style="color: #bfa37c; text-decoration: underline; font-weight: bold;">Smluvními podmínkami</a> a se zpracováním osobních údajů.
+                            Potvrzuji, že jsem se seznámil/a se <a href="conditions.html" target="_blank" style="color: #bfa37c; text-decoration: underline; font-weight: bold;">Smluvními podmínkami</a> a se <a href="privacy.html" target="_blank" style="color: #bfa37c; text-decoration: underline; font-weight: bold;">Zásadami ochrany osobních údajů</a>.
                         </label>
                     </div>
                 </div>
@@ -85,8 +107,45 @@
         </div>
     </div>
 
-    <div id="tooltip" class="tooltip hidden"></div>
+    <footer class="site-footer">
+        <div class="footer-content">
+            
+            <div class="footer-col">
+                <h3>Kontakt</h3>
+                <p><strong>Martin Husička</strong></p>
+                <p>Dubová 1490/2<br>789 85 Mohelnice</p>
+                <p>IČO: 76534898</p>
+                <p>✉️ info@vozik247.cz<br>📞 +420 777 XXX XXX</p>
+            </div>
 
+            <div class="footer-col">
+                <h3>Informace</h3>
+                <p><a href="conditions.html" target="_blank">Obchodní podmínky</a></p>
+                <p><a href="privacy.html" target="_blank">Ochrana osobních údajů (GDPR)</a></p>
+                <p><a href="#">Ceník služeb</a></p>
+                <p><a href="#">Reklamační řád</a></p>
+            </div>
+
+            <div class="footer-col">
+                <h3>Bezpečné platby</h3>
+                <p>Přijímáme platební karty:</p>
+                <div class="payment-logos">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/5/5e/Visa_Inc._logo.svg" alt="Visa">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/2/2a/Mastercard-logo.svg" alt="Mastercard">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/b/b5/PayPal.svg" alt="PayPal">
+                </div>
+                <p style="margin-top:15px; font-size: 0.8rem; color: #888;">
+                    Platby jsou zabezpečeny bránou <strong>GoPay</strong>.<br>
+                    Podporujeme ověření <strong>3D Secure</strong>.
+                </p>
+            </div>
+        </div>
+        <div class="copyright">
+            &copy; 2025 Vozík 24/7. Všechna práva vyhrazena.
+        </div>
+    </footer>
+
+    <div id="tooltip" class="tooltip hidden"></div>
     <script src="script.js"></script>
 </body>
 </html>
