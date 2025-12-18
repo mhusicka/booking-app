@@ -3,71 +3,70 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smluvní podmínky - Vozík 24/7</title>
+    <title>Ceník služeb - Vozík 24/7</title>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Montserrat', sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; background: #f8f9fa; }
         .container { background: white; padding: 40px; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
-        h1 { text-align: center; color: #444; margin-bottom: 30px; border-bottom: 2px solid #bfa37c; padding-bottom: 10px; display: inline-block; }
-        h2 { color: #bfa37c; font-size: 1.2rem; margin-top: 30px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
-        ul { padding-left: 20px; }
-        li { margin-bottom: 10px; }
-        .back-btn { display: inline-block; margin-top: 20px; padding: 10px 20px; background: #333; color: white; text-decoration: none; border-radius: 4px; font-weight: bold; }
+        h1 { text-align: center; color: #444; border-bottom: 2px solid #bfa37c; padding-bottom: 10px; display: inline-block; margin-bottom: 30px; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 15px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background-color: #f9f9f9; color: #bfa37c; text-transform: uppercase; font-size: 0.9rem; }
+        tr:hover { background-color: #fafafa; }
+        .price { font-weight: bold; color: #333; text-align: right; }
+        .note { font-size: 0.85rem; color: #777; margin-top: 30px; font-style: italic; }
+
+        .back-btn { display: inline-block; margin-top: 30px; padding: 10px 20px; background: #333; color: white; text-decoration: none; border-radius: 4px; font-weight: bold; }
         .back-btn:hover { background: #bfa37c; }
     </style>
 </head>
 <body>
     <div class="container">
-        <div style="text-align: center;"><h1>SMLUVNÍ PODMÍNKY PRONÁJMU</h1></div>
-        <p style="text-align: center; color: #666;">(Samoobslužný systém pronájmu)</p>
+        <div style="text-align: center;">
+            <h1>Ceník služeb a poplatků</h1>
+        </div>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>Položka</th>
+                    <th style="text-align: right;">Cena (vč. DPH)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr style="background-color: #fffaee;">
+                    <td><strong>Pronájem přívěsného vozíku</strong> (sazba za 24 hodin)</td>
+                    <td class="price" style="font-size: 1.2rem; color: #bfa37c;">230 Kč</td>
+                </tr>
 
-        <h2>Článek I. - Smluvní strany a vznik nájmu</h2>
-        <ul>
-            <li><strong>1. Pronajímatel:</strong> Martin Husička, Dubová 1490/2, 789 85 Mohelnice, IČO: 76534898</li>
-            <li><strong>2. Nájemce:</strong> Osoba, která provede rezervaci a úhradu nájemného prostřednictvím rezervačního systému.</li>
-            <li><strong>3. Vznik nájmu:</strong> Nájemní smlouva je uzavřena v okamžiku řádného vyplnění rezervačního formuláře a úspěšného potvrzení platby nájemného.</li>
-            <li><strong>4. Identifikace:</strong> Nájemce se identifikuje údaji vyplněnými v rezervačním formuláři. Nájemce potvrzuje, že všechny zadané údaje jsou pravdivé a patří jeho osobě.</li>
-        </ul>
+                <tr>
+                    <td>Poškození pneumatiky (defekt / proražení)</td>
+                    <td class="price">1 000 Kč</td>
+                </tr>
+                <tr>
+                    <td>Znečištění vozíku (poplatek za mytí)</td>
+                    <td class="price">500 Kč</td>
+                </tr>
+                <tr>
+                    <td>Ztráta registrační značky (SPZ)</td>
+                    <td class="price">2 000 Kč</td>
+                </tr>
+                <tr>
+                    <td>Ztráta nebo poškození zámku / klíče</td>
+                    <td class="price">2 000 Kč</td>
+                </tr>
+                <tr>
+                    <td>Pozdní vrácení vozíku (bez předchozí domluvy)</td>
+                    <td class="price">Denní sazba nájmu</td>
+                </tr>
+            </tbody>
+        </table>
 
-        <h2>Článek II. - Platební podmínky a uložení karty</h2>
-        <ul>
-            <li><strong>1. Platba:</strong> Nájemné je splatné v plné výši předem skrze platební bránu.</li>
-            <li><strong>2. Souhlas s uložením karty:</strong> Nájemce souhlasí s bezpečným uložením údajů o kartě (tokenizace) po dobu nájmu a 30 dnů po ukončení.</li>
-            <li><strong>3. Dodatečné poplatky:</strong> Nájemce souhlasí se stržením peněz v případě:
-                <ul>
-                    <li>Pozdního vrácení (částka denního nájmu za každých 24h).</li>
-                    <li>Způsobené škody (náklady na opravu).</li>
-                    <li>Poškození pneumatiky / defekt (1 000 Kč).</li>
-                    <li>Ztráty příslušenství (2 000 Kč za SPZ nebo zámek).</li>
-                    <li>Znečištění (500 Kč).</li>
-                </ul>
-            </li>
-        </ul>
-
-        <h2>Článek III. - Technický stav a GPS</h2>
-        <ul>
-            <li><strong>1. GPS:</strong> Vozík je monitorován GPS jednotkou pro účely zabezpečení.</li>
-            <li><strong>2. Převzetí:</strong> Nájemce je povinen zkontrolovat stav vozíku (pneu, světla). Pokud zjistí závadu, musí ihned informovat Pronajímatele. Zahájením jízdy potvrzuje, že je vozík v pořádku.</li>
-        </ul>
-
-        <h2>Článek IV. - Odpovědnost a pojištění</h2>
-        <ul>
-            <li><strong>1. Pojištění:</strong> Vozík má povinné ručení. Havarijní pojištění není sjednáno.</li>
-            <li><strong>2. Odpovědnost:</strong> Nájemce nese plnou odpovědnost za škody, ztrátu či odcizení od odemčení do uzamčení.</li>
-            <li><strong>3. Úhrada škody:</strong> V případě nehody nehrazené z povinného ručení viníka hradí opravu Nájemce.</li>
-        </ul>
-
-        <h2>Článek V. - Ukončení nájmu</h2>
-        <ul>
-            <li><strong>1. Vrácení:</strong> Nájem končí zaparkováním na určené místo a uzamčením.</li>
-            <li><strong>2. Nevrácení:</strong> Při nevrácení do 24h po termínu bude věc předána Policii ČR.</li>
-        </ul>
-
-        <h2>Článek VI. - Závěrečná ustanovení</h2>
-        <ul>
-            <li>Vztahy se řídí občanským zákoníkem ČR.</li>
-            <li>Mimosoudní řešení sporů náleží ČOI.</li>
-        </ul>
+        <div class="note">
+            * Ceny jsou konečné.<br>
+            * V případě většího poškození vozíku (nehoda) bude účtována částka odpovídající skutečným nákladům na opravu.
+        </div>
 
         <center><a href="javascript:window.close();" class="back-btn">Zavřít okno</a></center>
     </div>
