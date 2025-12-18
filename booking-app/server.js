@@ -73,7 +73,7 @@ function formatDateCz(dateStr) {
 }
 
 // ==========================================
-// 4. ODESÍLÁNÍ EMAILU (DESIGN 1:1 S WEBEM)
+// 4. ODESÍLÁNÍ EMAILU (DESIGN PŘESNĚ DLE OBRÁZKU)
 // ==========================================
 async function sendReservationEmail(data) { 
     const apiKey = process.env.BREVO_API_KEY;
@@ -85,96 +85,82 @@ async function sendReservationEmail(data) {
 
     const senderEmail = process.env.SENDER_EMAIL || "info@vozik247.cz";
     
-    // Formátování data pro email
+    // Formátování data
     const startF = formatDateCz(data.startDate);
     const endF = formatDateCz(data.endDate);
 
-    // HTML Emailu (Design podle success.html a screenshotu)
+    // HTML Emailu - Používáme tabulky pro 100% centrování v emailech
     const htmlContent = `
     <!DOCTYPE html>
     <html>
     <head>
         <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Rezervace úspěšná</title>
-        <style>
-            body { margin: 0; padding: 0; font-family: 'Montserrat', Verdana, sans-serif; background-color: #f8f9fa; color: #333333; }
-            .wrapper { width: 100%; table-layout: fixed; background-color: #f8f9fa; padding-bottom: 40px; }
-            .main-box { background-color: #ffffff; margin: 0 auto; max-width: 600px; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); overflow: hidden; }
-            .header { text-align: center; padding-top: 40px; }
-            .check-icon { font-size: 60px; color: #28a745; line-height: 1; margin-bottom: 10px; }
-            h1 { margin: 0 0 10px 0; font-size: 24px; text-transform: uppercase; letter-spacing: 1px; color: #444444; text-align: center; }
-            .intro-text { text-align: center; font-size: 16px; margin-bottom: 30px; padding: 0 20px; line-height: 1.5; }
-            
-            /* PIN BOX (dashed gold border) */
-            .pin-container { text-align: center; margin: 20px 0; }
-            .pin-box { display: inline-block; background-color: #f8f9fa; border: 2px dashed #bfa37c; border-radius: 8px; padding: 20px 40px; min-width: 200px; }
-            .pin-label { display: block; font-size: 12px; text-transform: uppercase; color: #666666; margin-bottom: 5px; }
-            .pin-code { display: block; font-size: 36px; font-weight: bold; color: #333333; letter-spacing: 5px; font-family: monospace; }
-            
-            /* Detaily (šedé pozadí) */
-            .details-box { background-color: #fafafa; margin: 20px 40px; padding: 20px; border-radius: 6px; font-size: 14px; line-height: 1.6; color: #555555; }
-            .details-row { margin-bottom: 8px; }
-            .details-row strong { color: #333333; }
-            
-            /* Instrukce (podle screenshotu) */
-            .instructions { margin: 0 40px 40px 40px; font-size: 14px; line-height: 1.6; color: #333; }
-            .instructions h3 { font-size: 16px; color: #444; margin-bottom: 10px; margin-top: 0; }
-            .instructions ol { padding-left: 20px; margin: 0; }
-            .instructions li { margin-bottom: 8px; }
-            
-            .footer { background-color: #333333; color: #aaaaaa; text-align: center; padding: 15px; font-size: 12px; }
-        </style>
     </head>
-    <body>
-        <div class="wrapper">
-            <br>
-            <div class="main-box">
-                <div class="header">
-                    <div class="check-icon">✔</div>
-                    <h1>Rezervace úspěšná!</h1>
-                </div>
+    <body style="margin: 0; padding: 0; background-color: #ffffff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+        
+        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; padding: 20px 0;">
+            <tr>
+                <td align="center">
+                    
+                    <table width="600" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; width: 100%; background-color: #ffffff;">
+                        
+                        <tr>
+                            <td align="center" style="padding-bottom: 20px;">
+                                <div style="color: #28a745; font-size: 80px; line-height: 80px; font-weight: bold;">&#10003;</div>
+                            </td>
+                        </tr>
 
-                <div class="intro-text">
-                    Dobrý den, <strong>${data.name}</strong>,<br>
-                    děkujeme za vaši rezervaci.
-                </div>
+                        <tr>
+                            <td align="center" style="padding-bottom: 30px;">
+                                <h1 style="color: #444444; font-size: 28px; margin: 0; text-transform: uppercase; letter-spacing: 2px; font-weight: 700;">REZERVACE ÚSPĚŠNÁ!</h1>
+                            </td>
+                        </tr>
 
-                <div class="pin-container">
-                    <div class="pin-box">
-                        <span class="pin-label">Váš kód k zámku</span>
-                        <span class="pin-code">${data.passcode}</span>
-                    </div>
-                </div>
+                        <tr>
+                            <td align="center" style="padding-bottom: 30px; color: #555555; font-size: 16px; line-height: 1.5;">
+                                Děkujeme. Váš přívěsný vozík je rezervován.<br>
+                                Potvrzení a instrukce naleznete níže.
+                            </td>
+                        </tr>
 
-                <div class="details-box">
-                    <div class="details-row">
-                        <strong>Vyzvednutí:</strong> ${startF} v ${data.time}
-                    </div>
-                    <div class="details-row">
-                        <strong>Vrácení:</strong> ${endF} v ${data.time}
-                    </div>
-                    <div class="details-row">
-                        <strong>Telefon:</strong> ${data.phone}
-                    </div>
-                </div>
+                        <tr>
+                            <td align="center" style="padding-bottom: 40px;">
+                                <table border="0" cellspacing="0" cellpadding="0">
+                                    <tr>
+                                        <td align="center" style="border: 2px dashed #bfa37c; border-radius: 8px; padding: 20px 40px; background-color: #ffffff;">
+                                            <span style="display: block; font-size: 12px; color: #888888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px;">VÁŠ KÓD K ZÁMKU</span>
+                                            <span style="display: block; font-size: 42px; font-weight: bold; color: #333333; letter-spacing: 3px; font-family: monospace;">${data.passcode}</span>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
 
-                <div class="instructions">
-                    <h3>Jak odemknout?</h3>
-                    <ol>
-                        <li>Probuďte klávesnici zámku dotykem.</li>
-                        <li>Zadejte váš PIN kód: <strong>${data.passcode}</strong></li>
-                        <li>Potvrďte stisknutím tlačítka 🔓 (vpravo dole) nebo #.</li>
-                    </ol>
-                </div>
+                        <tr>
+                            <td align="center" style="padding-bottom: 30px;">
+                                <div style="background-color: #f9f9f9; border-radius: 6px; padding: 20px; display: inline-block; min-width: 300px;">
+                                    <span style="display: block; font-weight: bold; color: #888888; font-size: 14px; margin-bottom: 5px;">Termín rezervace:</span>
+                                    <span style="display: block; color: #333333; font-size: 16px; font-weight: 600;">
+                                        ${startF} ${data.time} — ${endF} ${data.time}
+                                    </span>
+                                </div>
+                            </td>
+                        </tr>
 
-                <div class="footer">
-                    Přívěsný vozík 24/7<br>
-                    Toto je automaticky generovaná zpráva.
-                </div>
-            </div>
-            <br>
-        </div>
+                        <tr>
+                            <td align="center" style="color: #999999; font-size: 14px; padding: 0 20px;">
+                                Tento kód zadejte na klávesnici zámku a potvrďte křížkem nebo symbolem zámku.
+                            </td>
+                        </tr>
+
+                        <tr><td height="40"></td></tr>
+
+                    </table>
+                </td>
+            </tr>
+        </table>
+
     </body>
     </html>
     `;
@@ -205,7 +191,6 @@ async function sendReservationEmail(data) {
 // ==========================================
 async function getTTLockToken() {
     try {
-        // console.log("🔐 Získávám TTLock Token...");
         const params = new URLSearchParams();
         params.append("client_id", TTLOCK_CLIENT_ID);
         params.append("client_secret", TTLOCK_CLIENT_SECRET);
