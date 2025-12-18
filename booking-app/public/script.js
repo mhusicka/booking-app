@@ -27,7 +27,7 @@ async function init() {
         });
     }
 
-    // --- LOGIKA PRO CHECKBOX SOUHLASU (NOVÉ) ---
+    // --- LOGIKA PRO CHECKBOX SOUHLASU (AKTIVACE TLAČÍTKA) ---
     const agreeCheckbox = document.getElementById("inp-agree");
     const submitBtn = document.getElementById("btn-submit");
 
@@ -36,12 +36,12 @@ async function init() {
             if (this.checked) {
                 // Pokud je zaškrtnuto -> Aktivovat tlačítko
                 submitBtn.disabled = false;
-                submitBtn.style.backgroundColor = "#333"; // Původní černá
+                submitBtn.style.backgroundColor = "#333"; // Původní černá barva
                 submitBtn.style.cursor = "pointer";
             } else {
                 // Pokud není zaškrtnuto -> Deaktivovat tlačítko
                 submitBtn.disabled = true;
-                submitBtn.style.backgroundColor = "#ccc"; // Šedá
+                submitBtn.style.backgroundColor = "#ccc"; // Šedá (neaktivní)
                 submitBtn.style.cursor = "not-allowed";
             }
         });
