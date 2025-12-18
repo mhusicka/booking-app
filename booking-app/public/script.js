@@ -9,7 +9,6 @@ let endDate = null;
 let cachedAvailability = []; 
 
 async function init() {
-    // Odstranění zbytečného volání updateCalendar z init()
     await updateCalendar();
     
     // --- OMEZENÍ A PŘEDVYPLNĚNÍ TELEFONU ---
@@ -25,6 +24,26 @@ async function init() {
              if (this.value.trim() === "" || this.value.trim() === "+") {
                  this.value = "+420 ";
              }
+        });
+    }
+
+    // --- LOGIKA PRO CHECKBOX SOUHLASU (NOVÉ) ---
+    const agreeCheckbox = document.getElementById("inp-agree");
+    const submitBtn = document.getElementById("btn-submit");
+
+    if (agreeCheckbox && submitBtn) {
+        agreeCheckbox.addEventListener("change", function() {
+            if (this.checked) {
+                // Pokud je zaškrtnuto -> Aktivovat tlačítko
+                submitBtn.disabled = false;
+                submitBtn.style.backgroundColor = "#333"; // Původní černá
+                submitBtn.style.cursor = "pointer";
+            } else {
+                // Pokud není zaškrtnuto -> Deaktivovat tlačítko
+                submitBtn.disabled = true;
+                submitBtn.style.backgroundColor = "#ccc"; // Šedá
+                submitBtn.style.cursor = "not-allowed";
+            }
         });
     }
 
@@ -59,7 +78,6 @@ function changeMonth(delta) {
     renderSingleCalendar();
 }
 
-// Funkce opravená: Odstraněno rekurzivní volání sebe sama
 async function updateCalendar() {
     const wrapper = document.getElementById("calendar-wrapper");
     wrapper.innerHTML = '<div style="text-align:center; padding: 40px; color: #666;">⏳ Načítám dostupnost...</div>';
@@ -70,14 +88,12 @@ async function updateCalendar() {
         renderSingleCalendar();
     } catch (e) { 
         console.error(e);
-        // Tuto část volání "updateCalendar()" jsme odstranili pro stabilizaci.
         wrapper.innerHTML = `<div style="text-align:center; padding: 30px; color: #d9534f;">⚠️ Chyba načítání dostupnosti.</div>`;
     }
 }
 
 function renderSingleCalendar() {
     const wrapper = document.getElementById("calendar-wrapper");
-    // Zajištění, že se kalendář nezobrazí v chybovém stavu
     if (wrapper.innerHTML.includes('Chyba načítání dostupnosti')) return;
     
     wrapper.innerHTML = "";
@@ -190,6 +206,13 @@ function updateSummaryUI(previewEndDate = null) {
 }
 
 async function submitReservation() {
+    // --- POJISTKA: KONTROLA SOUHLASU ---
+    const agreeCheckbox = document.getElementById("inp-agree");
+    if (!agreeCheckbox || !agreeCheckbox.checked) {
+        alert("Pro provedení rezervace musíte souhlasit se smluvními podmínkami.");
+        return;
+    }
+
     if (!startDate) { alert("Vyberte termín."); return; }
     if (!endDate) endDate = getNextDay(startDate);
 
@@ -225,12 +248,12 @@ async function submitReservation() {
             window.location.href = `success.html?${params.toString()}`;
         } else {
             alert("Chyba: " + (result.error || "Neznámá chyba"));
-            btn.innerText = "Rezervovat (Test)"; 
+            btn.innerText = "Rezervovat"; 
             btn.disabled = false;
         }
     } catch (e) { 
         alert("Chyba komunikace."); 
-        btn.innerText = "Rezervovat (Test)"; 
+        btn.innerText = "Rezervovat"; 
         btn.disabled = false;
     } 
 }
