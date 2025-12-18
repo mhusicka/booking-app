@@ -73,7 +73,7 @@ function formatDateCz(dateStr) {
 }
 
 // ==========================================
-// 4. ODESÍLÁNÍ EMAILU (DESIGN PŘESNĚ DLE OBRÁZKU)
+// 4. ODESÍLÁNÍ EMAILU (ALZA STYLE - TABULKOVÝ LAYOUT)
 // ==========================================
 async function sendReservationEmail(data) { 
     const apiKey = process.env.BREVO_API_KEY;
@@ -89,48 +89,52 @@ async function sendReservationEmail(data) {
     const startF = formatDateCz(data.startDate);
     const endF = formatDateCz(data.endDate);
 
-    // HTML Emailu - Používáme tabulky pro 100% centrování v emailech
+    // HTML Emailu - "Bulletproof" tabulkový design pro staré klienty (Centrum, Outlook)
     const htmlContent = `
-    <!DOCTYPE html>
-    <html>
+    <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+    <html xmlns="http://www.w3.org/1999/xhtml">
     <head>
-        <meta charset="utf-8">
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
         <title>Rezervace úspěšná</title>
+        <style type="text/css">
+            body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+            table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+            img { -ms-interpolation-mode: bicubic; border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }
+            table { border-collapse: collapse !important; }
+            body { height: 100% !important; margin: 0 !important; padding: 0 !important; width: 100% !important; font-family: Arial, Helvetica, sans-serif; }
+        </style>
     </head>
-    <body style="margin: 0; padding: 0; background-color: #ffffff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
-        
-        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; padding: 20px 0;">
+    <body style="margin: 0; padding: 0; background-color: #f2f2f2;">
+
+        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f2f2f2;">
             <tr>
-                <td align="center">
+                <td align="center" style="padding: 40px 10px;">
                     
-                    <table width="600" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; width: 100%; background-color: #ffffff;">
+                    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); overflow: hidden;">
                         
                         <tr>
-                            <td align="center" style="padding-bottom: 20px;">
-                                <div style="color: #28a745; font-size: 80px; line-height: 80px; font-weight: bold;">&#10003;</div>
+                            <td align="center" style="padding: 40px 0 10px 0;">
+                                <div style="height: 80px; width: 80px; line-height: 80px; font-size: 60px; color: #28a745; border: 4px solid #28a745; border-radius: 50%; text-align: center; font-weight: bold;">&#10003;</div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td align="center" style="padding: 0 20px 30px 20px;">
+                                <h1 style="color: #333333; font-family: Arial, sans-serif; font-size: 24px; font-weight: bold; margin: 0; text-transform: uppercase; letter-spacing: 1px;">Rezervace úspěšná!</h1>
+                                <p style="color: #666666; font-size: 16px; line-height: 1.5; margin-top: 15px;">
+                                    Děkujeme, <strong>${data.name}</strong>.<br>
+                                    Váš přívěsný vozík je rezervován.
+                                </p>
                             </td>
                         </tr>
 
                         <tr>
-                            <td align="center" style="padding-bottom: 30px;">
-                                <h1 style="color: #444444; font-size: 28px; margin: 0; text-transform: uppercase; letter-spacing: 2px; font-weight: 700;">REZERVACE ÚSPĚŠNÁ!</h1>
-                            </td>
-                        </tr>
-
-                        <tr>
-                            <td align="center" style="padding-bottom: 30px; color: #555555; font-size: 16px; line-height: 1.5;">
-                                Děkujeme. Váš přívěsný vozík je rezervován.<br>
-                                Potvrzení a instrukce naleznete níže.
-                            </td>
-                        </tr>
-
-                        <tr>
-                            <td align="center" style="padding-bottom: 40px;">
-                                <table border="0" cellspacing="0" cellpadding="0">
+                            <td align="center" style="padding: 0 20px 30px 20px;">
+                                <table border="0" cellpadding="0" cellspacing="0" width="80%">
                                     <tr>
-                                        <td align="center" style="border: 2px dashed #bfa37c; border-radius: 8px; padding: 20px 40px; background-color: #ffffff;">
-                                            <span style="display: block; font-size: 12px; color: #888888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px;">VÁŠ KÓD K ZÁMKU</span>
-                                            <span style="display: block; font-size: 42px; font-weight: bold; color: #333333; letter-spacing: 3px; font-family: monospace;">${data.passcode}</span>
+                                        <td align="center" style="border: 2px dashed #bfa37c; background-color: #fafafa; border-radius: 10px; padding: 25px;">
+                                            <span style="display: block; color: #888888; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px;">Váš kód k zámku</span>
+                                            <span style="display: block; color: #333333; font-size: 42px; font-weight: bold; letter-spacing: 3px; font-family: 'Courier New', monospace;">${data.passcode}</span>
                                         </td>
                                     </tr>
                                 </table>
@@ -138,25 +142,45 @@ async function sendReservationEmail(data) {
                         </tr>
 
                         <tr>
-                            <td align="center" style="padding-bottom: 30px;">
-                                <div style="background-color: #f9f9f9; border-radius: 6px; padding: 20px; display: inline-block; min-width: 300px;">
-                                    <span style="display: block; font-weight: bold; color: #888888; font-size: 14px; margin-bottom: 5px;">Termín rezervace:</span>
-                                    <span style="display: block; color: #333333; font-size: 16px; font-weight: 600;">
-                                        ${startF} ${data.time} — ${endF} ${data.time}
-                                    </span>
+                            <td align="center" style="padding: 0 30px 30px 30px;">
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f9f9f9; border-radius: 8px; border: 1px solid #eeeeee;">
+                                    <tr>
+                                        <td style="padding: 20px; color: #555555; font-size: 15px; line-height: 1.8;">
+                                            <strong style="color: #333;">Termín rezervace:</strong><br>
+                                            ${startF} ${data.time} — ${endF} ${data.time}<br><br>
+                                            <strong style="color: #333;">Váš telefon:</strong><br>
+                                            ${data.phone}
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td style="padding: 0 40px 40px 40px; color: #555555; font-size: 14px; line-height: 1.6;">
+                                <div style="border-top: 1px solid #eeeeee; padding-top: 20px;">
+                                    <strong style="color: #333; font-size: 16px;">Jak odemknout?</strong>
+                                    <ol style="padding-left: 20px; margin-top: 10px;">
+                                        <li style="margin-bottom: 8px;">Probuďte klávesnici zámku dotykem.</li>
+                                        <li style="margin-bottom: 8px;">Zadejte váš PIN kód: <strong style="color:#bfa37c;">${data.passcode}</strong></li>
+                                        <li>Potvrďte stisknutím tlačítka 🔓 (vpravo dole) nebo #.</li>
+                                    </ol>
                                 </div>
                             </td>
                         </tr>
 
                         <tr>
-                            <td align="center" style="color: #999999; font-size: 14px; padding: 0 20px;">
-                                Tento kód zadejte na klávesnici zámku a potvrďte křížkem nebo symbolem zámku.
+                            <td align="center" style="background-color: #333333; padding: 20px; color: #999999; font-size: 12px;">
+                                Přívěsný vozík 24/7<br>
+                                Toto je automaticky generovaná zpráva.
                             </td>
                         </tr>
 
-                        <tr><td height="40"></td></tr>
-
                     </table>
+                    <p style="text-align: center; color: #999999; font-size: 11px; margin-top: 20px;">
+                        &copy; 2025 Vozík 24/7
+                    </p>
+
                 </td>
             </tr>
         </table>
