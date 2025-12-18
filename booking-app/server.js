@@ -73,7 +73,7 @@ function formatDateCz(dateStr) {
 }
 
 // ==========================================
-// 4. ODESÍLÁNÍ EMAILU (BREVO API + HEZKÝ VZHLED)
+// 4. ODESÍLÁNÍ EMAILU (DESIGN 1:1 S WEBEM)
 // ==========================================
 async function sendReservationEmail(data) { 
     const apiKey = process.env.BREVO_API_KEY;
@@ -89,79 +89,92 @@ async function sendReservationEmail(data) {
     const startF = formatDateCz(data.startDate);
     const endF = formatDateCz(data.endDate);
 
-    // HTML Emailu (Design podle success.html)
+    // HTML Emailu (Design podle success.html a screenshotu)
     const htmlContent = `
     <!DOCTYPE html>
     <html>
     <head>
         <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Rezervace úspěšná</title>
         <style>
-            /* Základní reset */
-            body { margin: 0; padding: 0; font-family: 'Arial', sans-serif; background-color: #f8f9fa; color: #333333; }
-            .container { width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05); border: 1px solid #eeeeee; }
-            .header { text-align: center; padding: 40px 20px 20px 20px; }
-            .icon-check { font-size: 60px; color: #28a745; margin-bottom: 10px; line-height: 1; }
-            h1 { margin: 0; font-size: 24px; text-transform: uppercase; letter-spacing: 1px; color: #444444; }
-            .content { padding: 20px 40px; text-align: center; }
+            body { margin: 0; padding: 0; font-family: 'Montserrat', Verdana, sans-serif; background-color: #f8f9fa; color: #333333; }
+            .wrapper { width: 100%; table-layout: fixed; background-color: #f8f9fa; padding-bottom: 40px; }
+            .main-box { background-color: #ffffff; margin: 0 auto; max-width: 600px; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); overflow: hidden; }
+            .header { text-align: center; padding-top: 40px; }
+            .check-icon { font-size: 60px; color: #28a745; line-height: 1; margin-bottom: 10px; }
+            h1 { margin: 0 0 10px 0; font-size: 24px; text-transform: uppercase; letter-spacing: 1px; color: #444444; text-align: center; }
+            .intro-text { text-align: center; font-size: 16px; margin-bottom: 30px; padding: 0 20px; line-height: 1.5; }
             
-            /* PIN Box */
-            .pin-box { background-color: #f8f9fa; border: 2px dashed #bfa37c; border-radius: 8px; padding: 20px; margin: 25px 0; display: inline-block; width: 80%; }
+            /* PIN BOX (dashed gold border) */
+            .pin-container { text-align: center; margin: 20px 0; }
+            .pin-box { display: inline-block; background-color: #f8f9fa; border: 2px dashed #bfa37c; border-radius: 8px; padding: 20px 40px; min-width: 200px; }
             .pin-label { display: block; font-size: 12px; text-transform: uppercase; color: #666666; margin-bottom: 5px; }
-            .pin-code { display: block; font-size: 32px; font-weight: bold; color: #333333; letter-spacing: 4px; font-family: 'Courier New', monospace; }
+            .pin-code { display: block; font-size: 36px; font-weight: bold; color: #333333; letter-spacing: 5px; font-family: monospace; }
             
-            /* Detaily */
-            .details-box { background-color: #fafafa; border-radius: 6px; padding: 20px; text-align: left; margin-bottom: 25px; border: 1px solid #eeeeee; }
-            .details-item { margin-bottom: 10px; font-size: 14px; color: #555555; }
-            .details-item strong { color: #333333; }
+            /* Detaily (šedé pozadí) */
+            .details-box { background-color: #fafafa; margin: 20px 40px; padding: 20px; border-radius: 6px; font-size: 14px; line-height: 1.6; color: #555555; }
+            .details-row { margin-bottom: 8px; }
+            .details-row strong { color: #333333; }
             
-            /* Instrukce */
-            .instructions { font-size: 13px; color: #666666; line-height: 1.6; border-top: 1px solid #eeeeee; padding-top: 20px; margin-top: 20px; text-align: left; }
-            .footer { background-color: #333333; color: #aaaaaa; text-align: center; padding: 15px; font-size: 11px; }
-            a { color: #bfa37c; text-decoration: none; }
+            /* Instrukce (podle screenshotu) */
+            .instructions { margin: 0 40px 40px 40px; font-size: 14px; line-height: 1.6; color: #333; }
+            .instructions h3 { font-size: 16px; color: #444; margin-bottom: 10px; margin-top: 0; }
+            .instructions ol { padding-left: 20px; margin: 0; }
+            .instructions li { margin-bottom: 8px; }
+            
+            .footer { background-color: #333333; color: #aaaaaa; text-align: center; padding: 15px; font-size: 12px; }
         </style>
     </head>
-    <body style="background-color: #f8f9fa; padding: 20px;">
-        
-        <div class="container">
-            <div class="header">
-                <div class="icon-check">✔</div>
-                <h1>Rezervace úspěšná!</h1>
-            </div>
+    <body>
+        <div class="wrapper">
+            <br>
+            <div class="main-box">
+                <div class="header">
+                    <div class="check-icon">✔</div>
+                    <h1>Rezervace úspěšná!</h1>
+                </div>
 
-            <div class="content">
-                <p style="font-size: 16px; margin-bottom: 20px;">Dobrý den, <strong>${data.name}</strong>,<br>děkujeme za vaši rezervaci.</p>
+                <div class="intro-text">
+                    Dobrý den, <strong>${data.name}</strong>,<br>
+                    děkujeme za vaši rezervaci.
+                </div>
 
-                <div class="pin-box">
-                    <span class="pin-label">Váš kód k zámku</span>
-                    <span class="pin-code">${data.passcode}</span>
+                <div class="pin-container">
+                    <div class="pin-box">
+                        <span class="pin-label">Váš kód k zámku</span>
+                        <span class="pin-code">${data.passcode}</span>
+                    </div>
                 </div>
 
                 <div class="details-box">
-                    <div class="details-item">
-                        <strong>Termín:</strong> ${startF} – ${endF}
+                    <div class="details-row">
+                        <strong>Vyzvednutí:</strong> ${startF} v ${data.time}
                     </div>
-                    <div class="details-item">
-                        <strong>Čas vyzvednutí:</strong> ${data.time}
+                    <div class="details-row">
+                        <strong>Vrácení:</strong> ${endF} v ${data.time}
                     </div>
-                    <div class="details-item">
+                    <div class="details-row">
                         <strong>Telefon:</strong> ${data.phone}
                     </div>
                 </div>
 
                 <div class="instructions">
-                    <strong>Jak odemknout?</strong><br>
-                    1. Probuďte klávesnici zámku dotykem.<br>
-                    2. Zadejte váš PIN kód: <strong>${data.passcode}</strong><br>
-                    3. Potvrďte stisknutím tlačítka 🔓 (vpravo dole) nebo #.
+                    <h3>Jak odemknout?</h3>
+                    <ol>
+                        <li>Probuďte klávesnici zámku dotykem.</li>
+                        <li>Zadejte váš PIN kód: <strong>${data.passcode}</strong></li>
+                        <li>Potvrďte stisknutím tlačítka 🔓 (vpravo dole) nebo #.</li>
+                    </ol>
+                </div>
+
+                <div class="footer">
+                    Přívěsný vozík 24/7<br>
+                    Toto je automaticky generovaná zpráva.
                 </div>
             </div>
-
-            <div class="footer">
-                Přívěsný vozík 24/7<br>
-                V případě potíží odpovězte na tento email.
-            </div>
+            <br>
         </div>
-
     </body>
     </html>
     `;
