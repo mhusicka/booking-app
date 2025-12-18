@@ -68,7 +68,16 @@
                     <input type="tel" id="inp-phone" placeholder="+420 777 123 456">
                 </div>
 
-                <button onclick="submitReservation()" class="btn-pay">Rezervovat (Test)</button>
+                <div class="form-group" style="margin-top: 20px; background: #f9f9f9; padding: 15px; border-radius: 5px; border: 1px solid #eee;">
+                    <div style="display: flex; align-items: flex-start; gap: 10px;">
+                        <input type="checkbox" id="inp-agree" style="width: 20px; height: 20px; margin-top: 2px; cursor: pointer;">
+                        <label for="inp-agree" style="font-size: 14px; line-height: 1.4; cursor: pointer;">
+                            Souhlasím se <a href="conditions.html" target="_blank" style="color: #bfa37c; text-decoration: underline; font-weight: bold;">Smluvními podmínkami</a> a se zpracováním osobních údajů.
+                        </label>
+                    </div>
+                </div>
+
+                <button onclick="submitReservation()" id="btn-submit" class="btn-pay" disabled style="background-color: #ccc; cursor: not-allowed;">Rezervovat</button>
             </div>
         </div>
     </div>
