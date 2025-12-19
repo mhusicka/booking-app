@@ -1,405 +1,76 @@
-/* =========================================
-   1. ZÁKLADNÍ NASTAVENÍ A FONTY
-   ========================================= */
-body {
-    font-family: 'Montserrat', sans-serif;
-    background: #f8f9fa;
-    color: #333;
-    padding: 20px;
-    margin: 0;
-}
+/* 1. ZÁKLAD */
+body { font-family: 'Montserrat', sans-serif; background: #f8f9fa; color: #333; padding: 20px; margin: 0; }
+.main-container { max-width: 1100px; margin: 0 auto; background: white; padding: 40px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); border-radius: 8px; }
+h1 { text-align: center; margin-bottom: 40px; text-transform: uppercase; letter-spacing: 2px; color: #444; }
+h2 { font-size: 1.2rem; margin-top: 0; margin-bottom: 20px; border-bottom: 2px solid #bfa37c; display: inline-block; padding-bottom: 5px; text-transform: uppercase; letter-spacing: 2px; color: #444; }
 
-.main-container {
-    max-width: 1100px;
-    margin: 0 auto;
-    background: white;
-    padding: 40px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.05);
-    border-radius: 8px;
-}
+/* 2. NOVÁ SEKCE (Popis, Ikony, Ceník) */
+.about-section { text-align: center; margin-bottom: 50px; padding: 0 10px; max-width: 900px; margin-left: auto; margin-right: auto; }
+.about-section p { font-size: 1.1rem; color: #555; line-height: 1.6; margin-bottom: 30px; max-width: 700px; margin-left: auto; margin-right: auto; }
 
-h1, h2 { 
-    text-transform: uppercase; 
-    letter-spacing: 2px;
-    color: #444;
-}
+.features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-top: 30px; }
+.feature-item { background: #ffffff; padding: 25px 15px; border-radius: 12px; border: 1px solid #eee; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.03); transition: transform 0.2s, box-shadow 0.2s; }
+.feature-item:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.06); }
+.feature-item.price-highlight { border: 2px solid #bfa37c; background: #fffcf5; }
 
-h1 { 
-    text-align: center; 
-    margin-bottom: 40px; 
-}
+.feature-icon { font-size: 2.2rem; margin-bottom: 15px; display: block; }
+.feature-item strong { display: block; font-size: 1.1rem; margin-bottom: 5px; color: #333; }
+.feature-desc { font-size: 0.9rem; color: #777; }
 
-h2 { 
-    font-size: 1.2rem; 
-    margin-top: 0; 
-    margin-bottom: 20px; 
-    border-bottom: 2px solid #bfa37c; 
-    display: inline-block; 
-    padding-bottom: 5px;
-}
+.btn-outline { display: inline-block; padding: 12px 25px; border: 2px solid #ddd; border-radius: 30px; color: #555; text-decoration: none; font-weight: 600; font-size: 0.9rem; transition: all 0.3s; background: white; }
+.btn-outline:hover { border-color: #bfa37c; color: #bfa37c; background: #fffcf5; }
 
-/* =========================================
-   2. ROZLOŽENÍ (LAYOUT)
-   ========================================= */
-.content-wrapper {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 40px;
-}
+/* 3. KALENDÁŘ A FORMULÁŘ */
+.content-wrapper { display: flex; flex-wrap: wrap; gap: 40px; }
+.calendar-section { flex: 2; min-width: 300px; }
+#booking-form { flex: 1; min-width: 300px; background: #fafafa; padding: 25px; border-radius: 8px; border: 1px solid #eee; }
 
-/* Levý sloupec (Kalendář) */
-.calendar-section { 
-    flex: 1; 
-    min-width: 300px; 
-}
+.controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.nav-btn { background: none; border: 1px solid #ddd; padding: 8px 15px; cursor: pointer; border-radius: 4px; font-size: 1.2rem; }
+.nav-btn:hover { background: #eee; }
+#currentMonthLabel { font-weight: 600; font-size: 1.1rem; }
 
-/* Pravý sloupec (Formulář) */
-#booking-form { 
-    flex: 1; 
-    min-width: 280px; 
-    background: #fafafa; 
-    padding: 20px; 
-    border-radius: 8px; 
-}
+.days-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; text-align: center; }
+.weekday { font-weight: bold; color: #888; font-size: 0.8rem; padding-bottom: 10px; }
+.day { padding: 10px; background: #fff; border: 1px solid #eee; cursor: pointer; border-radius: 4px; transition: 0.2s; font-size: 0.95rem; }
+.day:hover { background-color: #f9f9f9; border-color: #ccc; }
+.day.available { color: #333; }
+.day.booked { background: #f0f0f0; color: #bbb; cursor: not-allowed; text-decoration: line-through; }
+.day.past { background: #fcfcfc; color: #ddd; cursor: default; }
+.day.range-start, .day.range-end { background: #bfa37c; color: white; border-color: #bfa37c; }
+.day.range { background: #f3e9d9; border-color: #f3e9d9; }
+.day.hover-range { background: #f3e9d9; }
 
-/* =========================================
-   3. KALENDÁŘ
-   ========================================= */
-.controls {
-    display: flex; 
-    justify-content: space-between; 
-    align-items: center;
-    margin-bottom: 20px; 
-    font-weight: bold; 
-    font-size: 1.1rem;
-}
+#legend { display: flex; gap: 15px; margin-top: 20px; font-size: 0.8rem; justify-content: center; }
+.box { width: 12px; height: 12px; display: inline-block; margin-right: 5px; border: 1px solid #ddd; }
+.box.booked { background: #f0f0f0; } .box.selecting { background: #bfa37c; } .box.available { background: white; }
 
-.nav-btn {
-    background: white; 
-    border: 1px solid #ddd; 
-    padding: 5px 15px; 
-    cursor: pointer; 
-    transition: 0.3s;
-}
-
-.nav-btn:hover { 
-    background: #bfa37c; 
-    color: white; 
-    border-color: #bfa37c; 
-}
-
-.days-grid { 
-    display: grid; 
-    grid-template-columns: repeat(7, 1fr); 
-    gap: 4px; 
-}
-
-.weekday { 
-    text-align: center; 
-    font-size: 0.8rem; 
-    color: #999; 
-    margin-bottom: 10px; 
-}
-
-/* Styl jednoho dne */
-.day, .empty { 
-    height: 40px; 
-    display: flex; 
-    align-items: center; 
-    justify-content: center; 
-    font-size: 0.9rem; 
-    border: 1px solid #eee; 
-    transition: background 0.1s, border-color 0.1s;
-}
-
-.day { 
-    cursor: pointer; 
-    background: white; 
-}
-
-.day:hover { 
-    border-color: #bfa37c; 
-}
-
-/* --- STAVY DNÍ --- */
-
-/* 1. Minulost (Neklikatelné, šedé) */
-.day.past {
-    background: #fcfcfc;
-    color: #ddd;
-    cursor: not-allowed;
-    pointer-events: none; /* Zakáže klikání i hover */
-    border-color: #f0f0f0;
-}
-
-/* 2. Obsazeno (Červené/Šedé, přeškrtnuté) */
-.day.booked { 
-    background: #f0f0f0; 
-    color: #aaa; 
-    cursor: not-allowed; 
-    text-decoration: line-through; 
-    /* pointer-events: none nedáváme, aby fungoval tooltip */
-}
-
-/* 3. Hover Range (Náhled výběru - světle zlatá) */
-.day.hover-range {
-    background: #e6dccb; 
-    color: #333;
-    border-color: #bfa37c;
-}
-
-/* 4. Finální výběr (Tmavší zlatá) */
-.day.range-start, .day.range-end, .day.range { 
-    background: #bfa37c !important; 
-    color: white; 
-    border-color: #bfa37c; 
-}
-
-/* =========================================
-   4. FORMULÁŘ
-   ========================================= */
-.summary-box {
-    background: white; 
-    border: 1px solid #eee; 
-    padding: 15px; 
-    margin-bottom: 20px; 
-    border-left: 4px solid #bfa37c;
-}
-
-.price-tag {
-    font-size: 1.3rem; 
-    font-weight: bold; 
-    color: #333; 
-    margin-top: 10px; 
-    text-align: right;
-}
-.price-tag span { color: #bfa37c; }
+/* Formulář prvky */
+.summary-box { background: white; border: 1px solid #ddd; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+.summary-box p { margin: 5px 0; font-size: 0.9rem; color: #555; }
+.price-tag { font-size: 1.3rem; font-weight: bold; color: #333; margin-top: 10px; text-align: right; }
 
 .form-group { margin-bottom: 15px; }
+label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 0.85rem; color: #555; }
+input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit; box-sizing: border-box; }
+.time-row { display: flex; gap: 10px; }
+.btn-small { background: #eee; border: 1px solid #ddd; padding: 0 15px; cursor: pointer; border-radius: 4px; font-weight: 600; }
+.btn-small:hover { background: #bfa37c; color: white; border-color: #bfa37c; }
 
-label { 
-    display: block; 
-    margin-bottom: 5px; 
-    font-weight: 600; 
-    font-size: 0.85rem; 
-}
+.btn-pay { width: 100%; background: #333; color: white; border: none; padding: 15px; font-weight: bold; text-transform: uppercase; cursor: pointer; transition: 0.3s; }
+.btn-pay:hover:not(:disabled) { background: #bfa37c; }
 
-input { 
-    width: 100%; 
-    padding: 10px; 
-    border: 1px solid #ddd; 
-    font-family: 'Montserrat', sans-serif; 
-    box-sizing: border-box; 
-}
+/* 4. FOOTER */
+.site-footer { background-color: #222; color: #ccc; padding: 50px 20px 20px 20px; margin-top: 80px; font-size: 0.9rem; border-top: 4px solid #bfa37c; }
+.footer-content { max-width: 1100px; margin: 0 auto; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 40px; }
+.footer-col { flex: 1; min-width: 250px; }
+.footer-col h3 { color: #fff; border-bottom: 2px solid #bfa37c; padding-bottom: 10px; display: inline-block; margin-top: 0; margin-bottom: 15px; text-transform: uppercase; font-size: 1rem; letter-spacing: 1px; }
+.footer-col p { margin-bottom: 10px; color: #aaa; line-height: 1.5; }
+.footer-col a { color: #ccc; text-decoration: none; transition: 0.3s; }
+.footer-col a:hover { color: #bfa37c; text-decoration: underline; }
 
-input:focus { outline: 1px solid #bfa37c; }
+.payment-logos { margin-top: 10px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.payment-logos img { height: 30px; background: white; padding: 2px 5px; border-radius: 4px; }
+.copyright { text-align: center; margin-top: 50px; border-top: 1px solid #333; padding-top: 20px; color: #666; font-size: 0.8rem; }
 
-/* Řádek s časem a tlačítkem TEĎ */
-.time-row {
-    display: flex;
-    gap: 10px;
-}
-
-.btn-small {
-    padding: 0 15px;
-    background: #eee;
-    border: 1px solid #ddd;
-    cursor: pointer;
-    font-weight: bold;
-    color: #555;
-    transition: 0.2s;
-    display: flex;
-    align-items: center;
-}
-
-.btn-small:hover {
-    background: #bfa37c;
-    color: white;
-    border-color: #bfa37c;
-}
-
-/* Hlavní tlačítko */
-.btn-pay {
-    width: 100%; 
-    background: #333; 
-    color: white; 
-    border: none; 
-    padding: 15px;
-    font-weight: bold; 
-    text-transform: uppercase; 
-    cursor: pointer; 
-    margin-top: 10px; 
-    transition: 0.3s;
-}
-
-.btn-pay:hover { background: #bfa37c; }
-
-/* =========================================
-   5. LEGENDA A TOOLTIP
-   ========================================= */
-#legend { 
-    display: flex; 
-    gap: 15px; 
-    margin-top: 20px; 
-    font-size: 0.8rem; 
-    justify-content: center;
-}
-
-.box { 
-    width: 12px; 
-    height: 12px; 
-    display: inline-block; 
-    margin-right: 5px; 
-    border: 1px solid #ddd; 
-}
-.box.booked { background: #f0f0f0; } 
-.box.selecting { background: #bfa37c; }
-
-/* Tooltip (Bublina) */
-.tooltip {
-    position: fixed;
-    background: #333;
-    color: white;
-    padding: 8px 12px;
-    border-radius: 4px;
-    font-size: 0.8rem;
-    pointer-events: none;
-    z-index: 1000;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-    min-width: 120px;
-    text-align: center;
-}
-.tooltip.hidden { display: none; }
-
-/* =========================================
-   6. RESPONZIVITA (MOBIL)
-   ========================================= */
-@media (max-width: 700px) {
-    .content-wrapper { flex-direction: column; }
-    .main-container { padding: 20px; }
-}
-
-
-/* =========================================
-   7. NOVÉ SEKCE (Popis, Ikony, Zápatí)
-   ========================================= */
-
-/* Popis služby pod nadpisem */
-.about-section {
-    text-align: center;
-    margin-bottom: 40px;
-    padding: 0 10px;
-    max-width: 850px;
-    margin-left: auto;
-    margin-right: auto;
-}
-
-.about-section p {
-    font-size: 1.05rem;
-    color: #555;
-    line-height: 1.6;
-}
-
-/* Ikony vlastností (Nonstop, Online...) */
-.features-grid {
-    display: flex;
-    justify-content: center;
-    gap: 20px;
-    margin-top: 30px;
-    flex-wrap: wrap;
-}
-
-.feature-item {
-    flex: 1;
-    min-width: 220px;
-    background: #fdfdfd;
-    padding: 20px;
-    border-radius: 8px;
-    border: 1px solid #eee;
-    text-align: center;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.02);
-}
-
-.feature-icon { 
-    font-size: 2rem; 
-    margin-bottom: 10px; 
-    display: block; 
-}
-
-/* Tmavé zápatí (Footer) */
-.site-footer {
-    background-color: #222;
-    color: #ccc;
-    padding: 50px 20px 20px 20px;
-    margin-top: 80px;
-    font-size: 0.9rem;
-    border-top: 4px solid #bfa37c;
-}
-
-.footer-content {
-    max-width: 1100px;
-    margin: 0 auto;
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    gap: 40px;
-}
-
-.footer-col { 
-    flex: 1; 
-    min-width: 250px; 
-}
-
-.footer-col h3 { 
-    color: #fff; 
-    border-bottom: 2px solid #bfa37c; 
-    padding-bottom: 10px; 
-    display: inline-block; 
-    margin-top: 0; 
-    margin-bottom: 15px;
-    text-transform: uppercase;
-    font-size: 1rem;
-    letter-spacing: 1px;
-}
-
-.footer-col p { 
-    margin-bottom: 10px; 
-    color: #aaa; 
-    line-height: 1.5;
-}
-
-.footer-col a { 
-    color: #ccc; 
-    text-decoration: none; 
-    transition: 0.3s;
-}
-
-.footer-col a:hover { 
-    color: #bfa37c; 
-    text-decoration: underline; 
-}
-
-/* Loga platebních karet */
-.payment-logos {
-    margin-top: 10px;
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    flex-wrap: wrap;
-}
-
-.payment-logos img {
-    height: 30px;
-    background: white;
-    padding: 2px 5px;
-    border-radius: 4px;
-}
-
-.copyright {
-    text-align: center; 
-    margin-top: 50px; 
-    border-top: 1px solid #333; 
-    padding-top: 20px; 
-    color: #666;
-    font-size: 0.8rem;
-}
+@media (max-width: 768px) { .content-wrapper { flex-direction: column; } .features-grid { grid-template-columns: 1fr 1fr; } }
