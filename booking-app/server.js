@@ -277,8 +277,5 @@ setInterval(async () => {
     }
 }, 60000);
 
-// Spuštění serveru
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, "0.0.0.0", () => console.log(`🚀 Server běží na portu ${PORT}`));
-
-// END OF FILE
+// SPUŠTĚNÍ SERVERU (Tohle předtím chybělo)
+app.listen(process.env.PORT || 3000, "0.0.0.0", () => console.log(`🚀 Server běží`));
