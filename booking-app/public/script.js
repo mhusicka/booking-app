@@ -5,11 +5,20 @@ let startDate = null, endDate = null, bookedDays = [];
 
 async function init() {
     await updateCalendar();
+    
+    // Telefon prefix
+    const ph = document.getElementById("inp-phone");
+    if (ph) {
+        if (!ph.value) ph.value = "+420 ";
+        ph.addEventListener("input", function() {
+            if (!this.value.startsWith("+420 ")) this.value = "+420 ";
+        });
+    }
+
     document.getElementById("prev").onclick = () => changeMonth(-1);
     document.getElementById("next").onclick = () => changeMonth(1);
-    document.getElementById("inp-time").onchange = () => updateUI();
+    document.getElementById("inp-time").onchange = updateSummary;
     document.getElementById("btn-now").onclick = setNow;
-    
     document.getElementById("inp-agree").onchange = function() {
         document.getElementById("btn-submit").disabled = !this.checked;
     };
@@ -20,7 +29,7 @@ async function updateCalendar() {
         const res = await fetch(`${API_BASE}/availability`);
         bookedDays = await res.json();
         render();
-    } catch (e) { console.log(e); }
+    } catch (e) { console.log("Chyba načítání"); }
 }
 
 function render() {
@@ -39,16 +48,16 @@ function render() {
         const dateStr = new Date(viewYear, viewMonth, d).toLocaleDateString('en-CA');
         const el = document.createElement("div"); el.className = "day"; el.innerText = d;
         
-        if (dateStr < today) el.classList.add("booked");
-        else if (bookedDays.includes(dateStr)) el.classList.add("booked");
-        else {
+        if (dateStr < today || bookedDays.includes(dateStr)) {
+            el.classList.add("booked");
+        } else {
             el.onclick = () => {
                 if (!startDate || (startDate && endDate)) { startDate = dateStr; endDate = null; }
                 else {
                     if (dateStr < startDate) { startDate = dateStr; endDate = null; }
                     else { endDate = dateStr; }
                 }
-                updateUI(); render();
+                updateSummary(); render();
             };
         }
         if (startDate === dateStr) el.classList.add("range-start");
@@ -60,15 +69,13 @@ function render() {
     document.getElementById("currentMonthLabel").innerText = monthStart.toLocaleString("cs-CZ", { month: "long", year: "numeric" }).toUpperCase();
 }
 
-function updateUI() {
-    const sTxt = document.getElementById("date-start-text"), eTxt = document.getElementById("date-end-text"), cTxt = document.getElementById("day-count"), pTxt = document.getElementById("total-price");
-    if (!startDate) return;
-    sTxt.innerText = startDate;
-    eTxt.innerText = endDate || "-";
+function updateSummary() {
+    document.getElementById("date-start-text").innerText = startDate || "-";
+    document.getElementById("date-end-text").innerText = endDate || "-";
     if (startDate && endDate) {
         const diff = Math.ceil(Math.abs(new Date(endDate) - new Date(startDate)) / 86400000) + 1;
-        cTxt.innerText = diff;
-        pTxt.innerText = (diff * PRICE_PER_DAY) + " Kč";
+        document.getElementById("day-count").innerText = diff;
+        document.getElementById("total-price").innerText = (diff * PRICE_PER_DAY).toLocaleString() + " Kč";
     }
 }
 
@@ -79,17 +86,21 @@ async function submitReservation() {
     const phone = document.getElementById("inp-phone").value;
     const time = document.getElementById("inp-time").value;
 
-    if (!startDate || !name || !bookingCode) { alert("Vyplňte vše."); return; }
+    if (!startDate || !name || !bookingCode) { alert("Prosím vyplňte vše včetně kódu."); return; }
     
-    const res = await fetch(`${API_BASE}/reserve-range`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ startDate, endDate: endDate || startDate, time, name, email, phone, bookingCode })
-    });
-    const data = await res.json();
-    if (data.success) alert("OK! PIN: " + data.pin); else alert(data.error);
+    try {
+        const res = await fetch(`${API_BASE}/reserve-range`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ startDate, endDate: endDate || startDate, time, name, email, phone, bookingCode })
+        });
+        const data = await res.json();
+        if (data.success) {
+             window.location.href = `success.html?pin=${data.pin}&start=${startDate}&time=${time}`;
+        } else { alert(data.error); }
+    } catch(e) { alert("Chyba komunikace"); }
 }
 
 function changeMonth(d) { viewMonth += d; if (viewMonth>11) {viewMonth=0; viewYear++} if (viewMonth<0) {viewMonth=11; viewYear--} render(); }
-function setNow() { startDate = new Date().toLocaleDateString('en-CA'); endDate = null; updateUI(); render(); }
+function setNow() { startDate = new Date().toLocaleDateString('en-CA'); endDate = null; updateSummary(); render(); }
 
 init();
