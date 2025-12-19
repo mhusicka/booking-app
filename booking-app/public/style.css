@@ -1,45 +1,52 @@
 body { font-family: 'Montserrat', sans-serif; background: #f8f9fa; color: #333; margin: 0; padding: 20px; }
-.main-container { max-width: 1100px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
+.main-container { max-width: 1100px; margin: 0 auto; background: white; padding: 35px; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
 
-h1 { text-align: center; margin-bottom: 30px; text-transform: uppercase; letter-spacing: 2px; }
-h2 { font-size: 1.1rem; margin-bottom: 15px; border-bottom: 2px solid #bfa37c; display: inline-block; padding-bottom: 5px; }
+h1 { text-align: center; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 30px; }
+h2 { font-size: 1.1rem; border-bottom: 2px solid #bfa37c; padding-bottom: 5px; text-transform: uppercase; margin-top: 0; }
 
-/* Horní sekce oken */
-.about-section { text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 1px solid #eee; }
+/* Horní okna - sjednocená mřížka */
+.about-section { text-align: center; margin-bottom: 35px; border-bottom: 1px solid #eee; padding-bottom: 25px; }
 .features-grid { display: flex; justify-content: center; gap: 15px; flex-wrap: wrap; margin-bottom: 15px; }
-.feature-item { background: #fff; border: 1px solid #eee; padding: 15px; border-radius: 8px; min-width: 160px; text-align: center; flex: 1; max-width: 220px; }
-.feature-item strong { display: block; font-size: 0.9rem; margin-bottom: 3px; color: #bfa37c; }
+.feature-item { border: 1px solid #eee; padding: 15px; border-radius: 8px; min-width: 150px; flex: 1; max-width: 200px; background: #fff; }
+.feature-item strong { display: block; color: #bfa37c; font-size: 0.9rem; }
 .feature-item span { font-size: 0.75rem; color: #888; }
-.tiny-link { font-size: 0.75rem; color: #bfa37c; text-decoration: underline; }
+.tiny-link { font-size: 0.8rem; color: #bfa37c; text-decoration: underline; }
 
-/* Layout kalendář + formulář */
-.content-wrapper { display: flex; gap: 30px; flex-wrap: wrap; align-items: flex-start; }
-.calendar-section { flex: 1.5; min-width: 320px; }
+/* Layout */
+.content-wrapper { display: flex; gap: 35px; flex-wrap: wrap; align-items: flex-start; }
+.calendar-section { flex: 1.6; min-width: 300px; }
 #booking-form { flex: 1; min-width: 280px; background: #fcfcfc; border: 1px solid #eee; padding: 20px; border-radius: 8px; }
 
-/* Kalendář vnitřek */
+/* Kalendář */
 .controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
 .nav-btn { background: white; border: 1px solid #ddd; padding: 5px 12px; cursor: pointer; border-radius: 4px; }
-#currentMonthLabel { font-weight: 600; font-size: 0.9rem; }
 .days-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
 .day { padding: 12px 5px; text-align: center; background: white; border: 1px solid #eee; cursor: pointer; border-radius: 4px; font-size: 0.85rem; }
 .day.range-start, .day.range-end { background: #bfa37c !important; color: white; border-color: #bfa37c; }
 .day.range { background: #fdf5e8; }
-.day.booked { background: #f0f0f0; color: #ccc; cursor: not-allowed; }
+.day.booked { background: #f0f0f0; color: #ccc; cursor: not-allowed; text-decoration: line-through; }
 
-/* Formulář vnitřek */
-.summary-box { background: white; padding: 15px; border: 1px solid #eee; border-radius: 6px; margin-bottom: 15px; font-size: 0.85rem; }
-.summary-box p { margin: 5px 0; }
-.total-price-row { margin-top: 10px; font-weight: bold; font-size: 1.1rem; color: #bfa37c; border-top: 1px solid #eee; padding-top: 10px; }
-.form-group { margin-bottom: 10px; }
-.form-group label { display: block; font-size: 0.75rem; font-weight: 600; margin-bottom: 4px; }
-input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font-family: inherit; font-size: 0.85rem; }
-.time-row { display: flex; gap: 5px; }
+/* Legenda - OPRAVENÁ */
+#legend { display: flex; gap: 20px; justify-content: center; margin-top: 20px; font-size: 0.8rem; }
+.legend-item { display: flex; align-items: center; gap: 8px; }
+.box { width: 14px; height: 14px; border-radius: 2px; border: 1px solid #ddd; display: inline-block; }
+.box.available { background: white; }
+.box.booked { background: #f0f0f0; }
+.box.selecting { background: #bfa37c; border-color: #bfa37c; }
+
+/* Formulář */
+.summary-box { background: white; padding: 15px; border: 1px solid #eee; border-radius: 6px; margin-bottom: 20px; font-size: 0.85rem; }
+.form-group { margin-bottom: 12px; }
+label { display: block; font-size: 0.75rem; font-weight: 600; margin-bottom: 4px; color: #666; }
+input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font-family: inherit; }
+.time-row { display: flex; gap: 8px; }
 .btn-small { background: #eee; border: 1px solid #ddd; padding: 0 10px; cursor: pointer; border-radius: 4px; font-size: 0.75rem; }
-.code-box { background: #fff9e6; padding: 12px; border: 1px solid #ffeeba; border-radius: 6px; margin-bottom: 15px; }
-.btn-pay { width: 100%; padding: 15px; background: #333; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+.code-box { background: #fff9e6; border: 1px solid #ffeeba; }
+.btn-pay { width: 100%; padding: 15px; background: #333; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; transition: 0.3s; }
 .btn-pay:disabled { background: #ccc; cursor: not-allowed; }
-.terms-row { margin-top: 15px; font-size: 0.75rem; display: flex; align-items: center; gap: 8px; }
+.terms-row { margin-top: 15px; font-size: 0.75rem; display: flex; align-items: flex-start; gap: 8px; }
 
-/* Footer */
-.site-footer { text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; font-size: 0.75rem; color: #888; }
+/* Zápatí */
+.site-footer { background: #222; color: #999; padding: 35px 20px; margin-top: 50px; font-size: 0.8rem; border-top: 3px solid #bfa37c; }
+.footer-grid { display: flex; justify-content: space-between; max-width: 1100px; margin: 0 auto; gap: 20px; flex-wrap: wrap; text-align: left; }
+.footer-col a { color: #bfa37c; text-decoration: none; }
