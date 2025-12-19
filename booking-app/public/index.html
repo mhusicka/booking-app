@@ -67,12 +67,23 @@
                 <h2>Vaše rezervace</h2>
                 
                 <div class="summary-box">
-                    <p>Vyzvednutí: <span id="date-start-text" style="color:#bfa37c; font-weight:bold">-</span></p>
-                    <p>Vrácení: <span id="date-end-text" style="color:#bfa37c; font-weight:bold">-</span></p>
-                    <hr style="border: 0; border-top: 1px solid #eee; margin: 10px 0;">
-                    <p style="font-size: 0.9rem; color: #666;">Cena za den: <span id="price-per-day-display">-- Kč</span></p>
-                    <p>Počet dní: <span id="day-count">0</span></p>
-                    <div class="price-tag">Cena celkem: <span id="total-price">0 Kč</span></div>
+                    <p>Vyzvednutí:<br><strong id="date-start-text" style="color:#333; font-size: 1.1rem;">-</strong></p>
+                    <p>Vrácení:<br><strong id="date-end-text" style="color:#333; font-size: 1.1rem;">-</strong></p>
+                    
+                    <hr>
+
+                    <div class="price-per-day-label">
+                        Sazba: <span id="price-per-day-display">-- Kč</span> / 24h
+                    </div>
+
+                    <p>Počet dní: <strong id="day-count" style="color: #333;">0</strong></p>
+                    
+                    <div style="margin-top: 20px;">
+                        <span class="price-label-small">Cena celkem</span>
+                        <div class="price-tag">
+                            <span id="total-price">0 Kč</span>
+                        </div>
+                    </div>
                 </div>
                 
                 <div class="form-group">
