@@ -10,6 +10,12 @@ let cachedAvailability = [];
 
 async function init() {
     await updateCalendar();
+
+    // --- ZOBRAZENÍ CENY ZA DEN V TABULCE (NOVÉ) ---
+    const priceDisplay = document.getElementById("price-per-day-display");
+    if (priceDisplay) {
+        priceDisplay.innerText = `${PRICE_PER_DAY} Kč`;
+    }
     
     // --- OMEZENÍ A PŘEDVYPLNĚNÍ TELEFONU ---
     const phoneInput = document.getElementById("inp-phone");
@@ -27,21 +33,19 @@ async function init() {
         });
     }
 
-    // --- LOGIKA PRO CHECKBOX SOUHLASU (AKTIVACE TLAČÍTKA) ---
+    // --- LOGIKA PRO CHECKBOX SOUHLASU ---
     const agreeCheckbox = document.getElementById("inp-agree");
     const submitBtn = document.getElementById("btn-submit");
 
     if (agreeCheckbox && submitBtn) {
         agreeCheckbox.addEventListener("change", function() {
             if (this.checked) {
-                // Pokud je zaškrtnuto -> Aktivovat tlačítko
                 submitBtn.disabled = false;
-                submitBtn.style.backgroundColor = "#333"; // Původní černá barva
+                submitBtn.style.backgroundColor = "#333";
                 submitBtn.style.cursor = "pointer";
             } else {
-                // Pokud není zaškrtnuto -> Deaktivovat tlačítko
                 submitBtn.disabled = true;
-                submitBtn.style.backgroundColor = "#ccc"; // Šedá (neaktivní)
+                submitBtn.style.backgroundColor = "#ccc";
                 submitBtn.style.cursor = "not-allowed";
             }
         });
@@ -238,7 +242,6 @@ async function submitReservation() {
         const result = await res.json();
 
         if (result.success) {
-            // PŘESMĚROVÁNÍ NA SUCCESS STRÁNKU
             const params = new URLSearchParams({
                 pin: result.pin,
                 start: startDate,
@@ -248,12 +251,12 @@ async function submitReservation() {
             window.location.href = `success.html?${params.toString()}`;
         } else {
             alert("Chyba: " + (result.error || "Neznámá chyba"));
-            btn.innerText = "Rezervovat"; 
+            btn.innerText = "REZERVOVAT A ZAPLATIT"; 
             btn.disabled = false;
         }
     } catch (e) { 
         alert("Chyba komunikace."); 
-        btn.innerText = "Rezervovat"; 
+        btn.innerText = "REZERVOVAT A ZAPLATIT"; 
         btn.disabled = false;
     } 
 }
