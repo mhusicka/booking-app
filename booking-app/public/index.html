@@ -12,28 +12,31 @@
     <div class="main-container">
         <h1>Vozík 24/7</h1>
 
-        <div class="about-section" style="text-align: center; margin-bottom: 40px;">
-            <div class="features-grid" style="display: flex; justify-content: center; gap: 20px; flex-wrap: wrap;">
-                <div class="feature-item" style="border: 1px solid #eee; padding: 20px; border-radius: 8px; flex: 1; min-width: 200px; max-width: 250px;">
-                    <strong style="display: block; color: #bfa37c; margin-bottom: 5px;">🕒 NONSTOP</strong>
-                    <span style="font-size: 0.85rem; color: #666;">Vyzvednutí i vrácení 24/7.</span>
+        <div class="about-section">
+            <p>
+                Potřebujete převézt nábytek, stavební materiál nebo zahradní techniku? 
+                Nabízíme <strong>samoobslužný pronájem přívěsného vozíku v Mohelnici</strong>. 
+                Rezervujte online, zaplaťte kartou a vyzvedněte si vozík kdykoliv – ve dne i v noci.
+            </p>
+            
+            <div class="features-grid">
+                <div class="feature-item">
+                    <span class="feature-icon">🕒</span>
+                    <strong>NONSTOP provoz</strong><br>
+                    Vyzvednutí i vrácení 24 hodin denně.
                 </div>
-                <div class="feature-item" style="border: 1px solid #eee; padding: 20px; border-radius: 8px; flex: 1; min-width: 200px; max-width: 250px;">
-                    <strong style="display: block; color: #bfa37c; margin-bottom: 5px;">📱 ONLINE</strong>
-                    <span style="font-size: 0.85rem; color: #666;">Vše vyřídíte z mobilu.</span>
+                <div class="feature-item">
+                    <span class="feature-icon">📱</span>
+                    <strong>Vše online</strong><br>
+                    Žádné papírování. Stačí mobil a karta.
                 </div>
-                <div class="feature-item" style="border: 1px solid #eee; padding: 20px; border-radius: 8px; flex: 1; min-width: 200px; max-width: 250px;">
-                    <strong style="display: block; color: #bfa37c; margin-bottom: 5px;">🔒 BEZPEČNĚ</strong>
-                    <span style="font-size: 0.85rem; color: #666;">Unikátní PIN kód pro každou cestu.</span>
-                </div>
-                <div class="feature-item" style="border: 1px solid #eee; padding: 20px; border-radius: 8px; flex: 1; min-width: 200px; max-width: 250px;">
-                    <strong style="display: block; color: #bfa37c; margin-bottom: 5px;">🏷️ VÝHODNĚ</strong>
-                    <span style="font-size: 0.85rem; color: #333; font-weight: bold;">Cena: 230 Kč / 24 hod.</span>
+                <div class="feature-item">
+                    <span class="feature-icon">🔒</span>
+                    <strong>Bezpečný zámek</strong><br>
+                    Unikátní PIN kód pro každou rezervaci.
                 </div>
             </div>
-            <p style="margin-top: 20px;"><a href="pricelist.html" target="_blank" style="color: #bfa37c; font-size: 0.9rem;">Zobrazit kompletní ceník a poplatky →</a></p>
         </div>
-
         <div class="content-wrapper">
             <div class="calendar-section">
                 <div class="controls">
@@ -87,48 +90,62 @@
                     <input type="tel" id="inp-phone" placeholder="+420 777 123 456">
                 </div>
 
-                <div class="form-group" style="background: #fff3cd; padding: 10px; border-radius: 4px; border: 1px solid #ffeeba;">
-                    <label style="color: #856404; font-weight: bold;">Ověřovací kód rezervace</label>
-                    <input type="password" id="inp-code" placeholder="Zadejte kód">
-                </div>
-
-                <button onclick="submitReservation()" id="btn-submit" class="btn-pay" disabled style="background-color: #cccccc; cursor: not-allowed;">
+                <button onclick="submitReservation()" id="btn-submit" class="btn-pay" disabled style="background-color: #cccccc; cursor: not-allowed; width: 100%; padding: 15px; border: none; border-radius: 5px; font-size: 18px; color: white; font-weight: bold; margin-top: 20px;">
                     REZERVOVAT A ZAPLATIT
                 </button>
 
-                <div class="terms-container" style="margin-top: 15px; font-size: 0.8rem; display: flex; gap: 10px;">
-                    <input type="checkbox" id="inp-agree">
-                    <label for="inp-agree">Souhlasím se <a href="conditions.html" target="_blank">Smluvními podmínkami</a> a se zpracováním údajů.</label>
+                <div class="terms-container" style="margin-top: 15px; padding: 10px; text-align: center;">
+                    <div style="display: flex; align-items: flex-start; justify-content: center; gap: 10px;">
+                        <input type="checkbox" id="inp-agree" style="width: 20px; height: 20px; cursor: pointer; margin-top: 2px;">
+                        <label for="inp-agree" style="font-size: 13px; line-height: 1.4; color: #555; cursor: pointer; text-align: left;">
+                            Potvrzuji, že jsem se seznámil/a se <a href="conditions.html" target="_blank" style="color: #bfa37c; text-decoration: underline; font-weight: bold;">Smluvními podmínkami</a> a se <a href="privacy.html" target="_blank" style="color: #bfa37c; text-decoration: underline; font-weight: bold;">Zásadami ochrany osobních údajů</a>.
+                        </label>
+                    </div>
                 </div>
+
             </div>
         </div>
     </div>
 
-    <footer class="site-footer" style="background: #222; color: #ccc; padding: 40px 20px; margin-top: 60px;">
-        <div style="max-width: 1100px; margin: 0 auto; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 30px;">
-            <div>
-                <h3 style="color: #fff; margin-bottom: 15px; border-bottom: 2px solid #bfa37c; display: inline-block;">Kontakt</h3>
-                <p><strong>Martin Husička</strong><br>Dubová 1490/2, Mohelnice<br>IČO: 76534898<br>Email: info@vozik247.cz</p>
+    <footer class="site-footer">
+        <div class="footer-content">
+            
+            <div class="footer-col">
+                <h3>Kontakt</h3>
+                <p><strong>Martin Husička</strong></p>
+                <p>Dubová 1490/2<br>789 85 Mohelnice</p>
+                <p>IČO: 76534898</p>
+                <p>✉️ info@vozik247.cz<br>📞 +420 777 XXX XXX</p>
             </div>
-            <div>
-                <h3 style="color: #fff; margin-bottom: 15px; border-bottom: 2px solid #bfa37c; display: inline-block;">Informace</h3>
-                <p>
-                    <a href="pricelist.html" target="_blank" style="color: #ccc;">Ceník služeb</a><br>
-                    <a href="conditions.html" target="_blank" style="color: #ccc;">Obchodní podmínky</a><br>
-                    <a href="privacy.html" target="_blank" style="color: #ccc;">Ochrana údajů</a>
+
+            <div class="footer-col">
+                <h3>Informace</h3>
+                <p><a href="conditions.html" target="_blank">Obchodní podmínky</a></p>
+                <p><a href="privacy.html" target="_blank">Ochrana osobních údajů (GDPR)</a></p>
+                <p><a href="#">Ceník služeb</a></p>
+                <p><a href="#">Reklamační řád</a></p>
+            </div>
+
+            <div class="footer-col">
+                <h3>Bezpečné platby</h3>
+                <p>Přijímáme platební karty:</p>
+                <div class="payment-logos">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/5/5e/Visa_Inc._logo.svg" alt="Visa">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/2/2a/Mastercard-logo.svg" alt="Mastercard">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/b/b5/PayPal.svg" alt="PayPal">
+                </div>
+                <p style="margin-top:15px; font-size: 0.8rem; color: #888;">
+                    Platby jsou zabezpečeny bránou <strong>GoPay</strong>.<br>
+                    Podporujeme ověření <strong>3D Secure</strong>.
                 </p>
             </div>
-            <div>
-                <h3 style="color: #fff; margin-bottom: 15px; border-bottom: 2px solid #bfa37c; display: inline-block;">Bezpečné platby</h3>
-                <div style="display: flex; gap: 10px; background: #fff; padding: 5px; border-radius: 4px; margin-bottom: 10px;">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/5/5e/Visa_Inc._logo.svg" alt="Visa" style="height: 25px;">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/2/2a/Mastercard-logo.svg" alt="Mastercard" style="height: 25px;">
-                </div>
-                <p style="font-size: 0.8rem;">Zabezpečeno bránou GoPay</p>
-            </div>
+        </div>
+        <div class="copyright">
+            &copy; 2025 Vozík 24/7. Všechna práva vyhrazena.
         </div>
     </footer>
 
+    <div id="tooltip" class="tooltip hidden"></div>
     <script src="script.js"></script>
 </body>
 </html>
