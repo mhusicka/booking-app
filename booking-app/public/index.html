@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vozík 24/7 - Půjčovna přívěsných vozíků Mohelnice</title>
+    <title>Vozík 24/7 - Mohelnice</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
 </head>
@@ -13,37 +13,13 @@
         <h1>Vozík 24/7</h1>
 
         <div class="about-section">
-            <p>
-                Nabízíme <strong>samoobslužný pronájem přívěsného vozíku v Mohelnici</strong>. 
-                Rezervace i vyzvednutí probíhá kompletně online a bezkontaktně.
-            </p>
-            
             <div class="features-grid">
-                <div class="feature-item">
-                    <span class="feature-icon">🕒</span>
-                    <strong>NONSTOP provoz</strong>
-                    <span class="feature-desc">Vyzvednutí i vrácení 24/7.</span>
-                </div>
-                <div class="feature-item">
-                    <span class="feature-icon">📱</span>
-                    <strong>Vše online</strong>
-                    <span class="feature-desc">Rezervace i platba mobilem.</span>
-                </div>
-                <div class="feature-item">
-                    <span class="feature-icon">🔒</span>
-                    <strong>Bezpečný zámek</strong>
-                    <span class="feature-desc">PIN kód pro každou cestu.</span>
-                </div>
-                <div class="feature-item">
-                    <span class="feature-icon">🏷️</span>
-                    <strong>Cena pronájmu</strong>
-                    <span class="feature-desc">230 Kč / 24 hodin.</span>
-                </div>
+                <div class="feature-item"><strong>🕒 Nonstop</strong><span>Vyzvednutí 24/7</span></div>
+                <div class="feature-item"><strong>📱 Online</strong><span>Rezervace mobilem</span></div>
+                <div class="feature-item"><strong>🔒 Bezpečně</strong><span>Vlastní PIN kód</span></div>
+                <div class="feature-item"><strong>🏷️ Cena</strong><span>230 Kč / 24h</span></div>
             </div>
-
-            <div style="margin-top: 20px;">
-                <a href="pricelist.html" target="_blank" class="price-link">Kompletní ceník a poplatky →</a>
-            </div>
+            <a href="pricelist.html" target="_blank" class="tiny-link">Zobrazit kompletní ceník</a>
         </div>
 
         <div class="content-wrapper">
@@ -62,18 +38,13 @@
             </div>
 
             <div id="booking-form">
-                <h2>Vaše rezervace</h2>
+                <h2>Rezervace</h2>
                 
                 <div class="summary-box">
-                    <div class="summary-row"><span>Vyzvednutí:</span> <strong id="date-start-text">-</strong></div>
-                    <div class="summary-row"><span>Vrácení:</span> <strong id="date-end-text">-</strong></div>
-                    <hr>
-                    <div class="summary-row"><span>Sazba:</span> <span id="price-per-day-display">-- Kč</span> / 24h</div>
-                    <div class="summary-row"><span>Dní:</span> <strong id="day-count">0</strong></div>
-                    <div class="total-row">
-                        <span>Cena celkem</span>
-                        <div id="total-price">0 Kč</div>
-                    </div>
+                    <p>Od: <strong id="date-start-text">-</strong></p>
+                    <p>Do: <strong id="date-end-text">-</strong></p>
+                    <p>Dní: <span id="day-count">0</span> (<span id="price-per-day-display">230 Kč</span>/den)</p>
+                    <div class="total-price-row">Celkem: <span id="total-price">0 Kč</span></div>
                 </div>
                 
                 <div class="form-group">
@@ -84,48 +55,28 @@
                     </div>
                 </div>
 
-                <div class="form-group"><label>Jméno a příjmení</label><input type="text" id="inp-name" placeholder="Jan Novák"></div>
-                <div class="form-group"><label>Email</label><input type="email" id="inp-email" placeholder="jan@novak.cz"></div>
-                <div class="form-group"><label>Telefon</label><input type="tel" id="inp-phone" placeholder="+420 777 123 456"></div>
+                <input type="text" id="inp-name" placeholder="Jméno a příjmení" class="margin-input">
+                <input type="email" id="inp-email" placeholder="Email" class="margin-input">
+                <input type="tel" id="inp-phone" placeholder="Telefon" class="margin-input">
 
-                <div class="form-group" style="background: #fdf8e4; padding: 10px; border-radius: 4px; border: 1px solid #faebcc;">
-                    <label style="color: #8a6d3b;">Ověřovací kód</label>
-                    <input type="password" id="inp-code" placeholder="Kód pro spuštění">
+                <div class="code-box">
+                    <label>Ověřovací kód</label>
+                    <input type="password" id="inp-code" placeholder="Zadejte kód">
                 </div>
 
-                <button onclick="submitReservation()" id="btn-submit" class="btn-pay" disabled>
-                    REZERVOVAT A ZAPLATIT
-                </button>
+                <button onclick="submitReservation()" id="btn-submit" class="btn-pay" disabled>REZERVOVAT</button>
 
-                <div class="terms-container">
+                <div class="terms-row">
                     <input type="checkbox" id="inp-agree">
-                    <label for="inp-agree">
-                        Souhlasím s <a href="conditions.html" target="_blank">podmínkami</a> a <a href="privacy.html" target="_blank">GDPR</a>.
-                    </label>
+                    <label for="inp-agree">Souhlasím s <a href="conditions.html" target="_blank">podmínkami</a></label>
                 </div>
             </div>
         </div>
     </div>
 
     <footer class="site-footer">
-        <div class="footer-content">
-            <div class="footer-col">
-                <h3>Kontakt</h3>
-                <p><strong>Martin Husička</strong><br>Dubová 1490/2, Mohelnice<br>IČO: 76534898<br>info@vozik247.cz</p>
-            </div>
-            <div class="footer-col">
-                <h3>Odkazy</h3>
-                <p><a href="pricelist.html" target="_blank">Ceník</a><br><a href="conditions.html" target="_blank">Podmínky</a><br><a href="privacy.html" target="_blank">GDPR</a></p>
-            </div>
-            <div class="footer-col">
-                <h3>Platby</h3>
-                <div class="payment-logos">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/5/5e/Visa_Inc._logo.svg" alt="Visa">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/2/2a/Mastercard-logo.svg" alt="Mastercard">
-                </div>
-                <p style="font-size: 0.8rem; margin-top: 10px;">Zabezpečeno bránou GoPay</p>
-            </div>
-        </div>
+        <p><strong>Martin Husička</strong>, Dubová 1490/2, Mohelnice | IČO: 76534898</p>
+        <p><a href="privacy.html" target="_blank">GDPR</a> | <a href="conditions.html" target="_blank">Podmínky</a></p>
     </footer>
 
     <script src="script.js"></script>
