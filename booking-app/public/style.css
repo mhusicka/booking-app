@@ -20,10 +20,10 @@ h2 { font-size: 1.2rem; margin-top: 0; margin-bottom: 20px; border-bottom: 2px s
 .content-wrapper { display: flex; flex-wrap: wrap; gap: 40px; }
 
 /* ZÚŽENÍ KALENDÁŘE (flex 0.8) */
-.calendar-section { flex: 0.8; min-width: 320px; } 
+.calendar-section { flex: 1.0; min-width: 320px; } 
 
 /* ROZŠÍŘENÍ FORMULÁŘE (flex 1.2) */
-#booking-form { flex: 1.2; min-width: 340px; background: #fafafa; padding: 25px; border-radius: 8px; border: 1px solid #eee; }
+#booking-form { flex: 1.0; min-width: 340px; background: #fafafa; padding: 25px; border-radius: 8px; border: 1px solid #eee; }
 
 /* KALENDÁŘ PRVKY */
 .controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
@@ -73,3 +73,4 @@ input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; 
 .copyright { text-align: center; margin-top: 50px; border-top: 1px solid #333; padding-top: 20px; color: #666; font-size: 0.8rem; }
 
 @media (max-width: 768px) { .content-wrapper { flex-direction: column; } .features-grid { grid-template-columns: 1fr 1fr; } }
+
