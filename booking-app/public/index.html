@@ -14,12 +14,12 @@
 
         <div class="about-section">
             <div class="features-grid">
-                <div class="feature-item"><strong>🕒 Nonstop</strong><span>Vyzvednutí 24/7</span></div>
-                <div class="feature-item"><strong>📱 Online</strong><span>Rezervace mobilem</span></div>
-                <div class="feature-item"><strong>🔒 Bezpečně</strong><span>Vlastní PIN kód</span></div>
-                <div class="feature-item"><strong>🏷️ Cena</strong><span>230 Kč / 24h</span></div>
+                <div class="feature-item"><strong>🕒 NONSTOP</strong><span>Vyzvednutí 24/7</span></div>
+                <div class="feature-item"><strong>📱 ONLINE</strong><span>Vše z mobilu</span></div>
+                <div class="feature-item"><strong>🔒 BEZPEČNĚ</strong><span>Vlastní PIN kód</span></div>
+                <div class="feature-item"><strong>🏷️ CENA</strong><span>230 Kč / 24h</span></div>
             </div>
-            <a href="pricelist.html" target="_blank" class="tiny-link">Zobrazit kompletní ceník</a>
+            <a href="pricelist.html" target="_blank" class="tiny-link">Kompletní ceník a poplatky</a>
         </div>
 
         <div class="content-wrapper">
@@ -38,12 +38,13 @@
             </div>
 
             <div id="booking-form">
-                <h2>Rezervace</h2>
+                <h2>Vaše rezervace</h2>
                 
                 <div class="summary-box">
                     <p>Od: <strong id="date-start-text">-</strong></p>
                     <p>Do: <strong id="date-end-text">-</strong></p>
-                    <p>Dní: <span id="day-count">0</span> (<span id="price-per-day-display">230 Kč</span>/den)</p>
+                    <hr>
+                    <p>Dní: <strong id="day-count">0</strong></p>
                     <div class="total-price-row">Celkem: <span id="total-price">0 Kč</span></div>
                 </div>
                 
@@ -55,28 +56,33 @@
                     </div>
                 </div>
 
-                <input type="text" id="inp-name" placeholder="Jméno a příjmení" class="margin-input">
-                <input type="email" id="inp-email" placeholder="Email" class="margin-input">
-                <input type="tel" id="inp-phone" placeholder="Telefon" class="margin-input">
+                <div class="form-group">
+                    <input type="text" id="inp-name" placeholder="Jméno a příjmení">
+                </div>
+                <div class="form-group">
+                    <input type="email" id="inp-email" placeholder="Email">
+                </div>
+                <div class="form-group">
+                    <input type="tel" id="inp-phone" placeholder="Telefon">
+                </div>
 
                 <div class="code-box">
                     <label>Ověřovací kód</label>
-                    <input type="password" id="inp-code" placeholder="Zadejte kód">
+                    <input type="password" id="inp-code" placeholder="Zadejte kód pro spuštění">
                 </div>
 
-                <button onclick="submitReservation()" id="btn-submit" class="btn-pay" disabled>REZERVOVAT</button>
+                <button onclick="submitReservation()" id="btn-submit" class="btn-pay" disabled>REZERVOVAT A ZAPLATIT</button>
 
                 <div class="terms-row">
                     <input type="checkbox" id="inp-agree">
-                    <label for="inp-agree">Souhlasím s <a href="conditions.html" target="_blank">podmínkami</a></label>
+                    <label for="inp-agree">Souhlasím s <a href="conditions.html" target="_blank">podmínkami</a> a <a href="privacy.html" target="_blank">GDPR</a></label>
                 </div>
             </div>
         </div>
     </div>
 
     <footer class="site-footer">
-        <p><strong>Martin Husička</strong>, Dubová 1490/2, Mohelnice | IČO: 76534898</p>
-        <p><a href="privacy.html" target="_blank">GDPR</a> | <a href="conditions.html" target="_blank">Podmínky</a></p>
+        <p><strong>Martin Husička</strong> | Dubová 1490/2, Mohelnice | IČO: 76534898 | info@vozik247.cz</p>
     </footer>
 
     <script src="script.js"></script>
