@@ -20,7 +20,7 @@ app.get('/admin', (req, res) => {
 // ==========================================
 // 1. NASTAVENÍ HESLA (BETA MÓD)
 // ==========================================
-const LAUNCH_PASSWORD = "start"; // <--- HESLO PRO REZERVACI
+const LAUNCH_PASSWORD = "start"; // <--- HESLO PRO ODESLÁNÍ REZERVACE
 
 // ==========================================
 // 2. KONFIGURACE
@@ -157,4 +157,15 @@ async function addPinToLock(startStr, endStr, timeStr) {
     try {
         const token = await getTTLockToken();
         const startMs = new Date(`${startStr}T${timeStr}:00`).getTime();
-        const endMs = new Date(`${endStr}T
+        const endMs = new Date(`${endStr}T${timeStr}:00`).getTime() + 60000; 
+        const pin = generatePin(6);
+
+        const params = {
+            clientId: TTLOCK_CLIENT_ID, accessToken: token, lockId: MY_LOCK_ID,
+            keyboardPwd: pin, startDate: startMs, endDate: endMs, date: Date.now(),
+            addType: 2, keyboardPwdName: `Rezervace ${startStr}`
+        };
+
+        const sortedKeys = Object.keys(params).sort();
+        const baseString = sortedKeys.map(k => `${k}=${params[k]}`).join("&");
+        const sign = crypto.createHash("md5").update(baseString + TTLOCK_CLIENT_SECRET).digest("hex").toUpperCase();
