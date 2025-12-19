@@ -15,11 +15,11 @@
         <div class="about-section">
             <div class="features-grid">
                 <div class="feature-item"><strong>🕒 NONSTOP</strong><span>Vyzvednutí 24/7</span></div>
-                <div class="feature-item"><strong>📱 ONLINE</strong><span>Vše z mobilu</span></div>
+                <div class="feature-item"><strong>📱 ONLINE</strong><span>Rezervace mobilem</span></div>
                 <div class="feature-item"><strong>🔒 BEZPEČNĚ</strong><span>Vlastní PIN kód</span></div>
-                <div class="feature-item"><strong>🏷️ CENA</strong><span>230 Kč / 24h</span></div>
+                <div class="feature-item"><strong>🏷️ CENA</strong><span>230 Kč / 24 hod</span></div>
             </div>
-            <a href="pricelist.html" target="_blank" class="tiny-link">Kompletní ceník a poplatky</a>
+            <a href="pricelist.html" target="_blank" class="tiny-link">Zobrazit kompletní ceník a poplatky</a>
         </div>
 
         <div class="content-wrapper">
@@ -29,7 +29,9 @@
                     <span id="currentMonthLabel"></span>
                     <button id="next" class="nav-btn">❯</button>
                 </div>
+                
                 <div id="calendar-wrapper"></div>
+                
                 <div id="legend">
                     <div class="legend-item"><span class="box available"></span> Volno</div>
                     <div class="legend-item"><span class="box booked"></span> Obsazeno</div>
@@ -41,11 +43,13 @@
                 <h2>Vaše rezervace</h2>
                 
                 <div class="summary-box">
-                    <p>Od: <strong id="date-start-text">-</strong></p>
-                    <p>Do: <strong id="date-end-text">-</strong></p>
-                    <hr>
-                    <p>Dní: <strong id="day-count">0</strong></p>
-                    <div class="total-price-row">Celkem: <span id="total-price">0 Kč</span></div>
+                    <p>Vyzvednutí: <strong id="date-start-text">-</strong></p>
+                    <p>Vrácení: <strong id="date-end-text">-</strong></p>
+                    <hr style="border:0; border-top: 1px solid #eee; margin: 10px 0;">
+                    <p>Počet dní: <span id="day-count">0</span></p>
+                    <div style="font-size: 1.2rem; font-weight: bold; color: #bfa37c; margin-top: 5px;">
+                        Celkem: <span id="total-price">0 Kč</span>
+                    </div>
                 </div>
                 
                 <div class="form-group">
@@ -57,32 +61,51 @@
                 </div>
 
                 <div class="form-group">
-                    <input type="text" id="inp-name" placeholder="Jméno a příjmení">
-                </div>
-                <div class="form-group">
-                    <input type="email" id="inp-email" placeholder="Email">
-                </div>
-                <div class="form-group">
-                    <input type="tel" id="inp-phone" placeholder="Telefon">
+                    <label>Jméno a příjmení</label>
+                    <input type="text" id="inp-name" placeholder="Jan Novák">
                 </div>
 
-                <div class="code-box">
-                    <label>Ověřovací kód</label>
-                    <input type="password" id="inp-code" placeholder="Zadejte kód pro spuštění">
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="inp-email" placeholder="jan@novak.cz">
+                </div>
+
+                <div class="form-group">
+                    <label>Telefon</label>
+                    <input type="tel" id="inp-phone">
+                </div>
+
+                <div class="form-group code-box">
+                    <label>Ověřovací kód (Beta)</label>
+                    <input type="password" id="inp-code" placeholder="Zadejte kód">
                 </div>
 
                 <button onclick="submitReservation()" id="btn-submit" class="btn-pay" disabled>REZERVOVAT A ZAPLATIT</button>
 
                 <div class="terms-row">
                     <input type="checkbox" id="inp-agree">
-                    <label for="inp-agree">Souhlasím s <a href="conditions.html" target="_blank">podmínkami</a> a <a href="privacy.html" target="_blank">GDPR</a></label>
+                    <label for="inp-agree">Souhlasím se <a href="conditions.html" target="_blank">Smluvními podmínkami</a></label>
                 </div>
             </div>
         </div>
     </div>
 
     <footer class="site-footer">
-        <p><strong>Martin Husička</strong> | Dubová 1490/2, Mohelnice | IČO: 76534898 | info@vozik247.cz</p>
+        <div class="footer-grid">
+            <div class="footer-col">
+                <strong>Martin Husička</strong><br>
+                Dubová 1490/2, Mohelnice<br>
+                IČO: 76534898
+            </div>
+            <div class="footer-col">
+                <a href="pricelist.html" target="_blank">Ceník</a> | 
+                <a href="conditions.html" target="_blank">Podmínky</a> | 
+                <a href="privacy.html" target="_blank">GDPR</a>
+            </div>
+            <div class="footer-col">
+                Platby GoPay | info@vozik247.cz
+            </div>
+        </div>
     </footer>
 
     <script src="script.js"></script>
