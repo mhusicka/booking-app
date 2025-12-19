@@ -169,3 +169,116 @@ async function addPinToLock(startStr, endStr, timeStr) {
         const sortedKeys = Object.keys(params).sort();
         const baseString = sortedKeys.map(k => `${k}=${params[k]}`).join("&");
         const sign = crypto.createHash("md5").update(baseString + TTLOCK_CLIENT_SECRET).digest("hex").toUpperCase();
+        
+        const res = await axios.post("https://euapi.ttlock.com/v3/keyboardPwd/add", new URLSearchParams({ ...params, sign }).toString(), {
+            headers: { "Content-Type": "application/x-www-form-urlencoded" }
+        });
+
+        if (!res.data.keyboardPwdId) { console.error("❌ TTLock Error:", res.data); return null; }
+        return { pin, keyboardPwdId: res.data.keyboardPwdId };
+    } catch (err) { console.error("❌ AddPin chyba:", err.message); return null; }
+}
+
+async function deletePinFromLock(keyboardPwdId) {
+    try {
+        const token = await getTTLockToken();
+        const params = { clientId: TTLOCK_CLIENT_ID, accessToken: token, lockId: MY_LOCK_ID, keyboardPwdId, date: Date.now() };
+        const sortedKeys = Object.keys(params).sort();
+        const baseString = sortedKeys.map(k => `${k}=${params[k]}`).join("&");
+        const sign = crypto.createHash("md5").update(baseString + TTLOCK_CLIENT_SECRET).digest("hex").toUpperCase();
+
+        const res = await axios.post("https://euapi.ttlock.com/v3/keyboardPwd/delete", new URLSearchParams({ ...params, sign }).toString(), {
+            headers: { "Content-Type": "application/x-www-form-urlencoded" }
+        });
+        return res.data.errcode === 0;
+    } catch (err) { console.error("Delete chyba:", err); return false; }
+}
+
+// ==========================================
+// 6. ENDPOINTY
+// ==========================================
+
+app.get("/availability", async (req, res) => {
+    try {
+        const all = await Reservation.find({}, "startDate endDate");
+        let booked = new Set();
+        for (const r of all) { getRange(r.startDate, r.endDate).forEach(d => booked.add(d)); }
+        res.json([...booked]); 
+    } catch (err) { res.status(500).json({ error: "Chyba" }); }
+});
+
+app.post("/reserve-range", async (req, res) => {
+    console.log("📥 Nová rezervace..."); 
+    const { startDate, endDate, time, name, email, phone, bookingCode } = req.body;
+    
+    // KONTROLA HESLA
+    if (bookingCode !== LAUNCH_PASSWORD) {
+        return res.status(403).json({ error: "Zadali jste nesprávný ověřovací kód rezervace." });
+    }
+
+    if (!startDate || !endDate || !time || !name) return res.status(400).json({ error: "Chybí údaje." });
+
+    try {
+        const all = await Reservation.find(); 
+        const newRange = getRange(startDate, endDate);
+        for (const r of all) {
+            const existing = getRange(r.startDate, r.endDate);
+            if (newRange.some(d => existing.includes(d))) return res.status(409).json({ error: "Termín je obsazen." }); 
+        }
+
+        const result = await addPinToLock(startDate, endDate, time);
+        if (!result) return res.status(503).json({ error: "Chyba generování PINu." });
+
+        const newRes = new Reservation({ startDate, endDate, time, name, email, phone, passcode: result.pin, keyboardPwdId: result.keyboardPwdId });
+        await newRes.save();
+        
+        sendReservationEmail({ startDate, endDate, time, name, email, passcode: result.pin, phone })
+            .catch(err => console.error("⚠️ Email error:", err));
+
+        res.json({ success: true, pin: result.pin });
+    } catch (err) { console.error(err); res.status(500).json({ error: "Chyba serveru" }); }
+});
+
+// Admin
+const checkAdmin = (req, res, next) => {
+    if (req.headers["x-admin-password"] !== ADMIN_PASSWORD) return res.status(403).json({ error: "Neoprávněný přístup" });
+    next();
+};
+
+app.get("/admin/reservations", checkAdmin, async (req, res) => {
+    const reservations = await Reservation.find().sort({ created: -1 });
+    res.json(reservations.map((r, i) => ({ index: i + 1, ...r.toObject() })));
+});
+
+app.delete("/admin/reservations/bulk", checkAdmin, async (req, res) => {
+    const { ids } = req.body;
+    const toDelete = await Reservation.find({ _id: { $in: ids } });
+    for (const r of toDelete) { if (r.keyboardPwdId) await deletePinFromLock(r.keyboardPwdId); }
+    await Reservation.deleteMany({ _id: { $in: ids } });
+    res.json({ success: true });
+});
+
+app.delete("/admin/reservations/:id", checkAdmin, async (req, res) => {
+    const r = await Reservation.findById(req.params.id);
+    if (r && r.keyboardPwdId) await deletePinFromLock(r.keyboardPwdId);
+    await Reservation.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+});
+
+// Auto-clean
+setInterval(async () => {
+    const now = Date.now();
+    const active = await Reservation.find({ keyboardPwdId: { $ne: null } });
+    for (const r of active) {
+        if (new Date(`${r.endDate}T${r.time}:00`).getTime() < now) {
+            await deletePinFromLock(r.keyboardPwdId);
+            r.keyboardPwdId = null; await r.save();
+        }
+    }
+}, 60000);
+
+// Spuštění serveru
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, "0.0.0.0", () => console.log(`🚀 Server běží na portu ${PORT}`));
+
+// END OF FILE
