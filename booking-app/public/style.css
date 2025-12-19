@@ -1,49 +1,49 @@
-body { font-family: 'Montserrat', sans-serif; background: #f8f9fa; color: #333; margin: 0; padding: 20px; }
-.main-container { max-width: 1050px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 5px 25px rgba(0,0,0,0.05); }
-h1 { text-align: center; color: #333; letter-spacing: 1px; }
+body { font-family: 'Montserrat', sans-serif; background: #f4f4f4; color: #333; margin: 0; padding: 15px; }
+.main-container { max-width: 950px; margin: 0 auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
 
-/* Horní sekce s výhodami - Sjednocená */
-.about-section { text-align: center; margin-bottom: 40px; }
-.features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-top: 25px; }
-.feature-item { background: #fff; border: 1px solid #eee; padding: 20px 10px; border-radius: 10px; transition: 0.2s; }
-.feature-item strong { display: block; font-size: 0.95rem; margin-bottom: 5px; color: #444; }
-.feature-desc { font-size: 0.85rem; color: #888; }
-.feature-icon { font-size: 1.8rem; margin-bottom: 10px; display: block; }
-.price-link { color: #bfa37c; text-decoration: none; font-size: 0.9rem; font-weight: 600; }
+h1 { text-align: center; font-size: 1.8rem; margin-bottom: 25px; letter-spacing: 1px; }
+h2 { font-size: 1rem; margin: 0 0 15px 0; border-bottom: 2px solid #bfa37c; display: inline-block; }
+
+/* Horní sekce */
+.about-section { text-align: center; margin-bottom: 25px; padding-bottom: 20px; border-bottom: 1px solid #eee; }
+.features-grid { display: flex; justify-content: space-around; gap: 10px; margin-bottom: 10px; }
+.feature-item { flex: 1; padding: 10px; background: #fdfdfd; border: 1px solid #eee; border-radius: 6px; }
+.feature-item strong { display: block; font-size: 0.85rem; }
+.feature-item span { font-size: 0.75rem; color: #888; }
+.tiny-link { font-size: 0.75rem; color: #bfa37c; text-decoration: none; }
 
 /* Layout */
-.content-wrapper { display: flex; flex-wrap: wrap; gap: 30px; }
-.calendar-section { flex: 1.8; min-width: 320px; }
-#booking-form { flex: 1; min-width: 300px; background: #fcfcfc; border: 1px solid #eee; padding: 25px; border-radius: 10px; }
-
-/* Kompaktní Rekapitulace */
-.summary-box { background: #fff; border: 1px solid #eee; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
-.summary-row { display: flex; justify-content: space-between; font-size: 0.95rem; margin-bottom: 8px; color: #555; }
-.summary-box hr { border: 0; border-top: 1px solid #eee; margin: 15px 0; }
-.total-row { text-align: center; margin-top: 10px; }
-.total-row span { font-size: 0.8rem; text-transform: uppercase; color: #999; letter-spacing: 1px; }
-#total-price { font-size: 1.8rem; font-weight: 800; color: #bfa37c; margin-top: 5px; }
-
-/* Formulářové prvky */
-.form-group { margin-bottom: 15px; }
-label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 5px; color: #666; }
-input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-family: inherit; box-sizing: border-box; }
-.time-row { display: flex; gap: 8px; }
-.btn-small { background: #eee; border: 1px solid #ddd; padding: 0 15px; border-radius: 6px; cursor: pointer; font-weight: 600; }
-.btn-pay { width: 100%; padding: 15px; background: #333; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 15px; }
-.btn-pay:disabled { background: #ccc; cursor: not-allowed; }
-.terms-container { margin-top: 15px; display: flex; align-items: center; gap: 8px; font-size: 0.85rem; }
+.content-wrapper { display: flex; gap: 25px; flex-wrap: wrap; }
+.calendar-section { flex: 1.6; min-width: 300px; }
+#booking-form { flex: 1; min-width: 280px; background: #f9f9f9; padding: 20px; border-radius: 6px; }
 
 /* Kalendář */
-.days-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
-.day { padding: 10px; text-align: center; background: #fff; border: 1px solid #eee; cursor: pointer; border-radius: 4px; font-size: 0.9rem; }
+.controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+.nav-btn { background: white; border: 1px solid #ddd; padding: 5px 12px; cursor: pointer; border-radius: 4px; }
+#currentMonthLabel { font-weight: bold; font-size: 0.9rem; }
+.days-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.day { padding: 12px 5px; text-align: center; background: white; border: 1px solid #eee; cursor: pointer; font-size: 0.85rem; border-radius: 3px; }
 .day.range-start, .day.range-end { background: #bfa37c !important; color: white; }
 .day.range { background: #fdf5e8; }
 .day.booked { background: #f0f0f0; color: #ccc; cursor: not-allowed; }
 
+/* Form */
+.summary-box { background: white; padding: 12px; border: 1px solid #eee; border-radius: 4px; margin-bottom: 15px; font-size: 0.85rem; }
+.summary-box p { margin: 5px 0; }
+.total-price-row { margin-top: 10px; font-weight: bold; font-size: 1.1rem; color: #bfa37c; border-top: 1px solid #eee; padding-top: 5px; }
+.form-group { margin-bottom: 12px; }
+label { font-size: 0.75rem; font-weight: bold; display: block; margin-bottom: 4px; }
+input { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit; box-sizing: border-box; font-size: 0.85rem; }
+.margin-input { margin-bottom: 10px; }
+.time-row { display: flex; gap: 5px; }
+.btn-small { background: #eee; border: 1px solid #ddd; padding: 0 10px; cursor: pointer; font-size: 0.75rem; border-radius: 4px; }
+.code-box { background: #fff9e6; padding: 10px; border-radius: 4px; margin: 10px 0; }
+.btn-pay { width: 100%; padding: 12px; background: #333; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
+.btn-pay:disabled { background: #ccc; cursor: not-allowed; }
+.terms-row { margin-top: 10px; font-size: 0.75rem; display: flex; align-items: center; gap: 5px; }
+
 /* Footer */
-.site-footer { background: #222; color: #aaa; padding: 40px 20px; margin-top: 50px; }
-.footer-content { max-width: 1050px; margin: 0 auto; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 30px; }
-.footer-col h3 { color: #fff; font-size: 0.9rem; text-transform: uppercase; margin-bottom: 15px; }
-.footer-col a { color: #aaa; text-decoration: none; }
-.payment-logos img { height: 25px; margin-right: 10px; background: white; padding: 2px 5px; border-radius: 3px; }
+.site-footer { text-align: center; margin-top: 30px; font-size: 0.75rem; color: #888; border-top: 1px solid #eee; padding-top: 15px; }
+.site-footer a { color: #888; }
+
+@media (max-width: 650px) { .content-wrapper { flex-direction: column; } .features-grid { flex-wrap: wrap; } }
