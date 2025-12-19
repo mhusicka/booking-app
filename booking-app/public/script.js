@@ -5,16 +5,9 @@ let startDate = null, endDate = null, bookedDays = [];
 
 async function init() {
     await updateCalendar();
-    
-    // Telefon prefix
     const ph = document.getElementById("inp-phone");
-    if (ph) {
-        if (!ph.value) ph.value = "+420 ";
-        ph.addEventListener("input", function() {
-            if (!this.value.startsWith("+420 ")) this.value = "+420 ";
-        });
-    }
-
+    if (ph && !ph.value) ph.value = "+420 ";
+    
     document.getElementById("prev").onclick = () => changeMonth(-1);
     document.getElementById("next").onclick = () => changeMonth(1);
     document.getElementById("inp-time").onchange = updateSummary;
@@ -25,38 +18,27 @@ async function init() {
 }
 
 async function updateCalendar() {
-    try {
-        const res = await fetch(`${API_BASE}/availability`);
-        bookedDays = await res.json();
-        render();
-    } catch (e) { console.log("Chyba načítání"); }
+    const res = await fetch(`${API_BASE}/availability`);
+    bookedDays = await res.json();
+    render();
 }
 
 function render() {
     const wrapper = document.getElementById("calendar-wrapper");
     wrapper.innerHTML = "";
     const grid = document.createElement("div"); grid.className = "days-grid";
-    
     const monthStart = new Date(viewYear, viewMonth, 1);
     const adjust = monthStart.getDay() === 0 ? 6 : monthStart.getDay() - 1;
     for (let i = 0; i < adjust; i++) grid.appendChild(document.createElement("div"));
-
     const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
-    const today = new Date().toLocaleDateString('en-CA');
-
     for (let d = 1; d <= daysInMonth; d++) {
         const dateStr = new Date(viewYear, viewMonth, d).toLocaleDateString('en-CA');
         const el = document.createElement("div"); el.className = "day"; el.innerText = d;
-        
-        if (dateStr < today || bookedDays.includes(dateStr)) {
-            el.classList.add("booked");
-        } else {
+        if (dateStr < new Date().toLocaleDateString('en-CA') || bookedDays.includes(dateStr)) el.classList.add("booked");
+        else {
             el.onclick = () => {
                 if (!startDate || (startDate && endDate)) { startDate = dateStr; endDate = null; }
-                else {
-                    if (dateStr < startDate) { startDate = dateStr; endDate = null; }
-                    else { endDate = dateStr; }
-                }
+                else { if (dateStr < startDate) { startDate = dateStr; endDate = null; } else endDate = dateStr; }
                 updateSummary(); render();
             };
         }
@@ -85,22 +67,16 @@ async function submitReservation() {
     const email = document.getElementById("inp-email").value;
     const phone = document.getElementById("inp-phone").value;
     const time = document.getElementById("inp-time").value;
-
-    if (!startDate || !name || !bookingCode) { alert("Prosím vyplňte vše včetně kódu."); return; }
-    
-    try {
-        const res = await fetch(`${API_BASE}/reserve-range`, {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ startDate, endDate: endDate || startDate, time, name, email, phone, bookingCode })
-        });
-        const data = await res.json();
-        if (data.success) {
-             window.location.href = `success.html?pin=${data.pin}&start=${startDate}&time=${time}`;
-        } else { alert(data.error); }
-    } catch(e) { alert("Chyba komunikace"); }
+    if (!startDate || !name || !bookingCode) { alert("Vyplňte vše."); return; }
+    const res = await fetch(`${API_BASE}/reserve-range`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ startDate, endDate: endDate || startDate, time, name, email, phone, bookingCode })
+    });
+    const data = await res.json();
+    if (data.success) window.location.href = `success.html?pin=${data.pin}&start=${startDate}&time=${time}`;
+    else alert(data.error);
 }
 
 function changeMonth(d) { viewMonth += d; if (viewMonth>11) {viewMonth=0; viewYear++} if (viewMonth<0) {viewMonth=11; viewYear--} render(); }
 function setNow() { startDate = new Date().toLocaleDateString('en-CA'); endDate = null; updateSummary(); render(); }
-
 init();
