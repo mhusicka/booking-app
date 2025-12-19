@@ -14,14 +14,12 @@ app.use(bodyParser.json());
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// HESLO PRO REZERVACI
+// HESLO PRO REZERVACE
 const LAUNCH_PASSWORD = "start"; 
 
 // KONFIGURACE MONGO
 const MONGO_URI = process.env.MONGO_URI;
-mongoose.connect(MONGO_URI)
-    .then(() => console.log("✅ DB OK"))
-    .catch(err => console.error("❌ DB Chyba:", err));
+mongoose.connect(MONGO_URI).then(() => console.log("✅ MongoDB OK")).catch(err => console.error(err));
 
 const Reservation = mongoose.model("Reservation", new mongoose.Schema({
     startDate: String, endDate: String, time: String,
@@ -38,24 +36,28 @@ function getRange(from, to) {
 
 app.get("/availability", async (req, res) => {
     try {
-        const all = await Reservation.find({}, "startDate endDate");
+        const all = await Reservation.find();
         let booked = new Set();
         all.forEach(r => getRange(r.startDate, r.endDate).forEach(d => booked.add(d)));
         res.json([...booked]);
-    } catch (err) { res.status(500).json({ error: "Chyba" }); }
+    } catch (err) { res.status(500).json({ error: "Chyba DB" }); }
 });
 
 app.post("/reserve-range", async (req, res) => {
     const { startDate, endDate, time, name, email, phone, bookingCode } = req.body;
-    if (bookingCode !== LAUNCH_PASSWORD) return res.status(403).json({ error: "Nesprávný kód." });
+    
+    // KONTROLA HESLA
+    if (bookingCode !== LAUNCH_PASSWORD) {
+        return res.status(403).json({ error: "Zadali jste nesprávný ověřovací kód rezervace." });
+    }
 
     try {
         const pin = Math.floor(100000 + Math.random() * 900000).toString();
         const newRes = new Reservation({ startDate, endDate: endDate || startDate, time, name, email, phone, passcode: pin });
         await newRes.save();
         res.json({ success: true, pin });
-    } catch (err) { res.status(500).json({ error: "Chyba" }); }
+    } catch (err) { res.status(500).json({ error: "Chyba serveru" }); }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, "0.0.0.0", () => console.log(`🚀 Server na portu ${PORT}`));
+app.listen(PORT, "0.0.0.0", () => console.log(`🚀 Port ${PORT}`));
