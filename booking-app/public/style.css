@@ -1,59 +1,42 @@
-/* ZÁKLAD */
-body { font-family: 'Montserrat', sans-serif; background: #f8f9fa; color: #333; margin: 0; padding: 20px; }
-.main-container { max-width: 1100px; margin: 0 auto; background: white; padding: 35px; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
+/* ZÁKLADNÍ NASTAVENÍ */
+body { font-family: 'Montserrat', sans-serif; background: #f8f9fa; color: #333; padding: 20px; margin: 0; }
+.main-container { max-width: 1100px; margin: 0 auto; background: white; padding: 40px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); border-radius: 8px; }
 
-h1 { text-align: center; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 30px; }
-h2 { font-size: 1.1rem; border-bottom: 2px solid #bfa37c; padding-bottom: 5px; text-transform: uppercase; margin-top: 0; }
+h1 { text-align: center; margin-bottom: 40px; text-transform: uppercase; letter-spacing: 2px; }
+h2 { font-size: 1.2rem; border-bottom: 2px solid #bfa37c; display: inline-block; padding-bottom: 5px; margin-bottom: 20px; }
 
-/* Horní okna */
-.about-section { text-align: center; margin-bottom: 35px; border-bottom: 1px solid #eee; padding-bottom: 25px; }
-.features-grid { display: flex; justify-content: center; gap: 15px; flex-wrap: wrap; margin-bottom: 15px; }
-.feature-item { border: 1px solid #eee; padding: 15px; border-radius: 8px; min-width: 150px; flex: 1; max-width: 200px; background: #fff; }
-.feature-item strong { display: block; color: #bfa37c; font-size: 0.9rem; }
-.feature-item span { font-size: 0.75rem; color: #888; }
-.tiny-link { font-size: 0.8rem; color: #bfa37c; text-decoration: underline; }
+/* ROZLOŽENÍ */
+.content-wrapper { display: flex; flex-wrap: wrap; gap: 40px; }
+.calendar-section { flex: 2; min-width: 350px; }
+#booking-form { flex: 1; min-width: 320px; background: #fafafa; padding: 25px; border-radius: 8px; border: 1px solid #eee; }
 
-/* Layout */
-.content-wrapper { display: flex; gap: 35px; flex-wrap: wrap; align-items: flex-start; }
-.calendar-section { flex: 1.6; min-width: 320px; }
-#booking-form { flex: 1; min-width: 280px; background: #fcfcfc; border: 1px solid #eee; padding: 20px; border-radius: 8px; }
-
-/* Kalendář */
-.controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-.nav-btn { background: white; border: 1px solid #ddd; padding: 5px 12px; cursor: pointer; border-radius: 4px; }
-.days-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
-.day { padding: 12px 5px; text-align: center; background: white; border: 1px solid #eee; cursor: pointer; border-radius: 4px; font-size: 0.85rem; }
-.day.range-start, .day.range-end { background: #bfa37c !important; color: white; border-color: #bfa37c; }
-.day.range { background: #fdf5e8; }
+/* KALENDÁŘ */
+.controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.nav-btn { background: none; border: 1px solid #ddd; padding: 8px 15px; cursor: pointer; border-radius: 4px; }
+.days-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+.day { padding: 15px 5px; text-align: center; background: #fff; border: 1px solid #eee; cursor: pointer; border-radius: 4px; transition: 0.2s; }
+.day:hover { border-color: #bfa37c; }
+.day.range-start, .day.range-end { background: #bfa37c; color: white; border-color: #bfa37c; }
+.day.range { background: #f3e9d9; border-color: #f3e9d9; }
 .day.booked { background: #f0f0f0; color: #ccc; cursor: not-allowed; text-decoration: line-through; }
 
-/* Legenda - OPRAVA BAREV */
-#legend { display: flex; gap: 20px; justify-content: center; margin-top: 20px; font-size: 0.8rem; }
+/* LEGENDA */
+#legend { display: flex; gap: 20px; margin-top: 20px; font-size: 0.8rem; justify-content: center; }
 .legend-item { display: flex; align-items: center; gap: 8px; }
 .box { width: 14px; height: 14px; border-radius: 2px; border: 1px solid #ddd; display: inline-block; }
 .box.available { background: white; }
 .box.booked { background: #f0f0f0; }
 .box.selecting { background: #bfa37c; border-color: #bfa37c; }
 
-/* Formulář */
-.summary-box { background: white; padding: 15px; border: 1px solid #eee; border-radius: 6px; margin-bottom: 20px; font-size: 0.85rem; }
-.summary-box hr { border: 0; border-top: 1px solid #eee; margin: 10px 0; }
-.total-price-display { font-size: 1.2rem; font-weight: bold; color: #bfa37c; margin-top: 5px; }
-.form-group { margin-bottom: 12px; }
-label { display: block; font-size: 0.75rem; font-weight: 600; margin-bottom: 4px; color: #666; }
-input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font-family: inherit; }
-.time-row { display: flex; gap: 8px; }
-.btn-small { background: #eee; border: 1px solid #ddd; padding: 0 10px; cursor: pointer; border-radius: 4px; font-size: 0.75rem; }
-.code-box { background: #fff9e6; border: 1px solid #ffeeba; padding: 12px; border-radius: 6px; }
-.btn-pay { width: 100%; padding: 15px; background: #333; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; transition: 0.3s; }
-.btn-pay:disabled { background: #ccc; cursor: not-allowed; }
-.terms-row { margin-top: 15px; font-size: 0.75rem; display: flex; align-items: flex-start; gap: 8px; }
+/* FORMULÁŘ PRVKY */
+.summary-box { background: white; border: 1px solid #ddd; padding: 15px; border-radius: 6px; margin-bottom: 20px; }
+.price-tag { font-size: 1.3rem; font-weight: bold; color: #333; margin-top: 10px; border-top: 1px solid #eee; padding-top: 10px; }
 
-/* Tmavé Zápatí */
-.site-footer { background: #222; color: #aaa; padding: 40px 20px; margin-top: 50px; border-top: 4px solid #bfa37c; }
-.footer-grid { display: flex; justify-content: space-between; max-width: 1100px; margin: 0 auto; gap: 30px; flex-wrap: wrap; text-align: left; }
-.footer-col h3 { color: #fff; font-size: 0.9rem; text-transform: uppercase; margin-bottom: 15px; border-bottom: 2px solid #bfa37c; display: inline-block; padding-bottom: 5px; }
-.footer-col p, .footer-col a { color: #aaa; text-decoration: none; font-size: 0.85rem; line-height: 1.6; }
-.footer-col a:hover { color: #fff; }
-.payment-logos { display: flex; gap: 10px; margin-top: 5px; }
-.payment-logos img { height: 25px; background: white; padding: 2px 5px; border-radius: 3px; }
+.form-group { margin-bottom: 15px; }
+label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 0.85rem; }
+input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font-family: inherit; }
+.time-row { display: flex; gap: 10px; }
+.btn-small { background: #eee; border: 1px solid #ddd; padding: 0 15px; cursor: pointer; border-radius: 4px; }
+
+.btn-pay { width: 100%; background: #333; color: white; border: none; padding: 15px; font-weight: bold; text-transform: uppercase; cursor: pointer; transition: 0.3s; margin-top: 20px; border-radius: 4px; }
+.btn-pay:hover:not(:disabled) { background: #bfa37c; }
