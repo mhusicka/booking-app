@@ -21,7 +21,6 @@
             </p>
             
             <div class="features-grid">
-                
                 <a href="instructions.html" class="feature-item-link">
                     <div class="feature-item">
                         <div class="feature-default">
@@ -104,7 +103,18 @@
             </div>
 
             <div id="booking-form">
-                <h2>2. Vaše rezervace</h2>
+                <div class="form-header-row">
+                    <h2>2. Vaše rezervace</h2>
+                    <span class="pin-toggle-link" onclick="togglePinBox()">Zapomněli jste PIN?</span>
+                </div>
+
+                <div id="pin-retrieve-box" class="pin-retrieve-box" style="display: none;">
+                    <p class="retrieve-note">Zadejte kód rezervace z e-mailu:</p>
+                    <div class="retrieve-input-group">
+                        <input type="text" id="inp-retrieve-code" placeholder="Např. A1B2C3">
+                        <button onclick="retrieveBooking()" class="btn-retrieve">NAJÍT</button>
+                    </div>
+                </div>
                 
                 <div class="summary-box">
                     <p>Vyzvednutí: <strong id="date-start-text">-</strong></p>
@@ -139,20 +149,6 @@
                 <button onclick="submitReservation()" id="btn-submit" class="btn-pay" disabled>
                     REZERVOVAT A ZAPLATIT
                 </button>
-
-                <div class="retrieve-wrapper">
-                    <details class="retrieve-details">
-                        <summary>Máte již rezervaci? (Zapomenutý PIN)</summary>
-                        <div class="retrieve-content">
-                            <p class="retrieve-note">Zadejte kód rezervace z e-mailu:</p>
-                            <div class="retrieve-input-group">
-                                <input type="text" id="inp-retrieve-code" placeholder="Např. A1B2C3">
-                                <button onclick="retrieveBooking()" class="btn-retrieve">NAJÍT</button>
-                            </div>
-                        </div>
-                    </details>
-                </div>
-
             </div> 
         </div> 
     </div> 
@@ -231,6 +227,16 @@
         </div>
     </footer>
 
+    <script>
+        function togglePinBox() {
+            var box = document.getElementById("pin-retrieve-box");
+            if (box.style.display === "none") {
+                box.style.display = "block";
+            } else {
+                box.style.display = "none";
+            }
+        }
+    </script>
     <script src="script.js"></script>
 </body>
 </html>
