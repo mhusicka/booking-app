@@ -101,15 +101,6 @@
                     <div class="legend-item"><span class="box booked"></span> Obsazeno</div>
                     <div class="legend-item"><span class="box selecting"></span> Váš výběr</div>
                 </div>
-
-                <div class="retrieve-container">
-                    <p class="retrieve-title">Máte již rezervaci? (Najít PIN)</p>
-                    <div class="retrieve-input-group">
-                        <input type="text" id="inp-retrieve-code" placeholder="Kód rezervace (např. ABC123)">
-                        <button onclick="retrieveBooking()" class="btn-retrieve">NAJÍT</button>
-                    </div>
-                    <p class="retrieve-note">Zadejte kód z potvrzovacího e-mailu.</p>
-                </div>
             </div>
 
             <div id="booking-form">
@@ -148,6 +139,20 @@
                 <button onclick="submitReservation()" id="btn-submit" class="btn-pay" disabled>
                     REZERVOVAT A ZAPLATIT
                 </button>
+
+                <div class="retrieve-wrapper">
+                    <details class="retrieve-details">
+                        <summary>Máte již rezervaci? (Zapomenutý PIN)</summary>
+                        <div class="retrieve-content">
+                            <p class="retrieve-note">Zadejte kód rezervace z e-mailu:</p>
+                            <div class="retrieve-input-group">
+                                <input type="text" id="inp-retrieve-code" placeholder="Např. A1B2C3">
+                                <button onclick="retrieveBooking()" class="btn-retrieve">NAJÍT</button>
+                            </div>
+                        </div>
+                    </details>
+                </div>
+
             </div> 
         </div> 
     </div> 
@@ -173,7 +178,7 @@
         </div>
         <div style="margin-top: 40px;">
             <a href="instructions.html" class="btn-outline">
-                Zobrazit podrobný návod k obsluze &rarr;
+                Zobrazit podrobný návod k obsluze →
             </a>
         </div>
     </div>
@@ -199,7 +204,8 @@
 
             <div class="footer-col">
                 <h3>Informace</h3>
-                <p><a href="instructions.html">Návod k použití</a></p> <p><a href="pricelist.html" target="_blank">Ceník služeb</a></p>
+                <p><a href="instructions.html">Návod k použití</a></p>
+                <p><a href="pricelist.html" target="_blank">Ceník služeb</a></p>
                 <p><a href="conditions.html" target="_blank">Obchodní podmínky</a></p>
                 <p><a href="privacy.html" target="_blank">Ochrana údajů</a></p>
             </div>
