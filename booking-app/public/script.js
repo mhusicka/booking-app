@@ -6,7 +6,7 @@ let viewStartYear = new Date().getFullYear();
 
 let startDate = null;
 let endDate = null;
-let cachedReservations = []; // Zde ukládáme plná data o rezervacích
+let cachedReservations = []; 
 
 async function init() {
     await updateCalendar();
@@ -50,7 +50,6 @@ function setNow() {
     startDate = todayStr;
     endDate = getNextDay(todayStr);
     
-    // Skrytí hlášky při kliknutí na "Teď"
     const hintEl = document.getElementById("time-hint");
     if (hintEl) hintEl.style.display = "none";
 
@@ -71,7 +70,7 @@ async function updateCalendar() {
     try {
         const res = await fetch(`${API_BASE}/availability`);
         if (!res.ok) throw new Error();
-        cachedReservations = await res.json(); // Ukládáme pole objektů {startDate, endDate, time}
+        cachedReservations = await res.json(); 
         renderSingleCalendar();
     } catch (e) { 
         wrapper.innerHTML = `<div style="text-align:center; padding: 30px; color: #d9534f;">⚠️ Chyba načítání dostupnosti.</div>`;
@@ -201,21 +200,16 @@ function handleHoverLogic(hoverDate) {
     updateSummaryUI(hoverDate);
 }
 
-// === UPRAVENÁ FUNKCE KLIKNUTÍ S AUTOMATICKÝM ČASEM ===
 function handleDayClick(dateStr) {
     if (!startDate || (startDate && endDate)) { 
         startDate = dateStr; 
         endDate = null; 
-        // Zavoláme kontrolu času pro tento den
         checkAvailabilityTime(dateStr);
     } else {
         let s = startDate, e = dateStr;
         if (e < s) [s, e] = [e, s];
-        
         startDate = s; 
         endDate = e;
-        
-        // Pokud uživatel vybral konec, skryjeme hlášku (aby nemátla)
         const hintEl = document.getElementById("time-hint");
         if (hintEl) hintEl.style.display = "none";
     }
@@ -223,42 +217,30 @@ function handleDayClick(dateStr) {
     updateSummaryUI(); renderSingleCalendar();
 }
 
-// === NOVÁ FUNKCE PRO AUTOMATICKÉ NASTAVENÍ ČASU A HLÁŠKU ===
 function checkAvailabilityTime(dateStr) {
     const hintEl = document.getElementById("time-hint");
     const timeInp = document.getElementById("inp-time");
-    
-    // Reset hlášky
     if (hintEl) hintEl.style.display = "none";
 
-    // 1. Hledáme rezervaci, která KONČÍ v tento den
     const blockingRes = cachedReservations.find(r => r.endDate === dateStr);
-
     if (blockingRes) {
-        // Vozík je volný až od času konce této rezervace
         const freeFromTime = blockingRes.time;
-        
-        // Nastavíme čas ve formuláři
         if (timeInp) {
             timeInp.value = freeFromTime;
-            // Vizuální efekt (bliknutí)
-            timeInp.style.backgroundColor = "#fff3cd"; // Světle žlutá
+            timeInp.style.backgroundColor = "#fff3cd"; 
             setTimeout(() => timeInp.style.backgroundColor = "white", 500);
         }
-
         if (hintEl) {
             hintEl.innerText = `⚠️ V tento den se vozík uvolní až v ${freeFromTime}`;
-            hintEl.style.color = "#d9534f"; // Červená
+            hintEl.style.color = "#d9534f"; 
             hintEl.style.display = "block";
         }
     } else {
-        // 2. Pokud nic nekončí, zkontrolujeme, jestli něco NEZAČÍNÁ
-        // (Vozík je volný ráno, ale odpoledne už má rezervaci)
         const startingRes = cachedReservations.find(r => r.startDate === dateStr);
         if (startingRes) {
             if (hintEl) {
                 hintEl.innerText = `⚠️ Pozor, od ${startingRes.time} je vozík již rezervovaný.`;
-                hintEl.style.color = "#e67e22"; // Oranžová
+                hintEl.style.color = "#e67e22"; 
                 hintEl.style.display = "block";
             }
         }
@@ -290,79 +272,3 @@ function updateSummaryUI(previewEndDate = null) {
     
     const diffTime = Math.abs(new Date(e) - new Date(s));
     const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
-    countEl.innerText = diffDays === 1 ? "1 (24 hod.)" : diffDays;
-    priceEl.innerText = (diffDays * PRICE_PER_DAY).toLocaleString("cs-CZ") + " Kč";
-}
-
-async function submitReservation() {
-    if (!startDate) return alert("Vyberte termín.");
-    if (!endDate) endDate = getNextDay(startDate);
-    const time = document.getElementById("inp-time").value;
-    const name = document.getElementById("inp-name").value;
-    const email = document.getElementById("inp-email").value;
-    const phone = document.getElementById("inp-phone").value;
-    const btn = document.querySelector(".btn-pay");
-
-    if(!name || !email || !phone || phone.replace(/\s+/g, '').length < 13) return alert("Vyplňte údaje.");
-
-    btn.innerText = "Zpracovávám...";
-    btn.disabled = true;
-
-    try {
-        const res = await fetch(`${API_BASE}/reserve-range`, {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ startDate, endDate, time, name, email, phone })
-        });
-        const result = await res.json();
-        if (result.success) {
-            showModal({
-                status: "NOVÁ",
-                pin: result.pin,
-                start: formatCzDate(startDate) + " " + time,
-                end: formatCzDate(endDate) + " " + time,
-                car: "Vozík č. 1",
-                price: document.getElementById("total-price").innerText,
-                code: result.reservationCode
-            });
-            btn.innerText = "HOTOVO";
-        } else {
-            alert("Chyba: " + (result.error || "Obsazeno."));
-            btn.innerText = "REZERVOVAT A ZAPLATIT"; btn.disabled = false;
-        }
-    } catch (e) { alert("Chyba serveru."); btn.innerText = "REZERVOVAT"; btn.disabled = false; }
-}
-
-async function retrieveBooking() {
-    const input = document.getElementById("inp-retrieve-code");
-    const code = input ? input.value.trim().toUpperCase() : "";
-    if (!code) return alert("Zadejte kód rezervace.");
-
-    try {
-        const res = await fetch(`${API_BASE}/retrieve-booking`, {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ code })
-        });
-        const data = await res.json();
-
-        if (data.success) {
-            showModal(data);
-        } else {
-            alert("Rezervace nenalezena.");
-        }
-    } catch (e) { alert("Chyba připojení."); }
-}
-
-function showModal(data) {
-    document.getElementById("res-status").innerText = data.status || "AKTIVNÍ";
-    document.getElementById("res-pin").innerText = data.pin;
-    document.getElementById("res-start").innerText = data.start;
-    document.getElementById("res-end").innerText = data.end;
-    document.getElementById("res-car").innerText = data.car;
-    document.getElementById("res-price").innerText = data.price;
-    document.getElementById("reservation-modal").style.display = "flex";
-}
-
-function closeModal() { document.getElementById("reservation-modal").style.display = "none"; }
-window.onclick = function(e) { if (e.target == document.getElementById("reservation-modal")) closeModal(); }
-
-init();
