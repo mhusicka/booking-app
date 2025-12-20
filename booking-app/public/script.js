@@ -268,8 +268,11 @@ async function submitReservation() {
     const phone = document.getElementById("inp-phone").value;
     const btn = document.querySelector(".btn-pay");
 
-    if(!name || !email || !phone || !time || phone.trim() === "+420") { 
-        alert("Vyplňte prosím všechny osobní údaje."); 
+    // --- NOVÁ VALIDACE TELEFONU ---
+    // Odstraníme mezery a zkontrolujeme, zda zbylo dost čísel (předčíslí + 9 číslic)
+    const phoneDigits = phone.replace(/\s+/g, ''); 
+    if(!name || !email || !phone || !time || phoneDigits.length < 13) { 
+        alert("Vyplňte prosím všechny údaje. Telefon musí obsahovat 9 číslic za předčíslím."); 
         return; 
     }
 
@@ -299,10 +302,9 @@ async function submitReservation() {
             alert("Chyba: " + (result.error || "Termín byl pravděpodobně právě obsazen."));
             btn.innerText = "REZERVOVAT A ZAPLATIT"; 
             btn.disabled = false;
-            updateCalendar(); // Obnovit kalendář pro jistotu
         }
     } catch (e) { 
-        alert("Chyba při komunikaci se serverem. Zkuste to prosím znovu."); 
+        alert("Chyba při komunikaci se serverem."); 
         btn.innerText = "REZERVOVAT A ZAPLATIT"; 
         btn.disabled = false;
     } 
@@ -339,3 +341,4 @@ async function retrieveBooking() {
 }
 
 init();
+
