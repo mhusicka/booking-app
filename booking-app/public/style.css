@@ -37,7 +37,7 @@ h2 {
 }
 
 /* =========================================
-   2. HORNÍ OKNA (VÝHODY)
+   2. HORNÍ OKNA (VÝHODY) - UPRAVENO
    ========================================= */
 .about-section { 
     text-align: center; 
@@ -64,16 +64,17 @@ h2 {
 .feature-item {
     background: #fff;
     border: 1px solid #eee;
-    padding: 15px;          
+    padding: 20px;          
     border-radius: 12px;
     display: flex;
     flex-direction: column;
     justify-content: center; 
-    align-items: center;     
+    align-items: center;      
+    text-align: center;      /* Zarovnání textu na střed */
     aspect-ratio: 1 / 1;     /* Drží čtverec */
     transition: transform 0.2s, box-shadow 0.2s;
     box-shadow: 0 4px 10px rgba(0,0,0,0.02);
-    gap: 10px;               
+    gap: 15px;               /* Větší mezera mezi nadpisem a popisem */
 }
 .feature-item:hover { 
     transform: translateY(-5px); 
@@ -81,36 +82,33 @@ h2 {
     box-shadow: 0 8px 15px rgba(0,0,0,0.05); 
 }
 
-/* Ikony */
+/* --- ZMĚNA: IKONY SKRYTÉ --- */
 .feature-icon { 
-    font-size: 2.8rem;       
-    line-height: 1; 
-   font-weight: normal;
-    display: block; 
-    margin: 0;               
+    display: none;                            
 }
 
+/* --- ZMĚNA: ZVĚTŠENÍ A SJEDNOCENÍ TEXTU --- */
 .feature-item strong { 
     display: block; 
     color: #bfa37c; 
-   font-weight: normal;
-    font-size: 1rem; 
-    line-height: 1.2;
+    font-weight: 600;      /* Mírně tučnější pro nadpis */
+    font-size: 1.3rem;     /* Zvětšeno z 1rem */
+    line-height: 1.3;
     margin: 0;
 }
 
 .feature-item span { 
-    font-size: 0.95rem; 
-   font-weight: normal;
-    color: #777; 
-    line-height: 1.3; 
+    font-size: 1.1rem;     /* Zvětšeno z 0.95rem */
+    font-weight: normal;
+    color: #555;           /* Tmavší barva pro lepší čitelnost */
+    line-height: 1.5; 
 }
 
-/* CENA - NORMÁLNÍ PÍSMO (Jak jste chtěl) */
+/* CENA - NORMÁLNÍ PÍSMO */
 .feature-item.price-item .price-val { 
     color: #333; 
-    font-weight: normal; /* Změněno z bold na normal */
-    font-size: 0.95rem; 
+    font-weight: normal; 
+    font-size: 1.1rem;     /* Také zvětšeno */
     line-height: 1.4; 
 }
 
@@ -242,7 +240,7 @@ input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; 
         gap: 10px; 
     }
     .feature-item { padding: 15px 5px; }
-    .feature-icon { font-size: 2.2rem; margin-bottom: 10px; }
+    /* Ikony jsou skryté i na mobilu */
     
     /* Layout pod sebe */
     .content-wrapper { flex-direction: column; gap: 30px; }
@@ -263,5 +261,3 @@ input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; 
     .footer-grid { flex-direction: column; gap: 30px; }
     .site-footer { padding: 30px 15px; }
 }
-
-
