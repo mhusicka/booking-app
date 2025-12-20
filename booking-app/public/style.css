@@ -5,7 +5,7 @@ body { font-family: 'Montserrat', sans-serif; background: #f8f9fa; color: #333; 
 /* ZLATÝ NADPIS */
 h1 { text-align: center; margin-bottom: 40px; text-transform: uppercase; letter-spacing: 2px; color: #bfa37c; }
 
-h2 { font-size: 1.2rem; margin-top: 0; margin-bottom: 0; /* Margin řešíme v header-row */ border-bottom: 2px solid #bfa37c; display: inline-block; padding-bottom: 5px; text-transform: uppercase; letter-spacing: 2px; color: #444; }
+h2 { font-size: 1.2rem; margin-top: 0; margin-bottom: 0; border-bottom: 2px solid #bfa37c; display: inline-block; padding-bottom: 5px; text-transform: uppercase; letter-spacing: 2px; color: #444; }
 
 /* 2. POPIS A VÝHODY */
 .about-section { text-align: center; margin-bottom: 50px; padding: 0 10px; }
@@ -45,13 +45,23 @@ h2 { font-size: 1.2rem; margin-top: 0; margin-bottom: 0; /* Margin řešíme v h
 .day.range-start, .day.range-end { background: #bfa37c !important; color: white; }
 .day.range, .day.hover-range { background: #f3e9d9; }
 
-/* STYL PRO MINULÉ DNY (NEAKTIVNÍ) */
+/* --- OPRAVA: STYLY PRO NEAKTIVNÍ DNY --- */
+
+/* 1. Minulé dny */
 .day.past {
-    background-color: #f9f9f9;
-    color: #ccc;
+    background-color: #fcfcfc;
+    color: #e0e0e0;
     cursor: default;
+    pointer-events: none;
+}
+
+/* 2. Obsazené dny (TOHLE CHYBĚLO!) */
+.day.booked {
+    background-color: #f0f0f0 !important; /* Šedé pozadí stejně jako v legendě */
+    color: #bbb; /* Světle šedý text */
+    cursor: not-allowed; /* Kurzor "zákaz" */
     pointer-events: none; /* Nejde na ně kliknout */
-    text-decoration: none;
+    text-decoration: line-through; /* Přeškrtnutí pro lepší viditelnost */
 }
 
 #legend { display: flex; flex-wrap: wrap; gap: 20px; margin-top: 25px; font-size: 0.85rem; justify-content: center; padding: 10px; border-top: 1px solid #f5f5f5; }
@@ -60,34 +70,11 @@ h2 { font-size: 1.2rem; margin-top: 0; margin-bottom: 0; /* Margin řešíme v h
 .box.booked { background: #f0f0f0; } .box.selecting { background: #bfa37c; } .box.available { background: white; }
 
 /* 4. FORMULÁŘ A HLAVIČKA S PINEM */
-
-/* Řádek s nadpisem a odkazem na PIN */
-.form-header-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-    flex-wrap: wrap;
-    gap: 10px;
-}
-
-.pin-toggle-link {
-    font-size: 0.8rem;
-    color: #888;
-    text-decoration: underline;
-    cursor: pointer;
-    transition: 0.3s;
-}
+.form-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+.pin-toggle-link { font-size: 0.8rem; color: #888; text-decoration: underline; cursor: pointer; transition: 0.3s; }
 .pin-toggle-link:hover { color: #bfa37c; }
 
-/* Skryté okno PINu */
-.pin-retrieve-box {
-    background: #fff;
-    border: 1px dashed #d1b894;
-    padding: 15px;
-    border-radius: 6px;
-    margin-bottom: 20px;
-}
+.pin-retrieve-box { background: #fff; border: 1px dashed #d1b894; padding: 15px; border-radius: 6px; margin-bottom: 20px; }
 .retrieve-note { font-size: 0.8rem; color: #666; margin-bottom: 8px; margin-top: 0; }
 .retrieve-input-group { display: flex; gap: 10px; }
 .retrieve-input-group input { flex: 2; padding: 8px; font-size: 0.9rem; border: 1px solid #ccc; border-radius: 4px; }
@@ -109,11 +96,7 @@ input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radiu
 .terms-container label { font-weight: 400 !important; text-transform: none !important; color: #555; line-height: 1.4; font-size: 13px; }
 .terms-container label a { font-weight: 600; color: #bfa37c; text-decoration: underline; }
 
-.btn-pay { 
-    width: 100%; max-width: 400px; display: block; margin: 30px auto 0; 
-    padding: 18px; background: #333; color: white; border: none; border-radius: 6px; 
-    font-weight: 800; cursor: pointer; text-transform: uppercase; transition: 0.3s; 
-}
+.btn-pay { width: 100%; max-width: 400px; display: block; margin: 30px auto 0; padding: 18px; background: #333; color: white; border: none; border-radius: 6px; font-weight: 800; cursor: pointer; text-transform: uppercase; transition: 0.3s; }
 .btn-pay:hover:not(:disabled) { background: #bfa37c; }
 .btn-pay:disabled { background: #ccc; cursor: not-allowed; }
 
@@ -130,13 +113,12 @@ input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radiu
 .footer-col h3 { color: #fff; text-transform: uppercase; font-size: 1rem; margin-bottom: 20px; border-bottom: 2px solid #bfa37c; display: inline-block; padding-bottom: 5px; }
 .footer-col a { color: #aaa; text-decoration: none; transition: 0.3s; }
 .footer-col a:hover { color: #fff; }
-
 .payment-group { display: flex; flex-direction: column; gap: 12px; }
 .payment-logos { display: flex; gap: 10px; align-items: center; }
 .payment-logos img, .gopay-banner img { height: 32px; background: white; padding: 4px 10px; border-radius: 4px; }
 .copyright { text-align: center; margin-top: 60px; padding-top: 25px; border-top: 1px solid #333; color: #555; font-size: 0.8rem; }
 
-/* 7. MOBILNÍ ZOBRAZENÍ (KOMPAKTNÍ VERZE) */
+/* 7. MOBILNÍ ZOBRAZENÍ */
 @media (max-width: 768px) {
     .main-container { padding: 20px 10px; box-shadow: none; border-radius: 0; margin-top: 0; }
     h1 { margin-bottom: 25px; font-size: 1.8rem; }
@@ -149,18 +131,15 @@ input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radiu
     .feature-icon-small { font-size: 1.2rem; margin-bottom: 5px; }
     .feature-hover p { font-size: 0.75rem; margin-bottom: 5px; }
     .btn-fake { font-size: 0.7rem; }
-    
     .content-wrapper { flex-direction: column; gap: 30px; }
     .calendar-section, #booking-form { width: 100%; min-width: 100%; flex: none; }
     #booking-form { padding: 0; border: none; background: transparent; }
     .summary-box { border: 1px solid #ddd; background: #fdfdfd; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-    
     input, select, .btn-pay { padding: 14px; font-size: 1rem; }
     .nav-btn { padding: 10px 20px; }
     .btn-pay { max-width: 100%; margin-top: 20px; }
     .retrieve-input-group { flex-direction: column; }
     .btn-retrieve { margin-top: 5px; padding: 12px; }
-    
     .process-section, .map-section { margin: 50px auto; }
     .map-container iframe { height: 250px; }
     .footer-content { flex-direction: column; text-align: center; gap: 30px; }
@@ -168,100 +147,21 @@ input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radiu
     .payment-logos, .gopay-banner img { margin: 0 auto; }
 }
 
-/* 8. MODÁLNÍ OKNO (DETAIL REZERVACE) */
-.modal-overlay {
-    display: none; /* Ve výchozím stavu skryté */
-    position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0, 0, 0, 0.7); /* Zmavnutí pozadí */
-    z-index: 1000;
-    justify-content: center;
-    align-items: center;
-    padding: 20px;
-    box-sizing: border-box;
-}
-
-.modal-content {
-    background: white;
-    width: 100%;
-    max-width: 450px;
-    padding: 30px;
-    border-radius: 12px;
-    text-align: center;
-    position: relative;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-    animation: slideUp 0.3s ease-out;
-}
-
-@keyframes slideUp {
-    from { transform: translateY(50px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
-}
-
-.close-modal {
-    position: absolute;
-    top: 15px; right: 20px;
-    font-size: 2rem;
-    cursor: pointer;
-    color: #aaa;
-}
+/* 8. MODÁLNÍ OKNO */
+.modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 1000; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box; }
+.modal-content { background: white; width: 100%; max-width: 450px; padding: 30px; border-radius: 12px; text-align: center; position: relative; box-shadow: 0 10px 40px rgba(0,0,0,0.3); animation: slideUp 0.3s ease-out; }
+@keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.close-modal { position: absolute; top: 15px; right: 20px; font-size: 2rem; cursor: pointer; color: #aaa; }
 .close-modal:hover { color: #333; }
-
-.modal-header h2 {
-    margin-top: 10px;
-    border-bottom: none;
-    font-size: 1.5rem;
-    color: #333;
-}
-
-.status-badge {
-    display: inline-block;
-    padding: 5px 12px;
-    background: #d4edda;
-    color: #155724;
-    border-radius: 20px;
-    font-size: 0.8rem;
-    font-weight: 800;
-    text-transform: uppercase;
-}
-
-/* Velký PIN uprostřed */
-.modal-pin-box {
-    background: #f8f9fa;
-    border: 2px dashed #bfa37c;
-    padding: 20px;
-    border-radius: 8px;
-    margin: 20px 0;
-}
+.modal-header h2 { margin-top: 10px; border-bottom: none; font-size: 1.5rem; color: #333; }
+.status-badge { display: inline-block; padding: 5px 12px; background: #d4edda; color: #155724; border-radius: 20px; font-size: 0.8rem; font-weight: 800; text-transform: uppercase; }
+.modal-pin-box { background: #f8f9fa; border: 2px dashed #bfa37c; padding: 20px; border-radius: 8px; margin: 20px 0; }
 .modal-pin-box p { margin: 0; font-size: 0.8rem; color: #888; text-transform: uppercase; letter-spacing: 1px; }
 .modal-pin-box strong { font-size: 3rem; color: #333; display: block; letter-spacing: 5px; margin-top: 5px; }
-
-/* Mřížka detailů */
-.modal-details-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 15px;
-    text-align: left;
-    margin-bottom: 30px;
-    background: #fffcf5;
-    padding: 15px;
-    border-radius: 8px;
-}
-
+.modal-details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; text-align: left; margin-bottom: 30px; background: #fffcf5; padding: 15px; border-radius: 8px; }
 .detail-item { display: flex; flex-direction: column; }
 .detail-item .label { font-size: 0.75rem; color: #888; text-transform: uppercase; }
 .detail-item strong { font-size: 1rem; color: #333; }
-
-/* Tlačítka */
 .modal-actions { display: flex; flex-direction: column; gap: 10px; }
-
-.btn-sos {
-    background: #dc3545;
-    color: white;
-    text-decoration: none;
-    padding: 12px;
-    border-radius: 6px;
-    font-weight: 700;
-    transition: 0.3s;
-}
+.btn-sos { background: #dc3545; color: white; text-decoration: none; padding: 12px; border-radius: 6px; font-weight: 700; transition: 0.3s; }
 .btn-sos:hover { background: #c82333; }
