@@ -142,6 +142,7 @@
             data.forEach(r => {
                 const start = new Date(r.startDate).toLocaleDateString("cs-CZ");
                 const end = new Date(r.endDate).toLocaleDateString("cs-CZ");
+                // Zde zobrazujeme čas, který server vrátí. Díky tomu vidíte přesný čas rezervace.
                 let dateStr = r.startDate !== r.endDate ? `${start} – ${end} (${r.time})` : `${start} (${r.time})`;
 
                 const tr = document.createElement("tr");
@@ -151,7 +152,6 @@
                 
                 const isActive = !!r.keyboardPwdId;
 
-                // Vytvoření HTML pro výběr akce a tlačítko provést
                 const actionHtml = `
                     <div class="action-group">
                         <select id="action-select-${r._id}" class="action-select">
@@ -166,9 +166,9 @@
                 tr.innerHTML = `
                     <td class="select-cell"><input type="checkbox" data-id="${r._id}" onclick="updateSelectedCount()"></td>
                     <td>#${r.index}</td>
-                    <td><strong>${dateStr}</strong><br><small>${r.name}</small></td>
+                    <td><strong>${dateStr}</strong><br><small>${r.reservationCode || ""}</small></td>
                     <td>${pinHtml}</td>
-                    <td>${r.phone}<br><small>${r.email}</small></td>
+                    <td>${r.name}<br><small>${r.phone}</small></td>
                     <td>${actionHtml}</td>
                 `;
 
@@ -222,7 +222,7 @@
             } catch (e) { alert("Chyba komunikace."); }
         }
 
-        // --- RUČNÍ AKCE ŘÁDKU (NOVÁ LOGIKA) ---
+        // --- RUČNÍ AKCE ŘÁDKU ---
         async function executeAction(id) {
             const selectEl = document.getElementById(`action-select-${id}`);
             const action = selectEl.value;
@@ -264,7 +264,7 @@
             } catch (e) { alert("Chyba komunikace."); }
         }
 
-        // --- FUNKCE PRO RUČNÍ REZERVACI ---
+        // --- FUNKCE PRO RUČNÍ REZERVACI (ADMIN) ---
         async function createAdminReservation() {
             const startDate = document.getElementById("admin-start").value;
             const endDate = document.getElementById("admin-end").value;
@@ -277,6 +277,7 @@
             if (!confirm(`Vytvořit rezervaci pro ${name}?`)) return;
 
             try {
+                // Tady voláme STEJNÝ endpoint jako běžný uživatel, takže se použije nová kontrola času!
                 const res = await fetch(`${API_BASE}/reserve-range`, {
                     method: "POST", headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ startDate, endDate, time, name, email, phone })
