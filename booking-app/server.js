@@ -73,7 +73,7 @@ function generatePin() { return Array.from({ length: 6 }, () => Math.floor(Math.
 function hashPassword(password) { return crypto.createHash("md5").update(password).digest("hex"); }
 
 // ==========================================
-// DESIGN EMAILU (OPRAVA IKONY A TEČKY)
+// DESIGN EMAILU (OPRAVENO: KLÍČEK A TEČKA ZA ZÁVORKOU)
 // ==========================================
 async function sendReservationEmail(data) { 
     if (!BREVO_API_KEY) return;
@@ -144,7 +144,7 @@ async function sendReservationEmail(data) {
                                 <ol style="color: #555; line-height: 1.8; margin: 0; padding-left: 20px;">
                                     <li>Probuďte klávesnici zámku dotykem.</li>
                                     <li>Zadejte váš PIN kód: <strong>${data.passcode}</strong></li>
-                                    <li>Potvrďte stisknutím tlačítka 🔑 (vpravo dole) nebo #.</li>
+                                    <li>Potvrďte stisknutím tlačítka 🔑 (vpravo dole).</li>
                                 </ol>
                             </td>
                         </tr>
