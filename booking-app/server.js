@@ -35,7 +35,7 @@ mongoose.connect(MONGO_URI)
     .catch(err => console.error("❌ Chyba DB:", err));
 
 const ReservationSchema = new mongoose.Schema({
-    reservationCode: String, // NOVÉ: Kód pro vyhledání (např. A1B2C3)
+    reservationCode: String,
     startDate: String,
     endDate: String,
     time: String,
@@ -49,7 +49,7 @@ const ReservationSchema = new mongoose.Schema({
 const Reservation = mongoose.model("Reservation", ReservationSchema);
 
 // ==========================================
-// 3. HELPER FUNKCE
+// 3. HELPER FUNKCE (OPRAVENO GENEROVÁNÍ DATA)
 // ==========================================
 function hashPassword(password) {
     return crypto.createHash("md5").update(password).digest("hex");
@@ -59,9 +59,8 @@ function generatePin(length = 6) {
     return Array.from({ length }, () => Math.floor(Math.random() * 10)).join("");
 }
 
-// NOVÉ: Generátor krátkého kódu rezervace (např. X7B9A2)
 function generateResCode(length = 6) {
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // Bez I, O, 1, 0 kvůli čitelnosti
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     let result = "";
     for (let i = 0; i < length; i++) {
         result += chars.charAt(Math.floor(Math.random() * chars.length));
@@ -69,12 +68,22 @@ function generateResCode(length = 6) {
     return result;
 }
 
+// !!! ZDE JE OPRAVA PRO SPRÁVNÉ ZOBRAZENÍ V KALENDÁŘI !!!
 function getRange(from, to) {
-    const a = new Date(from);
-    const b = new Date(to);
     const days = [];
-    for (let d = new Date(a); d <= b; d.setDate(d.getDate() + 1)) {
-        days.push(d.toISOString().split("T")[0]);
+    // Vytvoříme datum nastavením času na poledne, abychom se vyhnuli posunům o hodinu
+    let current = new Date(from + "T12:00:00");
+    const end = new Date(to + "T12:00:00");
+
+    while (current <= end) {
+        // Ruční formátování na YYYY-MM-DD, aby to sedělo s frontendem
+        const year = current.getFullYear();
+        const month = String(current.getMonth() + 1).padStart(2, '0');
+        const day = String(current.getDate()).padStart(2, '0');
+        days.push(`${year}-${month}-${day}`);
+        
+        // Přičtení jednoho dne
+        current.setDate(current.getDate() + 1);
     }
     return days;
 }
@@ -161,7 +170,7 @@ async function sendReservationEmail(data) {
 }
 
 // ==========================================
-// 5. TTLOCK LOGIKA (Zkráceno - zůstává stejné)
+// 5. TTLOCK LOGIKA
 // ==========================================
 async function getTTLockToken() {
     try {
@@ -227,29 +236,30 @@ app.get("/availability", async (req, res) => {
         const allReservations = await Reservation.find({}, "startDate endDate");
         let bookedDaysSet = new Set();
         for (const r of allReservations) {
-            getRange(r.startDate, r.endDate).forEach(day => bookedDaysSet.add(day));
+            // Zde voláme naši opravenou funkci getRange
+            const range = getRange(r.startDate, r.endDate);
+            range.forEach(day => bookedDaysSet.add(day));
         }
         res.json([...bookedDaysSet]); 
-    } catch (err) { res.status(500).json({ error: "Chyba" }); }
+    } catch (err) { 
+        console.error(err);
+        res.status(500).json({ error: "Chyba" }); 
+    }
 });
 
-// NOVÝ ENDPOINT: Hledání rezervace podle kódu
 app.post("/retrieve-booking", async (req, res) => {
     const { code } = req.body;
     if (!code) return res.status(400).json({ success: false, error: "Chybí kód" });
 
     try {
-        // Hledáme v DB (case insensitive)
         const reservation = await Reservation.findOne({ reservationCode: code.toUpperCase() });
         
         if (reservation) {
-            // Spočítat cenu
             const start = new Date(reservation.startDate);
             const end = new Date(reservation.endDate);
             const diffDays = Math.max(1, Math.ceil(Math.abs(end - start) / (1000 * 60 * 60 * 24)));
             const price = diffDays * 230 + " Kč";
 
-            // Určit stav
             let status = "AKTIVNÍ";
             const endMs = new Date(`${reservation.endDate}T${reservation.time}:00`).getTime();
             if (endMs < Date.now()) status = "UKONČENO";
@@ -277,52 +287,77 @@ app.post("/reserve-range", async (req, res) => {
     if (!startDate || !endDate || !time || !name) return res.status(400).json({ error: "Chybí údaje." });
 
     try {
-        // Kontrola kolize
         const all = await Reservation.find(); 
         const newRange = getRange(startDate, endDate);
+        
+        // Vylepšená kontrola kolizí
         for (const r of all) {
             const existing = getRange(r.startDate, r.endDate);
-            if (newRange.some(day => existing.includes(day))) return res.status(409).json({ error: "Termín je obsazen." }); 
+            // Pokud se jakýkoliv den z nové rezervace kryje s existující -> CHYBA
+            if (newRange.some(day => existing.includes(day))) {
+                return res.status(409).json({ error: "Termín je již obsazen." }); 
+            }
         }
 
         const result = await addPinToLock(startDate, endDate, time);
         if (!result) return res.status(503).json({ error: "Nepodařilo se vygenerovat PIN." });
 
-        // Generujeme kód rezervace
         const reservationCode = generateResCode();
 
         const newRes = new Reservation({
-            reservationCode, // Ukládáme kód
+            reservationCode,
             startDate, endDate, time, name, email, phone,
             passcode: result.pin,
             keyboardPwdId: result.keyboardPwdId
         });
         await newRes.save();
         
-        // Posíláme email i s novým kódem
         sendReservationEmail({ reservationCode, startDate, endDate, time, name, email, passcode: result.pin, phone })
             .catch(err => console.error("⚠️ Email error:", err));
 
-        // Vracíme kód rezervace i klientovi
         res.json({ success: true, pin: result.pin, reservationCode: reservationCode });
 
     } catch (err) { 
+        console.error(err);
         res.status(500).json({ error: "Chyba serveru" }); 
     }
 });
 
-// Admin endpointy (bez změn, jen zkráceně vypsáno pro kontext)
 const checkAdmin = (req, res, next) => { if (req.headers["x-admin-password"] !== ADMIN_PASSWORD) return res.status(403).json({error:"Access denied"}); next(); };
+
 app.get("/admin/reservations", checkAdmin, async (req, res) => {
     const r = await Reservation.find().sort({ created: -1 });
     res.json(r.map((x, i) => ({ index: i + 1, ...x.toObject() })));
 });
+
 app.delete("/admin/reservations/:id", checkAdmin, async (req, res) => {
-    const r = await Reservation.findById(req.params.id);
-    if(r && r.keyboardPwdId) await deletePinFromLock(r.keyboardPwdId);
-    await Reservation.findByIdAndDelete(req.params.id);
-    res.json({success:true});
+    const id = req.params.id;
+    try {
+        const reservation = await Reservation.findById(id);
+        if (!reservation) return res.status(404).json({ error: "Nenalezeno" });
+        if (reservation.keyboardPwdId) await deletePinFromLock(reservation.keyboardPwdId);
+        await Reservation.findByIdAndDelete(id);
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: "Chyba" }); }
 });
+
+// AUTOMATICKÁ SPRÁVA EXPIRACE (Volitelné)
+setInterval(async () => {
+    try {
+        const now = Date.now();
+        const activeReservations = await Reservation.find({ keyboardPwdId: { $ne: null } });
+        for (const r of activeReservations) {
+            const endMs = new Date(`${r.endDate}T${r.time}:00`).getTime();
+            // Pokud rezervace skončila před více než hodinou, smažeme PIN ze zámku (ale v DB necháme záznam)
+            if (endMs < now - 3600000) { 
+                console.log(`🕒 Expirace PINu: ${r.name}`);
+                await deletePinFromLock(r.keyboardPwdId);
+                r.keyboardPwdId = null; 
+                await r.save();
+            }
+        }
+    } catch (e) { console.error("Auto-expire error", e); }
+}, 3600000); // Kontrola každou hodinu
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, "0.0.0.0", () => console.log(`🚀 Server běží na portu ${PORT}`));
