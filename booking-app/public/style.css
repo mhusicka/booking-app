@@ -4,7 +4,7 @@ body { font-family: 'Montserrat', sans-serif; background: #f8f9fa; color: #333; 
 h1 { text-align: center; margin-bottom: 40px; text-transform: uppercase; letter-spacing: 2px; color: #444; }
 h2 { font-size: 1.2rem; margin-top: 0; margin-bottom: 20px; border-bottom: 2px solid #bfa37c; display: inline-block; padding-bottom: 5px; text-transform: uppercase; letter-spacing: 2px; color: #444; }
 
-/* 2. POPIS A VÝHODY - NOVÝ INTERAKTIVNÍ DESIGN */
+/* 2. POPIS A VÝHODY - INTERAKTIVNÍ BOXY */
 .about-section { text-align: center; margin-bottom: 50px; padding: 0 10px; }
 .about-section p { font-size: 1.1rem; color: #555; line-height: 1.6; margin-bottom: 30px; max-width: 700px; margin-left: auto; margin-right: auto; }
 
@@ -118,7 +118,17 @@ h2 { font-size: 1.2rem; margin-top: 0; margin-bottom: 20px; border-bottom: 2px s
 /* FORMULÁŘ - OPRAVA ČASU A TLAČÍTKA */
 .time-row { display: flex; gap: 10px; align-items: stretch; margin-top: 5px; }
 .time-row input[type="time"] { flex: 3; }
-#btn-now { flex: 1; white-space: nowrap; padding: 0 15px; background: #eee; border: 1px solid #ddd; border-radius: 6px; font-weight: 600; cursor: pointer; transition: 0.3s; }
+#btn-now { 
+    flex: 1; 
+    white-space: nowrap; 
+    padding: 0 15px; 
+    background: #eee; 
+    border: 1px solid #ddd; 
+    border-radius: 6px; 
+    font-weight: 600; 
+    cursor: pointer; 
+    transition: 0.3s; 
+}
 #btn-now:hover { background: #bfa37c; color: white; border-color: #bfa37c; }
 
 .summary-box { background: white; border: 1px solid #eee; padding: 20px; border-radius: 8px; margin-bottom: 25px; }
@@ -141,7 +151,7 @@ input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radiu
 
 /* 4. SEKCE JAK TO FUNGUJE A MAPA */
 .process-section, .map-section { max-width: 1100px; margin: 80px auto; text-align: center; padding: 0 20px; }
-.process-grid { display: flex; justify-content: center; flex-wrap: wrap; gap: 40px; margin-top: 40px; }
+.process-grid { display: flex; justify-content: center; flex-wrap: wrap; gap: 40px; margin-top: 40px; align-items: flex-start; }
 .process-step { flex: 1; min-width: 250px; max-width: 320px; }
 .step-number { width: 60px; height: 60px; background: #bfa37c; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px; font-size: 1.5rem; font-weight: bold; }
 .map-container { border-radius: 12px; overflow: hidden; border: 1px solid #ddd; margin-top: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
@@ -158,15 +168,85 @@ input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radiu
 .payment-logos img, .gopay-banner img { height: 32px; background: white; padding: 4px 10px; border-radius: 4px; }
 .copyright { text-align: center; margin-top: 60px; padding-top: 25px; border-top: 1px solid #333; color: #555; font-size: 0.8rem; }
 
-/* 6. MOBILNÍ ZOBRAZENÍ */
+/* 6. MOBILNÍ ZOBRAZENÍ (RESPONZIVITA) */
 @media (max-width: 768px) {
-    .main-container { padding: 20px 15px; box-shadow: none; border-radius: 0; margin-top: 0; }
-    .features-grid { grid-template-columns: 1fr 1fr; }
-    .content-wrapper { flex-direction: column; }
-    .calendar-section, #booking-form { width: 100%; min-width: 100%; flex: none; }
-    #booking-form { padding: 20px; border: none; background: #fafafa; }
-    .footer-content { flex-direction: column; text-align: center; gap: 40px; }
-    .payment-logos, .gopay-banner img { margin: 0 auto; }
+    /* Hlavní kontejner na mobilu bez okrajů */
+    .main-container { 
+        padding: 20px 15px; 
+        box-shadow: none; 
+        border-radius: 0; 
+        margin-top: 0; 
+    }
+
+    /* MŘÍŽKA VÝHOD - NA MOBILU POD SEBE */
+    .features-grid { 
+        grid-template-columns: 1fr; /* Jeden sloupec = plná šířka */
+        gap: 15px; 
+    }
+
+    .feature-item { 
+        /* Zrušíme čtverec, dáme fixní výšku */
+        aspect-ratio: auto; 
+        height: 200px; 
+    }
+
+    /* Rozložení kalendáře a formuláře */
+    .content-wrapper { 
+        flex-direction: column; 
+        gap: 40px; 
+    }
+    
+    .calendar-section, #booking-form { 
+        width: 100%; 
+        min-width: 100%; 
+        flex: none; 
+    }
+
+    /* Formulář bez pozadí, čistší */
+    #booking-form { 
+        padding: 0; 
+        border: none; 
+        background: transparent; 
+    }
+
+    /* Souhrn s rámečkem */
+    .summary-box {
+        border: 1px solid #eee;
+        background: #fff;
+    }
+
+    /* Větší tlačítka pro prsty */
+    input, select, .btn-pay { 
+        padding: 15px; 
+        font-size: 1rem; 
+    }
+    
     .btn-pay { max-width: 100%; }
-    .retrieve-input-group { flex-direction: column; }
+
+    /* Vyhledávání PINu */
+    .retrieve-input-group { 
+        flex-direction: column; 
+    }
+    .btn-retrieve {
+        margin-top: 5px;
+        padding: 15px;
+    }
+
+    /* Patička a zarovnání */
+    .footer-content { 
+        flex-direction: column; 
+        text-align: center; 
+        gap: 40px; 
+    }
+    .payment-logos, .gopay-banner img { 
+        margin: 0 auto; 
+    }
+    
+    .process-grid {
+        flex-direction: column;
+        align-items: center;
+    }
+    .process-step {
+        max-width: 100%;
+    }
 }
