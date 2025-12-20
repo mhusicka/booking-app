@@ -60,8 +60,8 @@ h2 { font-size: 1.2rem; margin-top: 0; margin-bottom: 20px; border-bottom: 2px s
 
 /* 3. KALENDÁŘ A FORMULÁŘ */
 .content-wrapper { display: flex; flex-wrap: wrap; gap: 40px; }
-.calendar-section { flex: 2; min-width: 350px; }
-#booking-form { flex: 1; min-width: 300px; background: #fafafa; padding: 25px; border-radius: 8px; border: 1px solid #eee; }
+.calendar-section { flex: 1.5; min-width: 350px; }
+#booking-form { flex: 1.5; min-width: 300px; background: #fafafa; padding: 25px; border-radius: 8px; border: 1px solid #eee; }
 
 .controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
 .nav-btn { background: none; border: 1px solid #ddd; padding: 8px 15px; cursor: pointer; border-radius: 4px; font-size: 1.2rem; }
@@ -112,3 +112,4 @@ input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; 
     .content-wrapper { flex-direction: column; } 
     .features-grid { grid-template-columns: 1fr 1fr; } 
 }
+
