@@ -104,7 +104,7 @@ input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; 
 .map-section { margin-top: 60px; text-align: center; }
 .map-container { width: 100%; border-radius: 8px; overflow: hidden; border: 1px solid #ddd; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
 
-/* 5. FOOTER */
+/* 4. FOOTER - ČISTÝ VZHLED */
 .site-footer { background-color: #222; color: #ccc; padding: 50px 20px 20px 20px; margin-top: 80px; font-size: 0.9rem; border-top: 4px solid #bfa37c; }
 .footer-content { max-width: 1100px; margin: 0 auto; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 40px; }
 .footer-col { flex: 1; min-width: 250px; }
@@ -116,9 +116,6 @@ input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; 
 .payment-logos { margin-top: 10px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .payment-logos img { height: 30px; background: white; padding: 2px 5px; border-radius: 4px; }
 .copyright { text-align: center; margin-top: 50px; border-top: 1px solid #333; padding-top: 20px; color: #666; font-size: 0.8rem; }
-
-@media (max-width: 768px) { .content-wrapper { flex-direction: column; } .features-grid { grid-template-columns: 1fr 1fr; } }
-
 
 /* =========================================
    6. MOBILNÍ ZOBRAZENÍ (APP-LIKE)
@@ -160,5 +157,6 @@ input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; 
     .footer-grid { flex-direction: column; gap: 30px; }
     .site-footer { padding: 30px 15px; }
 }
+
 
 
