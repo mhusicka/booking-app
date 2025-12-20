@@ -36,7 +36,7 @@ mongoose.connect(MONGO_URI)
     .then(async () => {
         console.log("✅ DB připojena");
         try {
-            // Smazání starých indexů, které mohou blokovat start na Renderu
+            // Smazání starých indexů, které mohou blokovat start na Renderu (chyba E11000)
             const collections = await mongoose.connection.db.listCollections({name: 'reservations'}).toArray();
             if (collections.length > 0) {
                 await mongoose.connection.db.collection("reservations").dropIndexes();
@@ -82,7 +82,7 @@ function hashPassword(password) {
 }
 
 // ==========================================
-// 5. ODESÍLÁNÍ EMAILU (TABULKOVÝ DESIGN)
+// 5. ODESÍLÁNÍ EMAILU (DESIGN PODLE PŘEDLOHY)
 // ==========================================
 async function sendReservationEmail(data) { 
     if (!BREVO_API_KEY) {
@@ -97,59 +97,77 @@ async function sendReservationEmail(data) {
     <!DOCTYPE html>
     <html>
     <head><meta charset="UTF-8"></head>
-    <body style="margin:0; padding:0; background-color: #f8f9fa;">
-        <table width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #f8f9fa; padding: 20px 0;">
+    <body style="margin:0; padding:0; background-color: #ffffff; font-family: Arial, sans-serif;">
+        <table width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #ffffff; padding: 20px;">
             <tr>
                 <td align="center">
-                    <table width="100%" style="max-width: 500px; background-color: #ffffff; border: 1px solid #eeeeee; border-radius: 12px; border-collapse: separate;" cellspacing="0" cellpadding="0" border="0">
+                    <table width="100%" style="max-width: 550px; background-color: #ffffff;" cellspacing="0" cellpadding="0" border="0">
+                        
                         <tr>
-                            <td align="center" style="padding: 30px 20px 10px 20px;">
-                                <table cellspacing="0" cellpadding="0" border="0">
-                                    <tr><td style="background-color: #d4edda; color: #155724; padding: 5px 15px; border-radius: 20px; font-family: Arial, sans-serif; font-size: 12px; font-weight: bold;">AKTIVNÍ</td></tr>
-                                </table>
+                            <td align="center" style="padding: 20px 0 10px 0;">
+                                <div style="width: 80px; height: 80px; border: 3px solid #28a745; border-radius: 50%; display: inline-block; text-align: center;">
+                                    <span style="color: #28a745; font-size: 50px; line-height: 80px;">✔</span>
+                                </div>
                             </td>
                         </tr>
+
                         <tr>
                             <td align="center" style="padding: 10px 20px;">
-                                <h1 style="font-family: Arial, sans-serif; font-size: 24px; color: #333333; margin: 0;">Rezervace úspěšná!</h1>
-                                <p style="font-family: Arial, sans-serif; font-size: 14px; color: #888888; margin: 10px 0 0 0;">Kód rezervace: <strong>${data.reservationCode}</strong></p>
+                                <h1 style="font-size: 28px; color: #333333; margin: 0; text-transform: uppercase; font-weight: 800; letter-spacing: 1px;">Rezervace úspěšná!</h1>
+                                <p style="font-size: 16px; color: #666666; margin: 15px 0 0 0;">Děkujeme, <strong>${data.name}</strong>.<br>Váš přívěsný vozík je rezervován.</p>
                             </td>
                         </tr>
+
                         <tr>
-                            <td align="center" style="padding: 20px;">
-                                <table width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #fdfdfd; border: 2px dashed #bfa37c; border-radius: 8px;">
+                            <td align="center" style="padding: 30px 20px;">
+                                <table width="100%" cellspacing="0" cellpadding="0" border="0" style="border: 2px dashed #bfa37c; border-radius: 15px;">
                                     <tr>
-                                        <td align="center" style="padding: 20px;">
-                                            <span style="font-family: Arial, sans-serif; font-size: 12px; color: #888888; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 5px;">Váš PIN k zámku</span>
-                                            <span style="font-family: Arial, sans-serif; font-size: 42px; font-weight: bold; color: #333333; letter-spacing: 5px;">${data.passcode}</span>
+                                        <td align="center" style="padding: 30px;">
+                                            <span style="font-size: 13px; color: #888888; text-transform: uppercase; letter-spacing: 1.5px;">VÁŠ KÓD K ZÁMKU</span><br>
+                                            <span style="font-size: 56px; font-weight: bold; color: #333333; letter-spacing: 8px; line-height: 1.2;">${data.passcode}</span>
                                         </td>
                                     </tr>
                                 </table>
                             </td>
                         </tr>
+
                         <tr>
-                            <td style="padding: 0 30px 30px 30px;">
-                                <table width="100%" cellspacing="0" cellpadding="0" border="0">
+                            <td align="center" style="padding: 0 20px;">
+                                <table width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #f8f9fa; border-radius: 12px; padding: 25px; text-align: left;">
                                     <tr>
-                                        <td style="padding: 10px 0; border-bottom: 1px solid #eeeeee; font-family: Arial, sans-serif; font-size: 14px; color: #888888;">Termín:</td>
-                                        <td align="right" style="padding: 10px 0; border-bottom: 1px solid #eeeeee; font-family: Arial, sans-serif; font-size: 14px; font-weight: bold; color: #333333;">${startF} ${data.time} — ${endF} ${data.time}</td>
+                                        <td style="padding-bottom: 20px;">
+                                            <span style="font-size: 15px; font-weight: bold; color: #333333; display: block; margin-bottom: 5px;">Termín rezervace:</span>
+                                            <span style="font-size: 15px; color: #555555;">${startF} ${data.time} — ${endF} ${data.time}</span>
+                                        </td>
                                     </tr>
                                     <tr>
-                                        <td style="padding: 10px 0; border-bottom: 1px solid #eeeeee; font-family: Arial, sans-serif; font-size: 14px; color: #888888;">Vozík:</td>
-                                        <td align="right" style="padding: 10px 0; border-bottom: 1px solid #eeeeee; font-family: Arial, sans-serif; font-size: 14px; font-weight: bold; color: #333333;">Vozík č. 1</td>
-                                    </tr>
-                                    <tr>
-                                        <td style="padding: 10px 0; font-family: Arial, sans-serif; font-size: 14px; color: #888888;">Jméno:</td>
-                                        <td align="right" style="padding: 10px 0; font-family: Arial, sans-serif; font-size: 14px; font-weight: bold; color: #333333;">${data.name}</td>
+                                        <td>
+                                            <span style="font-size: 15px; font-weight: bold; color: #333333; display: block; margin-bottom: 5px;">Váš telefon:</span>
+                                            <span style="font-size: 15px; color: #555555;">${data.phone || 'Neuvedeno'}</span>
+                                        </td>
                                     </tr>
                                 </table>
                             </td>
                         </tr>
+
                         <tr>
-                            <td align="center" style="background-color: #222222; padding: 20px; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px;">
-                                <p style="font-family: Arial, sans-serif; font-size: 12px; color: #999999; margin: 0;">© 2025 Vozík 24/7 Mohelnice</p>
+                            <td style="padding: 40px 30px 20px 30px; text-align: left;">
+                                <h3 style="font-size: 18px; color: #333333; margin: 0 0 20px 0; font-weight: bold;">Jak odemknout?</h3>
+                                <ol style="font-size: 15px; color: #555555; line-height: 1.8; padding-left: 20px; margin: 0;">
+                                    <li>Probuďte klávesnici zámku dotykem.</li>
+                                    <li>Zadejte váš PIN kód: <strong>${data.passcode}</strong></li>
+                                    <li>Potvrďte stisknutím tlačítka 🔒 (vpravo dole) nebo #.</li>
+                                </ol>
                             </td>
                         </tr>
+
+                        <tr>
+                            <td align="center" style="background-color: #333333; padding: 30px 20px; margin-top: 20px;">
+                                <p style="font-size: 13px; color: #ffffff; margin: 0; font-weight: bold;">Přívěsný vozík 24/7</p>
+                                <p style="font-size: 11px; color: #aaaaaa; margin: 5px 0 0 0;">Toto je automaticky generovaná zpráva.</p>
+                            </td>
+                        </tr>
+
                     </table>
                 </td>
             </tr>
@@ -264,7 +282,7 @@ app.post("/reserve-range", async (req, res) => {
         });
 
         await reservation.save();
-        await sendReservationEmail({ reservationCode: resCode, startDate, endDate, time, name, email, passcode: pin });
+        await sendReservationEmail({ reservationCode: resCode, startDate, endDate, time, name, email, passcode: pin, phone });
 
         res.json({ success: true, pin, reservationCode: resCode });
     } catch (e) { res.status(500).json({ error: "Chyba při ukládání." }); }
