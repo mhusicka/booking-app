@@ -104,17 +104,20 @@ input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; 
 .map-section { margin-top: 60px; text-align: center; }
 .map-container { width: 100%; border-radius: 8px; overflow: hidden; border: 1px solid #ddd; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
 
-/* 5. ZÁPATÍ */
-.site-footer { background: #222; color: #ccc; padding: 50px 20px 20px; margin-top: 80px; border-top: 4px solid #bfa37c; }
-.footer-grid { display: flex; justify-content: space-between; max-width: 1100px; margin: 0 auto; gap: 40px; flex-wrap: wrap; }
+/* 5. FOOTER */
+.site-footer { background-color: #222; color: #ccc; padding: 50px 20px 20px 20px; margin-top: 80px; font-size: 0.9rem; border-top: 4px solid #bfa37c; }
+.footer-content { max-width: 1100px; margin: 0 auto; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 40px; }
 .footer-col { flex: 1; min-width: 250px; }
-.footer-col h3 { color: #fff; font-size: 1rem; text-transform: uppercase; margin-bottom: 20px; border-bottom: 2px solid #bfa37c; display: inline-block; padding-bottom: 5px; }
-.footer-col p, .footer-col a { color: #aaa; text-decoration: none; font-size: 0.9rem; line-height: 1.6; }
-.footer-col a:hover { color: #fff; }
+.footer-col h3 { color: #fff; border-bottom: 2px solid #bfa37c; padding-bottom: 10px; display: inline-block; margin-top: 0; margin-bottom: 15px; text-transform: uppercase; font-size: 1rem; letter-spacing: 1px; }
+.footer-col p { margin-bottom: 10px; color: #aaa; line-height: 1.5; }
+.footer-col a { color: #ccc; text-decoration: none; transition: 0.3s; }
+.footer-col a:hover { color: #bfa37c; text-decoration: underline; }
 
-.payment-logos { display: flex; gap: 10px; margin-top: 10px; background: #fff; padding: 8px 12px; border-radius: 4px; display: inline-flex; align-items: center; }
-.payment-logos img { height: 28px; width: auto; display: block; }
-.footer-bottom { text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #333; color: #666; font-size: 0.8rem; }
+.payment-logos { margin-top: 10px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.payment-logos img { height: 30px; background: white; padding: 2px 5px; border-radius: 4px; }
+.copyright { text-align: center; margin-top: 50px; border-top: 1px solid #333; padding-top: 20px; color: #666; font-size: 0.8rem; }
+
+@media (max-width: 768px) { .content-wrapper { flex-direction: column; } .features-grid { grid-template-columns: 1fr 1fr; } }
 
 
 /* =========================================
@@ -157,4 +160,5 @@ input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; 
     .footer-grid { flex-direction: column; gap: 30px; }
     .site-footer { padding: 30px 15px; }
 }
+
 
