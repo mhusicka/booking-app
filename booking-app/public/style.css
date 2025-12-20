@@ -62,6 +62,21 @@ h2 { font-size: 1.2rem; margin-top: 0; margin-bottom: 20px; border-bottom: 2px s
 .box { width: 12px; height: 12px; display: inline-block; margin-right: 5px; border: 1px solid #ddd; border-radius: 2px; }
 .box.booked { background: #f0f0f0; } .box.selecting { background: #bfa37c; } .box.available { background: white; }
 
+/* Oprava tučného textu u souhlasu */
+.terms-container label {
+    font-weight: 400; /* Normální písmo */
+    text-transform: none; /* Zruší velká písmena, pokud se dědí */
+    letter-spacing: normal;
+    color: #666; /* Jemnější barva pro lepší vzhled */
+}
+
+/* Odkazy v souhlasu zůstanou výrazné */
+.terms-container label a {
+    font-weight: 600;
+    color: #bfa37c;
+    text-decoration: underline;
+}
+
 /* FORMULÁŘ PRVKY - OPRAVENO */
 .summary-box { background: white; border: 1px solid #eee; padding: 20px; border-radius: 8px; margin-bottom: 25px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
 .summary-box p { margin: 8px 0; font-size: 0.95rem; color: #555; }
@@ -125,3 +140,4 @@ input:focus { border-color: #bfa37c; outline: none; box-shadow: 0 0 0 2px rgba(1
     .payment-logos { justify-content: center; }
     .gopay-banner img { margin: 0 auto; }
 }
+
