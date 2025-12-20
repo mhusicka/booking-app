@@ -1,63 +1,86 @@
-<div class="success-box">
-    
-    <div id="email-warning" style="display:none; background: #fff3cd; color: #856404; padding: 15px; margin-bottom: 20px; border: 1px solid #ffeeba; border-radius: 5px; text-align: left; font-size: 0.9rem;">
-        <strong>⚠️ POZOR: Email se nepodařilo odeslat!</strong><br>
-        Opište si prosím <strong>Kód rezervace</strong> a <strong>PIN</strong> níže.
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rezervace dokončena - Vozík 24/7</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        .success-box {
+            text-align: center; padding: 40px; max-width: 600px; margin: 40px auto;
+            background: white; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        .pin-display {
+            background: #f8f9fa; border: 2px dashed #bfa37c; display: inline-block;
+            padding: 20px 40px; margin: 20px 0; border-radius: 8px;
+        }
+        .pin-number { font-size: 3rem; font-weight: bold; color: #333; letter-spacing: 5px; display: block; }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <div class="success-box">
+            
+            <div id="email-warning" style="display:none; background: #fff3cd; color: #856404; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
+                ⚠️ <strong>Email se nepodařilo odeslat.</strong> Opište si údaje níže!
+            </div>
+
+            <div class="icon-check" style="font-size: 3rem; color: #28a745; margin-bottom: 20px;">✔</div>
+            <h1 id="success-title">Rezervace úspěšná!</h1>
+            
+            <p style="margin-bottom: 5px; color: #888;">Kód rezervace (pro zpětné dohledání):</p>
+            <h2 id="display-order-id" style="margin-top: 0; color: #555; letter-spacing: 2px;">---</h2>
+
+            <p id="success-msg">Potvrzení a instrukce jsme vám odeslali na email.</p>
+
+            <div class="pin-display">
+                <span class="pin-label">Váš kód k zámku</span>
+                <span id="display-pin" class="pin-number">------</span>
+            </div>
+
+            <div class="details">
+                <strong>Termín rezervace:</strong><br>
+                <span id="display-date">Načítám...</span>
+            </div>
+
+            <p style="font-size: 0.9rem; color: #888; margin-bottom: 20px;">
+                Tento kód zadejte na klávesnici zámku a potvrďte křížkem nebo symbolem zámku.
+            </p>
+
+            <a href="/" class="btn-pay" style="text-decoration: none; display: inline-block; width: auto; padding: 15px 40px;">Zpět na úvod</a>
+        </div>
     </div>
 
-    <div class="icon-check">✔</div>
-    <h1 id="success-title">Rezervace úspěšná!</h1>
-    
-    <div style="background: #f0f0f0; padding: 10px; border-radius: 4px; margin-bottom: 20px; font-size: 0.9rem; color: #555;">
-        Kód rezervace pro zpětné dohledání:<br>
-        <strong id="display-order-id" style="font-size: 1.4rem; color: #333; letter-spacing: 2px;">------</strong>
-    </div>
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        
+        const pin = params.get("pin");
+        const start = params.get("start");
+        const end = params.get("end");
+        const time = params.get("time");
+        const orderId = params.get("orderId");
+        const emailStatus = params.get("emailStatus");
+        const restored = params.get("restored");
 
-    <p id="success-msg">Děkujeme. Váš přívěsný vozík je rezervován.</p>
+        if (pin) document.getElementById("display-pin").innerText = pin;
+        if (orderId) document.getElementById("display-order-id").innerText = orderId;
 
-    <div class="pin-display">
-        <span class="pin-label">Váš kód k zámku</span>
-        <span id="display-pin" class="pin-number">------</span>
-    </div>
+        if (start && end && time) {
+            const format = (d) => new Date(d).toLocaleDateString("cs-CZ");
+            document.getElementById("display-date").innerHTML = `${format(start)} ${time} &nbsp;—&nbsp; ${format(end)} ${time}`;
+        }
 
-    <div class="details">
-        <strong>Termín rezervace:</strong><br>
-        <span id="display-date">Načítám...</span>
-    </div>
+        if (emailStatus === "failed") {
+            document.getElementById("email-warning").style.display = "block";
+            document.getElementById("success-msg").innerText = "Uložte si prosím tyto údaje.";
+        }
 
-    <a href="/" class="btn-pay" style="text-decoration: none; display: inline-block; width: auto; padding: 15px 40px;">Zpět na úvod</a>
-</div>
-
-<script>
-    const params = new URLSearchParams(window.location.search);
-    
-    const pin = params.get("pin");
-    const start = params.get("start");
-    const end = params.get("end");
-    const time = params.get("time");
-    const orderId = params.get("orderId");      // NOVÉ
-    const emailStatus = params.get("emailStatus"); // NOVÉ
-    const restored = params.get("restored"); // NOVÉ
-
-    if (pin) document.getElementById("display-pin").innerText = pin;
-    
-    // Zobrazení kódu rezervace
-    if (orderId) document.getElementById("display-order-id").innerText = orderId;
-
-    // Logika pro zobrazení varování nebo změnu textů
-    if (emailStatus === "failed") {
-        document.getElementById("email-warning").style.display = "block";
-    }
-
-    if (restored === "true") {
-        document.getElementById("success-title").innerText = "Detail rezervace";
-        document.getElementById("success-msg").style.display = "none";
-        document.querySelector(".icon-check").style.display = "none";
-    }
-
-    if (start && end && time) {
-        const format = (d) => new Date(d).toLocaleDateString("cs-CZ");
-        document.getElementById("display-date").innerHTML = 
-            `${format(start)} ${time} &nbsp;—&nbsp; ${format(end)} ${time}`;
-    }
-</script>
+        if (restored === "true") {
+            document.getElementById("success-title").innerText = "Detail rezervace";
+            document.querySelector(".icon-check").style.display = "none";
+            document.getElementById("success-msg").style.display = "none";
+        }
+    </script>
+</body>
+</html>
