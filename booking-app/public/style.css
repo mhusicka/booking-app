@@ -116,6 +116,84 @@ input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; 
 .payment-logos img { height: 30px; background: white; padding: 2px 5px; border-radius: 4px; }
 .copyright { text-align: center; margin-top: 50px; border-top: 1px solid #333; padding-top: 20px; color: #666; font-size: 0.8rem; }
 
+/* --- ÚHLEDNÝ STYL PATIČKY --- */
+.site-footer { 
+    background-color: #222; 
+    color: #ccc; 
+    padding: 60px 20px 30px; 
+    margin-top: 80px; 
+    border-top: 4px solid #bfa37c; 
+    font-size: 0.9rem;
+}
+
+.footer-content { 
+    max-width: 1100px; 
+    margin: 0 auto; 
+    display: flex; 
+    flex-wrap: wrap; 
+    justify-content: space-between; 
+    gap: 40px; 
+}
+
+.footer-col { flex: 1; min-width: 250px; }
+
+.footer-col h3 { 
+    color: #fff; 
+    text-transform: uppercase; 
+    font-size: 1rem; 
+    letter-spacing: 1px; 
+    margin-bottom: 20px; 
+    border-bottom: 2px solid #bfa37c; 
+    display: inline-block; 
+    padding-bottom: 5px;
+}
+
+/* Odstranění modré barvy a úprava odkazů */
+.footer-col p { margin-bottom: 12px; color: #aaa; line-height: 1.6; }
+.footer-col a { color: #aaa; text-decoration: none; transition: 0.3s; }
+.footer-col a:hover { color: #fff; }
+
+/* Stylování bannerů */
+.payment-group { display: flex; flex-direction: column; gap: 15px; }
+
+.payment-logos { display: flex; gap: 10px; align-items: center; }
+.payment-logos img { 
+    height: 25px; 
+    background: white; 
+    padding: 3px 8px; 
+    border-radius: 4px; 
+}
+
+.gopay-banner img { 
+    max-width: 180px; 
+    height: auto; 
+    background: white; 
+    padding: 5px 10px; 
+    border-radius: 4px; 
+    display: block;
+}
+
+.payment-note { font-size: 0.75rem; color: #666; margin-top: -5px; }
+
+.copyright { 
+    text-align: center; 
+    margin-top: 50px; 
+    padding-top: 20px; 
+    border-top: 1px solid #333; 
+    color: #555; 
+    font-size: 0.8rem; 
+}
+
+/* Mobilní úprava pro patičku */
+@media (max-width: 768px) {
+    .footer-content { flex-direction: column; text-align: center; gap: 40px; }
+    .footer-col h3 { display: inline-block; }
+    .payment-logos { justify-content: center; }
+    .gopay-banner img { margin: 0 auto; }
+}
+
+
+
 /* =========================================
    6. MOBILNÍ ZOBRAZENÍ (APP-LIKE)
    ========================================= */
@@ -156,6 +234,7 @@ input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; 
     .footer-grid { flex-direction: column; gap: 30px; }
     .site-footer { padding: 30px 15px; }
 }
+
 
 
 
