@@ -8,16 +8,28 @@ let startDate = null;
 let endDate = null;
 let cachedAvailability = []; 
 
+// --- 1. SIMULACE DATABÁZE REZERVACÍ PRO MODÁLNÍ OKNO ---
+// Pro otestování zadejte do hledání kód "TEST1234"
+const mockDatabase = [
+    {
+        code: "TEST1234",
+        pin: "8540",
+        start: "20.12.2025 09:00",
+        end: "21.12.2025 09:00",
+        car: "Vozík č. 1",
+        price: "230 Kč",
+        status: "Zaplaceno"
+    }
+];
+
 async function init() {
     await updateCalendar();
 
-    // --- ZOBRAZENÍ CENY ZA DEN V TABULCE ---
     const priceDisplay = document.getElementById("price-per-day-display");
     if (priceDisplay) {
         priceDisplay.innerText = `${PRICE_PER_DAY} Kč`;
     }
     
-    // --- OMEZENÍ A PŘEDVYPLNĚNÍ TELEFONU ---
     const phoneInput = document.getElementById("inp-phone");
     if (phoneInput) {
         if (!phoneInput.value || phoneInput.value === "") phoneInput.value = "+420 ";
@@ -33,7 +45,6 @@ async function init() {
         });
     }
 
-    // --- LOGIKA PRO CHECKBOX SOUHLASU ---
     const agreeCheckbox = document.getElementById("inp-agree");
     const submitBtn = document.getElementById("btn-submit");
 
@@ -41,7 +52,7 @@ async function init() {
         agreeCheckbox.addEventListener("change", function() {
             if (this.checked) {
                 submitBtn.disabled = false;
-                submitBtn.style.backgroundColor = "#bfa37c"; // Sjednoceno s vaším designem
+                submitBtn.style.backgroundColor = "#bfa37c"; 
                 submitBtn.style.cursor = "pointer";
             } else {
                 submitBtn.disabled = true;
@@ -106,7 +117,6 @@ function renderSingleCalendar() {
     const grid = document.createElement("div");
     grid.className = "days-grid";
     
-    // Header s dny v týdnu
     ["PO","ÚT","ST","ČT","PÁ","SO","NE"].forEach(d => {
         const el = document.createElement("div"); el.className = "weekday"; el.innerText = d; grid.appendChild(el);
     });
@@ -135,7 +145,6 @@ function renderSingleCalendar() {
             dayEl.onmouseenter = () => handleHoverLogic(dateStr);
         }
         
-        // Zvýraznění výběru
         if (startDate === dateStr) dayEl.classList.add("range-start");
         if (endDate === dateStr) dayEl.classList.add("range-end");
         if (startDate && endDate && dateStr > startDate && dateStr < endDate) dayEl.classList.add("range");
@@ -238,11 +247,9 @@ function updateSummaryUI(previewEndDate = null) {
     startText.innerText = `${formatCzDate(s)} (${timeVal})`;
     endText.innerText = `${formatCzDate(e)} (${timeVal})`;
     
-    // Výpočet počtu dní
     const diffTime = Math.abs(new Date(e) - new Date(s));
     const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
     
-    // --- ÚPRAVA: ZOBRAZENÍ (24 hod.) ---
     if (diffDays === 1) {
         countEl.innerText = "1 (24 hod.)";
     } else {
@@ -268,8 +275,6 @@ async function submitReservation() {
     const phone = document.getElementById("inp-phone").value;
     const btn = document.querySelector(".btn-pay");
 
-    // --- NOVÁ VALIDACE TELEFONU ---
-    // Odstraníme mezery a zkontrolujeme, zda zbylo dost čísel (předčíslí + 9 číslic)
     const phoneDigits = phone.replace(/\s+/g, ''); 
     if(!name || !email || !phone || !time || phoneDigits.length < 13) { 
         alert("Vyplňte prosím všechny údaje. Telefon musí obsahovat 9 číslic za předčíslím."); 
@@ -310,35 +315,45 @@ async function submitReservation() {
     } 
 }
 
-// Vyhledání rezervace (pro vaše okénko "Najít PIN")
-async function retrieveBooking() {
-    const code = document.getElementById("inp-retrieve-code").value.trim().toUpperCase();
-    if (!code) return;
-    
-    try {
-        const res = await fetch(`${API_BASE}/retrieve-booking`, {
-            method: "POST", 
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ orderId: code })
-        });
-        const r = await res.json();
-        if (r.success) {
-            const params = new URLSearchParams({
-                pin: r.pin,
-                orderId: r.orderId,
-                start: r.start,
-                end: r.end,
-                time: r.time,
-                restored: "true"
-            });
-            window.location.href = `success.html?${params.toString()}`;
-        } else { 
-            alert("Rezervace nebyla nalezena. Zkontrolujte kód."); 
-        }
-    } catch (e) { 
-        alert("Chyba při hledání."); 
+// --- 3. FUNKCE PRO ZOBRAZENÍ MODÁLNÍHO OKNA ---
+function retrieveBooking() {
+    const input = document.getElementById("inp-retrieve-code");
+    const code = input ? input.value.trim().toUpperCase() : "";
+
+    if (!code) {
+        alert("Prosím zadejte kód rezervace.");
+        return;
+    }
+
+    // Hledání v mock databázi
+    const reservation = mockDatabase.find(r => r.code.toUpperCase() === code);
+
+    if (reservation) {
+        showModal(reservation);
+    } else {
+        alert("Rezervace s kódem " + code + " nebyla nalezena. (Pro test zkuste: TEST1234)");
+    }
+}
+
+function showModal(data) {
+    document.getElementById("res-status").innerText = data.status;
+    document.getElementById("res-pin").innerText = data.pin;
+    document.getElementById("res-start").innerText = data.start;
+    document.getElementById("res-end").innerText = data.end;
+    document.getElementById("res-car").innerText = data.car;
+    document.getElementById("res-price").innerText = data.price;
+    document.getElementById("reservation-modal").style.display = "flex";
+}
+
+function closeModal() {
+    document.getElementById("reservation-modal").style.display = "none";
+}
+
+window.onclick = function(event) {
+    let modal = document.getElementById("reservation-modal");
+    if (event.target == modal) {
+        closeModal();
     }
 }
 
 init();
-
