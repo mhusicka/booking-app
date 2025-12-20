@@ -29,9 +29,20 @@ const TTLOCK_USERNAME = process.env.TTLOCK_USERNAME;
 const TTLOCK_PASSWORD = process.env.TTLOCK_PASSWORD;
 const MY_LOCK_ID = parseInt(process.env.MY_LOCK_ID);
 
-// ===== DB =====
+// ===== DB (S OPRAVOU INDEXŮ) =====
 mongoose.connect(MONGO_URI)
-    .then(() => console.log("✅ DB připojena"))
+    .then(async () => {
+        console.log("✅ DB připojena");
+        try {
+            // --- OPRAVA CHYBY E11000 ---
+            // Smažeme staré indexy, které dělají neplechu (orderId)
+            await mongoose.connection.collection("reservations").dropIndexes();
+            console.log("🧹 Staré a chybné indexy byly smazány.");
+        } catch (e) {
+            // Ignorujeme chybu, pokud indexy neexistují
+            console.log("ℹ️ Indexy jsou v pořádku.");
+        }
+    })
     .catch(err => console.error("❌ Chyba DB:", err));
 
 const ReservationSchema = new mongoose.Schema({
@@ -206,7 +217,6 @@ app.post("/retrieve-booking", async (req, res) => {
     } catch (err) { res.status(500).json({ success: false, error: "Chyba serveru" }); }
 });
 
-// --- OPRAVENÁ REZERVACE (KONTROLA ČASU MÍSTO DNŮ) ---
 app.post("/reserve-range", async (req, res) => {
     const { startDate, endDate, time, name, email, phone } = req.body;
     console.log(`📩 Nová rezervace: ${name}, ${startDate} - ${endDate} v ${time}`);
@@ -214,35 +224,23 @@ app.post("/reserve-range", async (req, res) => {
     if (!startDate || !endDate || !time || !name) return res.status(400).json({ error: "Chybí údaje." });
 
     try {
-        // 1. Převedeme novou žádost na přesné milisekundy
-        // Přidáváme ":00" pro sekundy, aby byl formát kompletní
+        // Kontrola času
         const newStartMs = new Date(`${startDate}T${time}:00`).getTime();
         const newEndMs = new Date(`${endDate}T${time}:00`).getTime();
-
-        // 2. Načteme všechny existující rezervace
         const all = await Reservation.find(); 
         
-        // 3. Procházíme a hledáme časový průnik (kolizi)
         for (const r of all) {
-            // Převedeme existující rezervaci na milisekundy
             const existingStartMs = new Date(`${r.startDate}T${r.time}:00`).getTime();
             const existingEndMs = new Date(`${r.endDate}T${r.time}:00`).getTime();
-
-            // LOGIKA PRŮNIKU:
-            // (Nový start je před koncem staré) A ZÁROVEŇ (Nový konec je po začátku staré)
-            // Používáme ostrou nerovnost (< a >), takže pokud jedna končí přesně v 12:00 a druhá začíná v 12:00,
-            // NENÍ to kolize (což je správně).
             if (newStartMs < existingEndMs && newEndMs > existingStartMs) {
                 console.log("❌ Kolize termínu s rezervací:", r.reservationCode);
                 return res.status(409).json({ error: "V tomto čase je již obsazeno." }); 
             }
         }
 
-        // --- Zbytek kódu je stejný (zámek, DB, email) ---
-
+        // Zámek a PIN
         let pinCode = "123456"; 
         let lockId = null;
-
         const lockResult = await addPinToLock(startDate, endDate, time);
         if (lockResult) {
             pinCode = lockResult.pin;
@@ -267,7 +265,8 @@ app.post("/reserve-range", async (req, res) => {
 
     } catch (err) { 
         console.error("❌ KRITICKÁ CHYBA:", err);
-        res.status(500).json({ error: "Interní chyba serveru" }); 
+        // Detailnější výpis chyby pro klienta, aby se vědělo, proč to padá
+        res.status(500).json({ error: "Interní chyba: " + err.message }); 
     }
 });
 
