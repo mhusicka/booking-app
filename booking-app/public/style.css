@@ -31,7 +31,6 @@ h2 { font-size: 1.2rem; margin-top: 0; margin-bottom: 20px; border-bottom: 2px s
 }
 
 .feature-item:hover { transform: translateY(-5px); border-color: #bfa37c; box-shadow: 0 8px 20px rgba(0,0,0,0.06); }
-
 .feature-icon { font-size: 3rem; margin-bottom: 15px; display: block; color: #bfa37c; }
 .feature-item strong { display: block; font-size: 1.25rem; margin-bottom: 8px; color: #333; }
 .feature-item span { font-size: 1.05rem; color: #666; line-height: 1.4; }
@@ -40,110 +39,87 @@ h2 { font-size: 1.2rem; margin-top: 0; margin-bottom: 20px; border-bottom: 2px s
 .btn-outline:hover { border-color: #bfa37c; color: #bfa37c; background: #fffcf5; }
 
 /* 3. KALENDÁŘ A FORMULÁŘ - ROZDĚLENÍ 50/50 */
-.content-wrapper { display: flex; flex-wrap: wrap; gap: 40px; }
+.content-wrapper { display: flex; flex-wrap: wrap; gap: 40px; align-items: flex-start; }
 .calendar-section { flex: 1; min-width: 350px; }
-#booking-form { flex: 1; min-width: 300px; background: #fafafa; padding: 25px; border-radius: 8px; border: 1px solid #eee; }
+#booking-form { flex: 1; min-width: 300px; background: #fafafa; padding: 30px; border-radius: 10px; border: 1px solid #eee; }
 
 .controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-.nav-btn { background: none; border: 1px solid #ddd; padding: 8px 15px; cursor: pointer; border-radius: 4px; font-size: 1.2rem; }
+.nav-btn { background: white; border: 1px solid #ddd; padding: 8px 15px; cursor: pointer; border-radius: 4px; font-weight: bold; }
 .nav-btn:hover { background: #eee; }
-#currentMonthLabel { font-weight: 600; font-size: 1.1rem; }
+#currentMonthLabel { font-weight: 800; font-size: 1.1rem; text-transform: uppercase; }
 
 .days-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; text-align: center; }
 .weekday { font-weight: bold; color: #888; font-size: 0.8rem; padding-bottom: 10px; }
 .day { padding: 15px 10px; background: #fff; border: 1px solid #eee; cursor: pointer; border-radius: 4px; transition: 0.2s; font-size: 0.95rem; }
-.day:hover { background-color: #f9f9f9; border-color: #ccc; }
-.day.available { color: #333; }
+.day:hover:not(.booked):not(.past) { background-color: #f0f0f0; border-color: #ccc; }
 .day.booked { background: #f0f0f0; color: #bbb; cursor: not-allowed; text-decoration: line-through; }
 .day.past { background: #fcfcfc; color: #ddd; cursor: default; }
-.day.range-start, .day.range-end { background: #bfa37c; color: white; border-color: #bfa37c; }
-.day.range { background: #f3e9d9; border-color: #f3e9d9; }
+.day.range-start, .day.range-end { background: #bfa37c !important; color: white; border-color: #bfa37c; }
+.day.range { background: #f3e9d9; }
 .day.hover-range { background: #f3e9d9; }
 
-#legend { display: flex; gap: 15px; margin-top: 20px; font-size: 0.8rem; justify-content: center; }
-.box { width: 12px; height: 12px; display: inline-block; margin-right: 5px; border: 1px solid #ddd; }
+#legend { display: flex; gap: 15px; margin-top: 25px; font-size: 0.8rem; justify-content: center; }
+.box { width: 12px; height: 12px; display: inline-block; margin-right: 5px; border: 1px solid #ddd; border-radius: 2px; }
 .box.booked { background: #f0f0f0; } .box.selecting { background: #bfa37c; } .box.available { background: white; }
 
-/* 4. DOPLŇKOVÉ SEKCE */
-.process-section { margin-top: 60px; text-align: center; border-top: 1px solid #eee; padding-top: 40px; }
-.process-grid { display: flex; justify-content: space-around; flex-wrap: wrap; gap: 30px; margin-top: 30px; }
-.process-step { flex: 1; min-width: 200px; max-width: 300px; }
-.step-number { width: 50px; height: 50px; background: #bfa37c; color: white; font-weight: bold; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px; font-size: 1.5rem; }
-.map-section { margin-top: 60px; text-align: center; }
-.map-container { width: 100%; border-radius: 8px; overflow: hidden; border: 1px solid #ddd; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+/* FORMULÁŘ PRVKY - OPRAVENO */
+.summary-box { background: white; border: 1px solid #eee; padding: 20px; border-radius: 8px; margin-bottom: 25px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
+.summary-box p { margin: 8px 0; font-size: 0.95rem; color: #555; }
+.summary-box strong { color: #333; }
+.price-tag { font-size: 1.4rem; font-weight: 800; color: #bfa37c; margin-top: 15px; border-top: 1px solid #eee; padding-top: 15px; display: flex; justify-content: space-between; align-items: center; }
 
-/* 5. ÚHLEDNÁ PATIČKA (OPRAVENO) */
-.site-footer { 
-    background-color: #222; 
-    color: #ccc; 
-    padding: 60px 20px 30px; 
-    margin-top: 80px; 
-    border-top: 4px solid #bfa37c; 
-    font-size: 0.9rem;
-}
-.footer-content { 
-    max-width: 1100px; 
-    margin: 0 auto; 
-    display: flex; 
-    flex-wrap: wrap; 
-    justify-content: space-between; 
-    gap: 40px; 
-}
+.form-group { margin-bottom: 20px; }
+label { display: block; margin-bottom: 8px; font-weight: 700; font-size: 0.85rem; color: #444; text-transform: uppercase; letter-spacing: 0.5px; }
+input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-family: inherit; box-sizing: border-box; font-size: 0.95rem; }
+input:focus { border-color: #bfa37c; outline: none; box-shadow: 0 0 0 2px rgba(191, 163, 124, 0.1); }
+
+.time-row { display: flex; gap: 10px; }
+.btn-small { background: #eee; border: 1px solid #ddd; padding: 0 15px; cursor: pointer; border-radius: 4px; font-weight: 600; font-size: 0.85rem; }
+
+.btn-pay { width: 100%; padding: 18px; background: #333; color: white; border: none; border-radius: 6px; font-weight: 800; cursor: pointer; font-size: 1rem; text-transform: uppercase; transition: 0.3s; margin-top: 10px; }
+.btn-pay:hover:not(:disabled) { background: #bfa37c; }
+.btn-pay:disabled { background: #ccc; cursor: not-allowed; }
+
+.terms-container { margin-top: 20px; }
+
+/* 4. DOPLŇKOVÉ SEKCE */
+.process-section { margin-top: 80px; text-align: center; border-top: 1px solid #eee; padding-top: 60px; }
+.process-grid { display: flex; justify-content: space-around; flex-wrap: wrap; gap: 30px; margin-top: 40px; }
+.process-step { flex: 1; min-width: 250px; max-width: 350px; }
+.step-number { width: 60px; height: 60px; background: #bfa37c; color: white; font-weight: bold; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 1.6rem; }
+
+.map-section { margin-top: 80px; text-align: center; }
+.map-container { width: 100%; border-radius: 12px; overflow: hidden; border: 1px solid #eee; box-shadow: 0 5px 15px rgba(0,0,0,0.05); margin-top: 30px; }
+
+/* 5. ÚHLEDNÁ PATIČKA */
+.site-footer { background-color: #222; color: #ccc; padding: 60px 20px 30px; margin-top: 80px; border-top: 4px solid #bfa37c; font-size: 0.9rem; }
+.footer-content { max-width: 1100px; margin: 0 auto; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 40px; }
 .footer-col { flex: 1; min-width: 250px; }
-.footer-col h3 { 
-    color: #fff; 
-    text-transform: uppercase; 
-    font-size: 1rem; 
-    letter-spacing: 1px; 
-    margin-bottom: 20px; 
-    border-bottom: 2px solid #bfa37c; 
-    display: inline-block; 
-    padding-bottom: 5px;
-}
+.footer-col h3 { color: #fff; text-transform: uppercase; font-size: 1rem; letter-spacing: 1px; margin-bottom: 20px; border-bottom: 2px solid #bfa37c; display: inline-block; padding-bottom: 5px; }
 .footer-col p { margin-bottom: 12px; color: #aaa; line-height: 1.6; }
 .footer-col a { color: #aaa; text-decoration: none; transition: 0.3s; }
 .footer-col a:hover { color: #fff; }
 
-/* Stylování bannerů v patičce */
 .payment-group { display: flex; flex-direction: column; gap: 15px; }
 .payment-logos { display: flex; gap: 10px; align-items: center; }
-.payment-logos img { 
-    height: 25px; 
-    background: white; 
-    padding: 3px 8px; 
-    border-radius: 4px; 
-}
-.gopay-banner img { 
-    max-width: 220px; 
-    height: auto; 
-    background: white; 
-    padding: 5px 10px; 
-    border-radius: 4px; 
-    display: block;
-}
-.copyright { 
-    text-align: center; 
-    margin-top: 50px; 
-    padding-top: 20px; 
-    border-top: 1px solid #333; 
-    color: #555; 
-    font-size: 0.8rem; 
-}
+.payment-logos img { height: 25px; background: white; padding: 3px 8px; border-radius: 4px; }
+.gopay-banner img { max-width: 220px; height: auto; background: white; padding: 6px 12px; border-radius: 4px; display: block; }
 
-/* 6. MOBILNÍ ZOBRAZENÍ (RESPONZIVITA) */
+.copyright { text-align: center; margin-top: 60px; padding-top: 25px; border-top: 1px solid #333; color: #555; font-size: 0.8rem; }
+
+/* 6. VYHLEDÁVÁNÍ PINU */
+.retrieve-container { margin-top: 30px; padding: 20px; background: #fff; border: 1px dashed #ddd; border-radius: 8px; }
+
+/* 7. MOBILNÍ ZOBRAZENÍ (RESPONZIVITA) */
 @media (max-width: 768px) {
     body { padding: 0; background: white; }
     .main-container { padding: 20px 15px; box-shadow: none; border-radius: 0; margin-top: 0; }
-    
     .features-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
     .feature-item { padding: 15px 5px; aspect-ratio: 1/1; }
-    
     .content-wrapper { flex-direction: column; gap: 30px; }
     .calendar-section, #booking-form { width: 100%; min-width: 100%; flex: none; }
-    
-    #booking-form { padding: 15px; border: none; background: #fafafa; }
+    #booking-form { padding: 20px; border: none; background: #fafafa; }
     input, select, .btn-pay { padding: 14px; font-size: 1rem; }
-    
     .footer-content { flex-direction: column; text-align: center; gap: 40px; }
     .footer-col h3 { display: inline-block; }
     .payment-logos { justify-content: center; }
