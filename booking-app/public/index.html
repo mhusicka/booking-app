@@ -227,6 +227,48 @@
         </div>
     </footer>
 
+    <div id="reservation-modal" class="modal-overlay">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeModal()">&times;</span>
+            
+            <div class="modal-header">
+                <div class="status-badge" id="res-status">AKTIVNÍ</div>
+                <h2>Detail rezervace</h2>
+            </div>
+
+            <div class="modal-pin-box">
+                <p>VÁŠ PIN KÓD</p>
+                <strong id="res-pin">----</strong>
+            </div>
+
+            <div class="modal-details-grid">
+                <div class="detail-item">
+                    <span class="label">Vyzvednutí:</span>
+                    <strong id="res-start">--.--. ---- --:--</strong>
+                </div>
+                <div class="detail-item">
+                    <span class="label">Vrácení do:</span>
+                    <strong id="res-end" style="color: #d9534f;">--.--. ---- --:--</strong>
+                </div>
+                <div class="detail-item">
+                    <span class="label">Vozík:</span>
+                    <strong id="res-car">Vozík č. 1</strong>
+                </div>
+                <div class="detail-item">
+                    <span class="label">Cena:</span>
+                    <strong id="res-price">--- Kč</strong>
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <a href="tel:+420777123456" class="btn-sos">
+                    <i class="fa-solid fa-phone"></i> Mám problém (Volat)
+                </a>
+                <button onclick="closeModal()" class="btn-outline">Zavřít</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         function togglePinBox() {
             var box = document.getElementById("pin-retrieve-box");
@@ -240,4 +282,3 @@
     <script src="script.js"></script>
 </body>
 </html>
-
