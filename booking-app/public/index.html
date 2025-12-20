@@ -64,6 +64,15 @@
                     <div class="legend-item"><span class="box booked"></span> Obsazeno</div>
                     <div class="legend-item"><span class="box selecting"></span> Váš výběr</div>
                 </div>
+
+                <div class="retrieve-container">
+                    <p class="retrieve-title">Máte již rezervaci? (Najít PIN)</p>
+                    <div class="retrieve-input-group">
+                        <input type="text" id="inp-retrieve-code" placeholder="Kód rezervace (např. ABC123)">
+                        <button onclick="retrieveBooking()" class="btn-retrieve">NAJÍT</button>
+                    </div>
+                    <p class="retrieve-note">Zadejte kód z potvrzovacího e-mailu.</p>
+                </div>
             </div>
 
             <div id="booking-form">
@@ -94,7 +103,7 @@
                     <div style="display: flex; align-items: flex-start; gap: 10px;">
                         <input type="checkbox" id="inp-agree" style="width: 20px; height: 20px; cursor: pointer;">
                         <label for="inp-agree">
-                            Potvrzuji, že jsem se seznámil/a se <a href="conditions.html" target="_blank">Smluvními podmínkami</a> a se <a href="privacy.html" target="_blank">Zásadami ochrany osobních údajů</a>.
+                            Potvrzuji, že jsem se seznámil/a se <a href="conditions.html" target="_blank" style="color: #bfa37c; font-weight: bold;">Smluvními podmínkami</a> a se <a href="privacy.html" target="_blank" style="color: #bfa37c; font-weight: bold;">Zásadami ochrany osobních údajů</a>.
                         </label>
                     </div>
                 </div>
@@ -102,15 +111,8 @@
                 <button onclick="submitReservation()" id="btn-submit" class="btn-pay" disabled>
                     REZERVOVAT A ZAPLATIT
                 </button>
-
-                <div class="retrieve-container">
-                    <p class="retrieve-title">Zapomněli jste PIN?</p>
-                    <div style="display: flex; gap: 10px;">
-                        <input type="text" id="inp-retrieve-code" placeholder="Kód rezervace">
-                        <button onclick="retrieveBooking()" class="btn-retrieve">NAJÍT</button>
-                    </div>
-                </div>
-            </div> </div> </div> <div class="process-section">
+            </div> 
+        </div> </div> <div class="process-section">
         <h2>Jak to funguje?</h2>
         <div class="process-grid">
             <div class="process-step">
