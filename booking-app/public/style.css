@@ -94,22 +94,67 @@ input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; 
 .btn-small { background: #eee; border: 1px solid #ddd; padding: 0 15px; cursor: pointer; border-radius: 4px; font-weight: 600; }
 .btn-small:hover { background: #bfa37c; color: white; border-color: #bfa37c; }
 
-/* 4. FOOTER */
-.site-footer { background-color: #222; color: #ccc; padding: 50px 20px 20px 20px; margin-top: 80px; font-size: 0.9rem; border-top: 4px solid #bfa37c; }
-.footer-content { max-width: 1100px; margin: 0 auto; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 40px; }
+/* =========================================
+   4. DOPLŇKOVÉ SEKCE
+   ========================================= */
+.process-section { margin-top: 60px; text-align: center; border-top: 1px solid #eee; padding-top: 40px; }
+.process-grid { display: flex; justify-content: space-around; flex-wrap: wrap; gap: 30px; margin-top: 30px; }
+.process-step { flex: 1; min-width: 200px; max-width: 300px; }
+.step-number { width: 50px; height: 50px; background: #bfa37c; color: white; font-weight: bold; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px; font-size: 1.5rem; }
+.map-section { margin-top: 60px; text-align: center; }
+.map-container { width: 100%; border-radius: 8px; overflow: hidden; border: 1px solid #ddd; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+
+/* 5. ZÁPATÍ */
+.site-footer { background: #222; color: #ccc; padding: 50px 20px 20px; margin-top: 80px; border-top: 4px solid #bfa37c; }
+.footer-grid { display: flex; justify-content: space-between; max-width: 1100px; margin: 0 auto; gap: 40px; flex-wrap: wrap; }
 .footer-col { flex: 1; min-width: 250px; }
-.footer-col h3 { color: #fff; border-bottom: 2px solid #bfa37c; padding-bottom: 10px; display: inline-block; margin-top: 0; margin-bottom: 15px; text-transform: uppercase; font-size: 1rem; letter-spacing: 1px; }
-.footer-col p { margin-bottom: 10px; color: #aaa; line-height: 1.5; }
-.footer-col a { color: #ccc; text-decoration: none; transition: 0.3s; }
-.footer-col a:hover { color: #bfa37c; text-decoration: underline; }
+.footer-col h3 { color: #fff; font-size: 1rem; text-transform: uppercase; margin-bottom: 20px; border-bottom: 2px solid #bfa37c; display: inline-block; padding-bottom: 5px; }
+.footer-col p, .footer-col a { color: #aaa; text-decoration: none; font-size: 0.9rem; line-height: 1.6; }
+.footer-col a:hover { color: #fff; }
 
-.payment-logos { margin-top: 10px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-.payment-logos img { height: 30px; background: white; padding: 2px 5px; border-radius: 4px; }
-.copyright { text-align: center; margin-top: 50px; border-top: 1px solid #333; padding-top: 20px; color: #666; font-size: 0.8rem; }
+.payment-logos { display: flex; gap: 10px; margin-top: 10px; background: #fff; padding: 8px 12px; border-radius: 4px; display: inline-flex; align-items: center; }
+.payment-logos img { height: 28px; width: auto; display: block; }
+.footer-bottom { text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #333; color: #666; font-size: 0.8rem; }
 
-/* Úprava pro mobily */
-@media (max-width: 768px) { 
-    .content-wrapper { flex-direction: column; } 
-    .features-grid { grid-template-columns: 1fr 1fr; } 
+
+/* =========================================
+   6. MOBILNÍ ZOBRAZENÍ (APP-LIKE)
+   ========================================= */
+@media (max-width: 768px) {
+    /* Reset okrajů pro mobil - aby to vypadalo jako appka */
+    body { padding: 0; background: white; }
+    .main-container { 
+        padding: 20px 15px; 
+        box-shadow: none; 
+        border-radius: 0; 
+        margin-top: 0; 
+    }
+
+    /* Mřížka oken - 2 vedle sebe na mobilu */
+    .features-grid { 
+        grid-template-columns: repeat(2, 1fr); 
+        gap: 10px; 
+    }
+    .feature-item { padding: 15px 5px; }
+    /* Ikony jsou skryté i na mobilu */
+    
+    /* Layout pod sebe */
+    .content-wrapper { flex-direction: column; gap: 30px; }
+    .calendar-section, #booking-form { width: 100%; min-width: 100%; }
+
+    /* Zjednodušení formuláře na mobilu */
+    #booking-form { padding: 0; border: none; background: transparent; }
+    .summary-box { background: #f8f9fa; border: 1px solid #eee; }
+
+    /* Větší tlačítka v kalendáři pro prsty */
+    .day { padding: 15px 0; font-size: 1rem; }
+    .days-grid { gap: 3px; }
+
+    /* Větší inputy pro prsty */
+    input { padding: 14px; font-size: 1rem; }
+    
+    /* Patička pod sebe */
+    .footer-grid { flex-direction: column; gap: 30px; }
+    .site-footer { padding: 30px 15px; }
 }
 
