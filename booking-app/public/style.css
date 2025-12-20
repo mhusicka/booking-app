@@ -38,20 +38,19 @@ h2 { font-size: 1.2rem; margin-top: 0; margin-bottom: 20px; border-bottom: 2px s
 .box { width: 14px; height: 14px; display: inline-block; margin-right: 8px; border: 1px solid #ddd; border-radius: 3px; }
 .box.booked { background: #f0f0f0; } .box.selecting { background: #bfa37c; } .box.available { background: white; }
 
+/* VYHLEDÁVÁNÍ PINU (PŘESUNUTO POD KALENDÁŘ) */
+.retrieve-container { margin-top: 30px; padding: 20px; background: #fff; border: 1px dashed #d1b894; border-radius: 8px; }
+.retrieve-title { font-size: 0.85rem; font-weight: 700; color: #444; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+.retrieve-input-group { display: flex; gap: 10px; }
+.retrieve-input-group input { flex: 2; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit; }
+.btn-retrieve { flex: 1; background: #333; color: white; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; transition: 0.3s; }
+.btn-retrieve:hover { background: #bfa37c; }
+.retrieve-note { font-size: 0.75rem; color: #888; margin-top: 8px; font-style: italic; }
+
 /* FORMULÁŘ - OPRAVA ČASU A TLAČÍTKA */
 .time-row { display: flex; gap: 10px; align-items: stretch; margin-top: 5px; }
 .time-row input[type="time"] { flex: 3; }
-#btn-now { 
-    flex: 1; 
-    white-space: nowrap; 
-    padding: 0 15px; 
-    background: #eee; 
-    border: 1px solid #ddd; 
-    border-radius: 6px; 
-    font-weight: 600; 
-    cursor: pointer; 
-    transition: 0.3s; 
-}
+#btn-now { flex: 1; white-space: nowrap; padding: 0 15px; background: #eee; border: 1px solid #ddd; border-radius: 6px; font-weight: 600; cursor: pointer; transition: 0.3s; }
 #btn-now:hover { background: #bfa37c; color: white; border-color: #bfa37c; }
 
 .summary-box { background: white; border: 1px solid #eee; padding: 20px; border-radius: 8px; margin-bottom: 25px; }
@@ -62,27 +61,16 @@ label { display: block; margin-bottom: 8px; font-weight: 700; font-size: 0.85rem
 input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-family: inherit; }
 
 .terms-container label { font-weight: 400 !important; text-transform: none !important; color: #555; line-height: 1.4; font-size: 13px; }
-.terms-container label a { font-weight: 600; color: #bfa37c; text-decoration: underline; }
 
 .btn-pay { 
-    width: 100%; 
-    max-width: 400px; 
-    display: block; 
-    margin: 30px auto 0; 
-    padding: 18px; 
-    background: #333; 
-    color: white; 
-    border: none; 
-    border-radius: 6px; 
-    font-weight: 800; 
-    cursor: pointer; 
-    text-transform: uppercase; 
-    transition: 0.3s; 
+    width: 100%; max-width: 400px; display: block; margin: 30px auto 0; 
+    padding: 18px; background: #333; color: white; border: none; border-radius: 6px; 
+    font-weight: 800; cursor: pointer; text-transform: uppercase; transition: 0.3s; 
 }
 .btn-pay:hover:not(:disabled) { background: #bfa37c; }
 .btn-pay:disabled { background: #ccc; cursor: not-allowed; }
 
-/* 4. DOPLŇKOVÉ SEKCE */
+/* 4. SEKCE JAK TO FUNGUJE A MAPA */
 .process-section, .map-section { max-width: 1100px; margin: 80px auto; text-align: center; padding: 0 20px; }
 .process-grid { display: flex; justify-content: center; flex-wrap: wrap; gap: 40px; margin-top: 40px; }
 .process-step { flex: 1; min-width: 250px; max-width: 320px; }
@@ -101,11 +89,7 @@ input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radiu
 .payment-logos img, .gopay-banner img { height: 32px; background: white; padding: 4px 10px; border-radius: 4px; }
 .copyright { text-align: center; margin-top: 60px; padding-top: 25px; border-top: 1px solid #333; color: #555; font-size: 0.8rem; }
 
-/* 6. VYHLEDÁVÁNÍ PINU */
-.retrieve-container { margin-top: 30px; padding: 20px; background: #fff; border: 1px dashed #ddd; border-radius: 8px; }
-.retrieve-title { font-size: 0.9rem; font-weight: 600; color: #444; margin-bottom: 10px; text-transform: uppercase; }
-
-/* 7. MOBILNÍ ZOBRAZENÍ */
+/* 6. MOBILNÍ ZOBRAZENÍ */
 @media (max-width: 768px) {
     .main-container { padding: 20px 15px; box-shadow: none; border-radius: 0; margin-top: 0; }
     .features-grid { grid-template-columns: 1fr 1fr; }
@@ -115,4 +99,5 @@ input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radiu
     .footer-content { flex-direction: column; text-align: center; gap: 40px; }
     .payment-logos, .gopay-banner img { margin: 0 auto; }
     .btn-pay { max-width: 100%; }
+    .retrieve-input-group { flex-direction: column; }
 }
