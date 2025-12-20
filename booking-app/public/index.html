@@ -26,7 +26,7 @@
                     <strong>NONSTOP provoz</strong>
                     <span>Vyzvednutí i vrácení 24 hodin denně.</span>
                 </div>
-                <div class="feature-item price-item">
+                <div class="feature-item">
                     <i class="fa-solid fa-tag feature-icon"></i>
                     <strong>230 Kč / den</strong>
                     <span>Žádné skryté poplatky.</span>
@@ -49,7 +49,7 @@
                 <h2>1. Vyberte termín</h2>
                 <div class="calendar-header">
                     <button class="btn-month" onclick="changeMonth(-1)">❮</button>
-                    <span id="month-year"></span>
+                    <span id="month-year">Načítám...</span>
                     <button class="btn-month" onclick="changeMonth(1)">❯</button>
                 </div>
                 <div class="calendar-days-label">
@@ -108,6 +108,14 @@
 
                 <button class="btn-pay" onclick="submitReservation()">REZERVOVAT A ZAPLATIT</button>
                 <div class="secure-note">🔒 Platba proběhne bezpečně (Simulace)</div>
+
+                <div style="margin-top: 30px; border-top: 1px solid #eee; padding-top: 15px; text-align: left;">
+                    <p style="font-size: 0.8rem; color: #888; margin-bottom: 5px; margin-top: 0;">Máte již rezervaci? (Zapomenutý PIN)</p>
+                    <div style="display: flex; gap: 5px;">
+                        <input type="text" id="inp-retrieve-code" placeholder="Kód rezervace" style="flex: 1; padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
+                        <button onclick="retrieveBooking()" style="background: #eee; border: 1px solid #ccc; padding: 6px 12px; border-radius: 4px; cursor: pointer;">Najít</button>
+                    </div>
+                </div>
             </div>
         </div>
 
