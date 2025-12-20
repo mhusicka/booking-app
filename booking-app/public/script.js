@@ -12,16 +12,25 @@ async function init() {
     console.log("🚀 Startuji aplikaci...");
     await updateCalendar();
 
+    // Zobrazení ceny
     const priceDisplay = document.getElementById("price-per-day-display");
     if (priceDisplay) priceDisplay.innerText = `${PRICE_PER_DAY} Kč`;
     
+    // Formátování telefonu
     const phoneInput = document.getElementById("inp-phone");
     if (phoneInput) {
         if (!phoneInput.value) phoneInput.value = "+420 ";
-        phoneInput.addEventListener("input", function() { this.value = this.value.replace(/[^0-9+\s]/g, ''); });
-        phoneInput.addEventListener("blur", function() { if (this.value.trim() === "" || this.value.trim() === "+") this.value = "+420 "; });
+        phoneInput.addEventListener("input", function() { 
+            this.value = this.value.replace(/[^0-9+\s]/g, ''); 
+        });
+        phoneInput.addEventListener("blur", function() { 
+            if (this.value.trim() === "" || this.value.trim() === "+") {
+                this.value = "+420 ";
+            }
+        });
     }
 
+    // Checkbox souhlasu
     const agreeCheckbox = document.getElementById("inp-agree");
     const submitBtn = document.getElementById("btn-submit");
     if (agreeCheckbox && submitBtn) {
@@ -32,6 +41,7 @@ async function init() {
         });
     }
 
+    // Tlačítka
     const btnPrev = document.getElementById("prev");
     const btnNext = document.getElementById("next");
     const timeInp = document.getElementById("inp-time");
@@ -51,12 +61,17 @@ function getNextDay(dateStr) {
 
 function setNow() {
     const now = new Date();
-    document.getElementById("inp-time").value = String(now.getHours()).padStart(2,'0') + ":" + String(now.getMinutes()).padStart(2,'0');
+    const h = String(now.getHours()).padStart(2,'0');
+    const m = String(now.getMinutes()).padStart(2,'0');
+    document.getElementById("inp-time").value = h + ":" + m;
+    
     const todayStr = now.toLocaleDateString('en-CA');
     startDate = todayStr;
     endDate = getNextDay(todayStr);
+    
     const hintEl = document.getElementById("time-hint");
     if (hintEl) hintEl.style.display = "none";
+    
     updateSummaryUI();
     renderSingleCalendar();
 }
@@ -68,18 +83,17 @@ function changeMonth(delta) {
     renderSingleCalendar();
 }
 
-// === ZDE BYL PROBLÉM - PŘIDÁNA DIAGNOSTIKA ===
+// === NAČTENÍ DAT ZE SERVERU ===
 async function updateCalendar() {
     const wrapper = document.getElementById("calendar-wrapper");
-    wrapper.innerHTML = '<div style="text-align:center; padding: 40px; color: #666;">⏳ Načítám dostupnost...</div>';
+    wrapper.innerHTML = '<div style="text-align:center; padding: 40px; color: #666;">⏳ Načítám...</div>';
     try {
         const res = await fetch(`${API_BASE}/availability`);
         if (!res.ok) throw new Error("Server neodpověděl OK");
         
         const data = await res.json();
-        console.log("📦 Data ze serveru:", data); // Podívejte se do konzole F12!
+        console.log("📦 Data ze serveru:", data); 
 
-        // Ověření, že data jsou pole
         if (Array.isArray(data)) {
             cachedReservations = data;
         } else {
@@ -89,13 +103,12 @@ async function updateCalendar() {
         renderSingleCalendar();
     } catch (e) { 
         console.error("❌ Chyba updateCalendar:", e);
-        wrapper.innerHTML = `<div style="text-align:center; padding: 30px; color: #d9534f;">⚠️ Chyba načítání dostupnosti.<br><small>${e.message}</small></div>`;
+        wrapper.innerHTML = `<div style="text-align:center; padding: 30px; color: #d9534f;">⚠️ Chyba připojení.<br><small>${e.message}</small></div>`;
     }
 }
 
-// === ROBUSTNÍ FUNKCE PRO POZADÍ ===
+// === VÝPOČET POZADÍ DNE (GRADIENT) ===
 function getDayBackgroundStyle(dateStr) {
-    // Pokud nejsou data, nic nedělej
     if (!cachedReservations || cachedReservations.length === 0) return null;
 
     const dayStart = new Date(dateStr + "T00:00:00").getTime();
@@ -103,7 +116,6 @@ function getDayBackgroundStyle(dateStr) {
     let overlaps = [];
 
     cachedReservations.forEach(res => {
-        // ZÁCHRANNÁ BRZDA: Pokud chybí data v rezervaci, přeskoč ji
         if (!res.startDate || !res.endDate || !res.time) return;
 
         try {
@@ -124,7 +136,7 @@ function getDayBackgroundStyle(dateStr) {
                 overlaps.push({ start: startHour, end: endHour });
             }
         } catch (err) {
-            console.warn("Chyba při zpracování rezervace:", res, err);
+            console.warn("Chyba dat:", res);
         }
     });
 
@@ -157,6 +169,7 @@ function getDayBackgroundStyle(dateStr) {
     return `linear-gradient(90deg, ${gradientParts.join(", ")})`;
 }
 
+// === VYKRESLENÍ KALENDÁŘE ===
 function renderSingleCalendar() {
     const wrapper = document.getElementById("calendar-wrapper");
     if (!wrapper) return;
@@ -165,7 +178,10 @@ function renderSingleCalendar() {
     const grid = document.createElement("div"); grid.className = "days-grid";
     
     ["PO","ÚT","ST","ČT","PÁ","SO","NE"].forEach(d => {
-        const el = document.createElement("div"); el.className = "weekday"; el.innerText = d; grid.appendChild(el);
+        const el = document.createElement("div"); 
+        el.className = "weekday"; 
+        el.innerText = d; 
+        grid.appendChild(el);
     });
 
     const monthDate = new Date(viewStartYear, viewStartMonth, 1);
@@ -188,6 +204,7 @@ function renderSingleCalendar() {
             const bgStyle = getDayBackgroundStyle(dateStr);
             if (bgStyle) {
                 dayEl.style.background = bgStyle;
+                // Pokud je plně obsazeno
                 if (bgStyle.includes("#e0e0e0 0%") && bgStyle.includes("#e0e0e0 100%")) {
                       dayEl.classList.add("booked");
                 } else {
@@ -208,7 +225,11 @@ function renderSingleCalendar() {
         grid.appendChild(dayEl);
     }
     wrapper.appendChild(grid);
-    document.getElementById("currentMonthLabel").innerText = new Date(viewStartYear, viewStartMonth, 1).toLocaleString("cs-CZ", { month: "long", year: "numeric" }).toUpperCase();
+    
+    const monthName = new Date(viewStartYear, viewStartMonth, 1)
+        .toLocaleString("cs-CZ", { month: "long", year: "numeric" })
+        .toUpperCase();
+    document.getElementById("currentMonthLabel").innerText = monthName;
 }
 
 function handleHoverLogic(hoverDate) {
@@ -219,7 +240,11 @@ function handleHoverLogic(hoverDate) {
     days.forEach(day => {
         const d = day.dataset.date;
         day.classList.remove('hover-range');
-        if (d >= s && d <= e && !day.classList.contains('range-start') && !day.classList.contains('booked')) day.classList.add('hover-range');
+        if (d >= s && d <= e && 
+            !day.classList.contains('range-start') && 
+            !day.classList.contains('booked')) {
+                day.classList.add('hover-range');
+        }
     });
     updateSummaryUI(hoverDate);
 }
@@ -248,10 +273,10 @@ function checkAvailabilityTime(dateStr) {
 
     if (!Array.isArray(cachedReservations)) return;
 
-    // Hledáme konec
+    // Hledáme konec rezervace
     const blockingRes = cachedReservations.find(r => r.endDate === dateStr);
     if (blockingRes) {
-        const freeFromTime = blockingRes.time || "12:00"; // Fallback pokud chybí čas
+        const freeFromTime = blockingRes.time || "12:00";
         if (timeInp) {
             timeInp.value = freeFromTime;
             timeInp.style.backgroundColor = "#fff3cd"; 
@@ -263,9 +288,125 @@ function checkAvailabilityTime(dateStr) {
             hintEl.style.display = "block";
         }
     } else {
-        // Hledáme začátek
+        // Hledáme začátek rezervace
         const startingRes = cachedReservations.find(r => r.startDate === dateStr);
         if (startingRes) {
             if (hintEl) {
                 hintEl.innerText = `⚠️ Pozor, od ${startingRes.time || "12:00"} je vozík již rezervovaný.`;
-                hintEl.style.color = "#
+                hintEl.style.color = "#e67e22"; 
+                hintEl.style.display = "block";
+            }
+        }
+    }
+}
+
+function formatCzDate(isoDateStr) { 
+    const d = new Date(isoDateStr);
+    return d.getDate() + "." + (d.getMonth() + 1) + "." + d.getFullYear();
+}
+
+function updateSummaryUI(previewEndDate = null) {
+    const startText = document.getElementById("date-start-text");
+    const endText = document.getElementById("date-end-text");
+    const countEl = document.getElementById("day-count");
+    const priceEl = document.getElementById("total-price");
+    const timeVal = document.getElementById("inp-time").value;
+
+    if (!startDate) { 
+        startText.innerText = "-"; 
+        endText.innerText = "-"; 
+        countEl.innerText = "0"; 
+        priceEl.innerText = "0 Kč"; 
+        return; 
+    }
+
+    let activeEnd = endDate || previewEndDate || getNextDay(startDate);
+    let s = startDate, e = activeEnd;
+    if (e < s) [s, e] = [e, s];
+
+    startText.innerText = `${formatCzDate(s)} (${timeVal})`;
+    endText.innerText = `${formatCzDate(e)} (${timeVal})`;
+    
+    const diffTime = Math.abs(new Date(e) - new Date(s));
+    const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+    countEl.innerText = diffDays === 1 ? "1 (24 hod.)" : diffDays;
+    priceEl.innerText = (diffDays * PRICE_PER_DAY).toLocaleString("cs-CZ") + " Kč";
+}
+
+async function submitReservation() {
+    if (!startDate) return alert("Vyberte termín.");
+    if (!endDate) endDate = getNextDay(startDate);
+    const time = document.getElementById("inp-time").value;
+    const name = document.getElementById("inp-name").value;
+    const email = document.getElementById("inp-email").value;
+    const phone = document.getElementById("inp-phone").value;
+    const btn = document.querySelector(".btn-pay");
+
+    if(!name || !email || !phone || phone.replace(/\s+/g, '').length < 13) return alert("Vyplňte údaje.");
+
+    btn.innerText = "Zpracovávám...";
+    btn.disabled = true;
+
+    try {
+        const res = await fetch(`${API_BASE}/reserve-range`, {
+            method: "POST", 
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ startDate, endDate, time, name, email, phone })
+        });
+        const result = await res.json();
+        
+        if (result.success) {
+            const params = new URLSearchParams({
+                pin: result.pin,
+                start: startDate,
+                end: endDate,
+                time: time,
+                orderId: result.reservationCode 
+            });
+            window.location.href = `success.html?${params.toString()}`;
+        } else {
+            alert("Chyba: " + (result.error || "Obsazeno."));
+            btn.innerText = "REZERVOVAT A ZAPLATIT"; 
+            btn.disabled = false;
+        }
+    } catch (e) { 
+        alert("Chyba serveru."); 
+        btn.innerText = "REZERVOVAT"; 
+        btn.disabled = false; 
+    }
+}
+
+async function retrieveBooking() {
+    const input = document.getElementById("inp-retrieve-code");
+    const code = input ? input.value.trim().toUpperCase() : "";
+    if (!code) return alert("Zadejte kód rezervace.");
+
+    try {
+        const res = await fetch(`${API_BASE}/retrieve-booking`, {
+            method: "POST", 
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ code })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            const params = new URLSearchParams({
+                pin: data.pin,
+                start: data.start, 
+                orderId: code, 
+                restored: "true",
+                status: data.status
+            });
+            // Oprava dlouhého řádku:
+            const rawDate = encodeURIComponent(data.start + " - " + data.end);
+            window.location.href = `success.html?${params.toString()}&rawDateText=${rawDate}`;
+        } else {
+            alert("Rezervace nenalezena.");
+        }
+    } catch (e) { 
+        console.error(e); 
+        alert("Chyba připojení."); 
+    }
+}
+
+init();
