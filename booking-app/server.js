@@ -69,27 +69,17 @@ function generateResCode(length = 6) {
     return result;
 }
 
-function getRange(from, to) {
-    const a = new Date(from);
-    const b = new Date(to);
-    const days = [];
-    for (let d = new Date(a); d <= b; d.setDate(d.getDate() + 1)) {
-        days.push(d.toISOString().split("T")[0]);
-    }
-    return days;
-}
-
 function formatDateCz(dateStr) {
     return new Date(dateStr).toLocaleDateString("cs-CZ");
 }
 
 // ==========================================
-// 4. ODESÍLÁNÍ EMAILU (Bezpečné)
+// 4. ODESÍLÁNÍ EMAILU
 // ==========================================
 async function sendReservationEmail(data) { 
     const apiKey = process.env.BREVO_API_KEY;
     if (!apiKey) {
-        console.log("⚠️ Email neodeslán: Chybí API klíč (nevadí, pokračuji).");
+        console.log("⚠️ Email neodeslán: Chybí API klíč.");
         return;
     }
 
@@ -110,15 +100,14 @@ async function sendReservationEmail(data) {
         }, { headers: { "api-key": apiKey, "Content-Type": "application/json" } });
         console.log("📧 Email odeslán.");
     } catch (error) { 
-        console.error("⚠️ Chyba odesílání emailu (nevadí):", error.message); 
+        console.error("⚠️ Chyba odesílání emailu:", error.message); 
     }
 }
 
 // ==========================================
-// 5. TTLOCK LOGIKA (Bezpečná)
+// 5. TTLOCK LOGIKA
 // ==========================================
 async function getTTLockToken() {
-    // Pokud chybí údaje, rovnou vyhoď chybu, ať nezdržujeme
     if(!TTLOCK_CLIENT_ID || !TTLOCK_PASSWORD) throw new Error("Chybí TTLock údaje");
 
     const params = new URLSearchParams();
@@ -158,7 +147,7 @@ async function addPinToLock(startStr, endStr, timeStr) {
         return { pin, keyboardPwdId: res.data.keyboardPwdId };
     } catch (err) { 
         console.error("⚠️ Chyba zámku:", err.message);
-        return null; // Vracíme null, ale nepadáme
+        return null;
     }
 }
 
@@ -217,27 +206,40 @@ app.post("/retrieve-booking", async (req, res) => {
     } catch (err) { res.status(500).json({ success: false, error: "Chyba serveru" }); }
 });
 
-// --- HLAVNÍ FUNKCE REZERVACE (Nyní odolná proti chybám externích služeb) ---
+// --- OPRAVENÁ REZERVACE (KONTROLA ČASU MÍSTO DNŮ) ---
 app.post("/reserve-range", async (req, res) => {
     const { startDate, endDate, time, name, email, phone } = req.body;
-    console.log(`📩 Nová rezervace: ${name}, ${startDate} - ${endDate}`);
+    console.log(`📩 Nová rezervace: ${name}, ${startDate} - ${endDate} v ${time}`);
 
     if (!startDate || !endDate || !time || !name) return res.status(400).json({ error: "Chybí údaje." });
 
     try {
-        // 1. Kontrola kolizí v DB
+        // 1. Převedeme novou žádost na přesné milisekundy
+        // Přidáváme ":00" pro sekundy, aby byl formát kompletní
+        const newStartMs = new Date(`${startDate}T${time}:00`).getTime();
+        const newEndMs = new Date(`${endDate}T${time}:00`).getTime();
+
+        // 2. Načteme všechny existující rezervace
         const all = await Reservation.find(); 
-        const newRange = getRange(startDate, endDate);
         
+        // 3. Procházíme a hledáme časový průnik (kolizi)
         for (const r of all) {
-            const existing = getRange(r.startDate, r.endDate);
-            if (newRange.some(day => existing.includes(day))) {
-                console.log("❌ Kolize termínu");
-                return res.status(409).json({ error: "Termín je již obsazen." }); 
+            // Převedeme existující rezervaci na milisekundy
+            const existingStartMs = new Date(`${r.startDate}T${r.time}:00`).getTime();
+            const existingEndMs = new Date(`${r.endDate}T${r.time}:00`).getTime();
+
+            // LOGIKA PRŮNIKU:
+            // (Nový start je před koncem staré) A ZÁROVEŇ (Nový konec je po začátku staré)
+            // Používáme ostrou nerovnost (< a >), takže pokud jedna končí přesně v 12:00 a druhá začíná v 12:00,
+            // NENÍ to kolize (což je správně).
+            if (newStartMs < existingEndMs && newEndMs > existingStartMs) {
+                console.log("❌ Kolize termínu s rezervací:", r.reservationCode);
+                return res.status(409).json({ error: "V tomto čase je již obsazeno." }); 
             }
         }
 
-        // 2. Pokus o vygenerování PINu (pokud selže, dáme náhradní)
+        // --- Zbytek kódu je stejný (zámek, DB, email) ---
+
         let pinCode = "123456"; 
         let lockId = null;
 
@@ -251,7 +253,6 @@ app.post("/reserve-range", async (req, res) => {
             pinCode = generatePin(6);
         }
 
-        // 3. Uložení do databáze
         const reservationCode = generateResCode();
         const newRes = new Reservation({
             reservationCode, startDate, endDate, time, name, email, phone,
@@ -260,10 +261,8 @@ app.post("/reserve-range", async (req, res) => {
         await newRes.save();
         console.log("✅ Uloženo do DB.");
 
-        // 4. Odeslání emailu (asynchronně, nečekáme na výsledek, aby to nebrzdilo)
         sendReservationEmail({ reservationCode, startDate, endDate, time, name, email, passcode: pinCode, phone });
 
-        // 5. Úspěch
         res.json({ success: true, pin: pinCode, reservationCode: reservationCode });
 
     } catch (err) { 
