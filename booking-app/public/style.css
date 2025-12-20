@@ -46,6 +46,9 @@ h2 {
     margin-left: auto; 
     margin-right: auto; 
     color: #555; 
+    /* Mírné zvětšení hlavního textu pro lepší čitelnost */
+    font-size: 1.1rem; 
+    line-height: 1.6;
 }
 
 /* =========================================
@@ -61,7 +64,7 @@ h2 {
 #booking-form { flex: 1; background: #fafafa; padding: 20px; border-radius: 8px; }
 
 /* =========================================
-   4. VLASTNOSTI (IKONY - UPRAVENO)
+   4. VLASTNOSTI (BOXÍKY - UPRAVENO)
    ========================================= */
 .features-grid { 
     display: grid; 
@@ -81,26 +84,27 @@ h2 {
 }
 .feature-item:hover { transform: translateY(-3px); }
 
-/* --- ZMĚNA: Zvětšení ikon --- */
 .feature-icon { 
     display: block; 
-    font-size: 4rem;  /* Původně bylo menší (cca 2.5rem) */
+    font-size: 2.5rem; /* Původní velikost ikon */
     margin-bottom: 15px; 
 }
 
-/* --- ZMĚNA: Zvětšení nadpisu v boxu --- */
+/* --- ZMĚNA: ZVĚTŠENÍ TEXTU V OKNECH --- */
 .feature-item strong { 
     display: block; 
     margin-bottom: 5px; 
     color: #333; 
-    font-size: 1.2rem; /* Zvětšeno */
+    font-size: 1.3rem; /* Zvětšeno z původních cca 1rem */
 }
 
-/* --- ZMĚNA: Zvětšení popisu v boxu --- */
 .feature-item span { 
-    font-size: 1rem;   /* Zvětšeno (původně cca 0.85rem) */
+    font-size: 1.05rem; /* Zvětšeno, aby bylo čitelnější */
     color: #666; 
+    display: block;
+    line-height: 1.4;
 }
+/* -------------------------------------- */
 
 .price-item { border-color: #bfa37c; background: #fffbf5; }
 .price-item .feature-icon { color: #bfa37c; }
@@ -116,7 +120,7 @@ h2 {
 .day:hover { background: #ddd; }
 .day.booked { background: #ffcccc; color: #a00; cursor: not-allowed; text-decoration: line-through; opacity: 0.6; }
 .day.selected { background: #333; color: white; }
-.day.range { background: #888; color: white; } /* Mezi dny */
+.day.range { background: #888; color: white; }
 .day.empty { background: transparent; cursor: default; }
 
 .legend { margin-top: 15px; font-size: 0.8rem; display: flex; gap: 15px; align-items: center; justify-content: center; }
@@ -175,9 +179,7 @@ input, select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radiu
     
     .features-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
     .feature-item { padding: 15px 5px; }
-    
-    /* I na mobilu necháme ikony větší, ale trochu méně než na PC, aby se vešly */
-    .feature-icon { font-size: 3rem; margin-bottom: 10px; } 
+    .feature-icon { font-size: 2.2rem; margin-bottom: 10px; } 
 
     .content-wrapper { flex-direction: column; gap: 30px; }
     .calendar-section, #booking-form { width: 100%; min-width: 100%; }
