@@ -34,7 +34,8 @@ mongoose.connect(MONGO_URI)
     .catch(err => console.error("❌ Chyba DB:", err));
 
 const ReservationSchema = new mongoose.Schema({
-    orderId: { type: String, unique: true, sparse: true }, // NOVÉ: sparse=true zabrání chybě u starých rezervací
+    // DŮLEŽITÉ: sparse: true zajistí, že staré rezervace bez kódu nebudou dělat chybu
+    orderId: { type: String, unique: true, sparse: true }, 
     startDate: String,
     endDate: String,
     time: String,
@@ -58,7 +59,7 @@ function generatePin(length = 6) {
     return Array.from({ length }, () => Math.floor(Math.random() * 10)).join("");
 }
 
-// NOVÉ: Generování kódu rezervace (např. A8X92)
+// Generuje kód rezervace (např. A8X92)
 function generateOrderId() {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     let result = "";
@@ -87,7 +88,7 @@ function formatDateCz(dateStr) {
 // ==========================================
 async function sendReservationEmail(data) { 
     const apiKey = process.env.BREVO_API_KEY;
-    if (!apiKey) return; // Pokud není klíč, neodesíláme, ale nepadáme
+    if (!apiKey) return; 
 
     const senderEmail = process.env.SENDER_EMAIL || "info@vozik247.cz";
     const startF = formatDateCz(data.startDate);
@@ -99,7 +100,7 @@ async function sendReservationEmail(data) {
     <p>Vaše rezervace byla úspěšná.</p>
     <hr>
     <h2>Váš PIN k zámku: <span style="color: #bfa37c; font-size: 24px;">${data.passcode}</span></h2>
-    <p><strong>Kód rezervace (pro zpětné dohledání):</strong> ${data.orderId}</p>
+    <p><strong>Kód rezervace (pro obnovení):</strong> ${data.orderId}</p>
     <hr>
     <p>Termín: ${startF} ${data.time} - ${endF} ${data.time}</p>
     <p>Děkujeme, Vozík 24/7</p>
@@ -127,7 +128,7 @@ async function getTTLockToken() {
     params.append("username", TTLOCK_USERNAME);
     params.append("password", hashPassword(TTLOCK_PASSWORD)); 
     params.append("grant_type", "password");
-    params.append("redirect_uri", "https://www.vozik247.cz"); // Placeholder
+    params.append("redirect_uri", "https://www.vozik247.cz");
     const res = await axios.post("https://euapi.ttlock.com/oauth2/token", params.toString(), { headers: { "Content-Type": "application/x-www-form-urlencoded" } });
     return res.data.access_token;
 }
@@ -213,7 +214,6 @@ app.post("/reserve-range", async (req, res) => {
         const result = await addPinToLock(startDate, endDate, time);
         if (!result) return res.status(503).json({ error: "Nepodařilo se vygenerovat PIN." });
 
-        // NOVÉ: Generování ID a ošetření emailu
         let orderId = generateOrderId();
         
         const newRes = new Reservation({
@@ -240,7 +240,6 @@ app.post("/reserve-range", async (req, res) => {
     }
 });
 
-// ADMIN
 const checkAdminPassword = (req, res, next) => {
     if (req.headers["x-admin-password"] !== ADMIN_PASSWORD) return res.status(403).json({ error: "Neoprávněný přístup" });
     next();
@@ -262,7 +261,6 @@ app.delete("/admin/reservations/:id", checkAdminPassword, async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Chyba" }); }
 });
 
-// AUTOMATICKÉ MAZÁNÍ
 setInterval(async () => {
     try {
         const now = Date.now();
