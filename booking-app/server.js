@@ -49,7 +49,7 @@ const ReservationSchema = new mongoose.Schema({
 const Reservation = mongoose.model("Reservation", ReservationSchema);
 
 // ==========================================
-// 3. HELPER FUNKCE (OPRAVENO GENEROVÁNÍ DATA)
+// 3. HELPER FUNKCE
 // ==========================================
 function hashPassword(password) {
     return crypto.createHash("md5").update(password).digest("hex");
@@ -68,22 +68,12 @@ function generateResCode(length = 6) {
     return result;
 }
 
-// !!! ZDE JE OPRAVA PRO SPRÁVNÉ ZOBRAZENÍ V KALENDÁŘI !!!
 function getRange(from, to) {
+    const a = new Date(from);
+    const b = new Date(to);
     const days = [];
-    // Vytvoříme datum nastavením času na poledne, abychom se vyhnuli posunům o hodinu
-    let current = new Date(from + "T12:00:00");
-    const end = new Date(to + "T12:00:00");
-
-    while (current <= end) {
-        // Ruční formátování na YYYY-MM-DD, aby to sedělo s frontendem
-        const year = current.getFullYear();
-        const month = String(current.getMonth() + 1).padStart(2, '0');
-        const day = String(current.getDate()).padStart(2, '0');
-        days.push(`${year}-${month}-${day}`);
-        
-        // Přičtení jednoho dne
-        current.setDate(current.getDate() + 1);
+    for (let d = new Date(a); d <= b; d.setDate(d.getDate() + 1)) {
+        days.push(d.toISOString().split("T")[0]);
     }
     return days;
 }
@@ -97,76 +87,27 @@ function formatDateCz(dateStr) {
 // ==========================================
 async function sendReservationEmail(data) { 
     const apiKey = process.env.BREVO_API_KEY;
-    
-    if (!apiKey) {
-        console.log("⚠️ Email neodeslán: Chybí BREVO_API_KEY v .env");
-        return;
-    }
+    if (!apiKey) return;
 
     const senderEmail = process.env.SENDER_EMAIL || "info@vozik247.cz";
     const startF = formatDateCz(data.startDate);
     const endF = formatDateCz(data.endDate);
 
     const htmlContent = `
-    <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-    <html xmlns="http://www.w3.org/1999/xhtml">
-    <head>
-        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-        <title>Rezervace úspěšná</title>
-    </head>
-    <body style="margin: 0; padding: 0; background-color: #f2f2f2; font-family: Arial, sans-serif;">
-        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f2f2f2;">
-            <tr>
-                <td align="center" style="padding: 40px 10px;">
-                    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #ffffff; border-radius: 8px; overflow: hidden;">
-                        <tr>
-                            <td align="center" style="padding: 40px 0 10px 0;">
-                                <div style="font-size: 60px; color: #28a745;">&#10003;</div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td align="center" style="padding: 0 20px 30px 20px;">
-                                <h1 style="color: #333; margin: 0;">Rezervace potvrzena</h1>
-                                <p style="color: #666; margin-top: 10px;">Kód rezervace: <strong style="color: #bfa37c; font-size: 18px;">${data.reservationCode}</strong></p>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td align="center" style="padding: 0 20px 30px 20px;">
-                                <div style="background-color: #fafafa; border: 2px dashed #bfa37c; padding: 20px; border-radius: 8px;">
-                                    <span style="display: block; color: #888; font-size: 12px; text-transform: uppercase;">PIN kód k zámku</span>
-                                    <span style="display: block; color: #333; font-size: 42px; font-weight: bold; letter-spacing: 3px;">${data.passcode}</span>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td style="padding: 30px; color: #555; line-height: 1.6;">
-                                <strong>Termín:</strong> ${startF} ${data.time} — ${endF} ${data.time}<br>
-                                <strong>Návod:</strong> 1. Dotkněte se klávesnice. 2. Zadejte PIN. 3. Potvrďte 🔓.
-                            </td>
-                        </tr>
-                    </table>
-                </td>
-            </tr>
-        </table>
-    </body>
-    </html>
+    <h1>Rezervace potvrzena</h1>
+    <p>Kód rezervace: <strong>${data.reservationCode}</strong></p>
+    <p>PIN kód k zámku: <strong>${data.passcode}</strong></p>
+    <p>Termín: ${startF} ${data.time} — ${endF} ${data.time}</p>
     `;
 
-    const emailData = {
-        sender: { name: "Vozík 24/7", email: senderEmail },
-        to: [{ email: data.email, name: data.name }],
-        subject: `Rezervace potvrzena - ${data.reservationCode}`,
-        htmlContent: htmlContent
-    };
-
     try {
-        await axios.post("https://api.brevo.com/v3/smtp/email", emailData, {
-            headers: { "api-key": apiKey, "Content-Type": "application/json" }
-        });
-        console.log(`📨 Email odeslán na: ${data.email}`);
-    } catch (error) {
-        console.error("❌ Chyba emailu:", error.response?.data || error.message);
-    }
+        await axios.post("https://api.brevo.com/v3/smtp/email", {
+            sender: { name: "Vozík 24/7", email: senderEmail },
+            to: [{ email: data.email, name: data.name }],
+            subject: `Rezervace potvrzena - ${data.reservationCode}`,
+            htmlContent: htmlContent
+        }, { headers: { "api-key": apiKey, "Content-Type": "application/json" } });
+    } catch (error) { console.error("❌ Chyba emailu:", error.message); }
 }
 
 // ==========================================
@@ -221,7 +162,6 @@ async function deletePinFromLock(keyboardPwdId) {
         const sortedKeys = Object.keys(params).sort();
         const baseString = sortedKeys.map(k => `${k}=${params[k]}`).join("&");
         const sign = crypto.createHash("md5").update(baseString + TTLOCK_CLIENT_SECRET).digest("hex").toUpperCase();
-        
         await axios.post("https://euapi.ttlock.com/v3/keyboardPwd/delete", new URLSearchParams({ ...params, sign }).toString());
         return true;
     } catch (err) { return false; }
@@ -236,15 +176,10 @@ app.get("/availability", async (req, res) => {
         const allReservations = await Reservation.find({}, "startDate endDate");
         let bookedDaysSet = new Set();
         for (const r of allReservations) {
-            // Zde voláme naši opravenou funkci getRange
-            const range = getRange(r.startDate, r.endDate);
-            range.forEach(day => bookedDaysSet.add(day));
+            getRange(r.startDate, r.endDate).forEach(day => bookedDaysSet.add(day));
         }
         res.json([...bookedDaysSet]); 
-    } catch (err) { 
-        console.error(err);
-        res.status(500).json({ error: "Chyba" }); 
-    }
+    } catch (err) { res.status(500).json({ error: "Chyba" }); }
 });
 
 app.post("/retrieve-booking", async (req, res) => {
@@ -253,13 +188,11 @@ app.post("/retrieve-booking", async (req, res) => {
 
     try {
         const reservation = await Reservation.findOne({ reservationCode: code.toUpperCase() });
-        
         if (reservation) {
             const start = new Date(reservation.startDate);
             const end = new Date(reservation.endDate);
             const diffDays = Math.max(1, Math.ceil(Math.abs(end - start) / (1000 * 60 * 60 * 24)));
             const price = diffDays * 230 + " Kč";
-
             let status = "AKTIVNÍ";
             const endMs = new Date(`${reservation.endDate}T${reservation.time}:00`).getTime();
             if (endMs < Date.now()) status = "UKONČENO";
@@ -276,10 +209,7 @@ app.post("/retrieve-booking", async (req, res) => {
         } else {
             res.json({ success: false, error: "Rezervace nenalezena" });
         }
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ success: false, error: "Chyba serveru" });
-    }
+    } catch (err) { res.status(500).json({ success: false, error: "Chyba serveru" }); }
 });
 
 app.post("/reserve-range", async (req, res) => {
@@ -289,75 +219,53 @@ app.post("/reserve-range", async (req, res) => {
     try {
         const all = await Reservation.find(); 
         const newRange = getRange(startDate, endDate);
-        
-        // Vylepšená kontrola kolizí
         for (const r of all) {
             const existing = getRange(r.startDate, r.endDate);
-            // Pokud se jakýkoliv den z nové rezervace kryje s existující -> CHYBA
-            if (newRange.some(day => existing.includes(day))) {
-                return res.status(409).json({ error: "Termín je již obsazen." }); 
-            }
+            if (newRange.some(day => existing.includes(day))) return res.status(409).json({ error: "Termín je obsazen." }); 
         }
 
         const result = await addPinToLock(startDate, endDate, time);
         if (!result) return res.status(503).json({ error: "Nepodařilo se vygenerovat PIN." });
 
         const reservationCode = generateResCode();
-
         const newRes = new Reservation({
-            reservationCode,
-            startDate, endDate, time, name, email, phone,
-            passcode: result.pin,
-            keyboardPwdId: result.keyboardPwdId
+            reservationCode, startDate, endDate, time, name, email, phone,
+            passcode: result.pin, keyboardPwdId: result.keyboardPwdId
         });
         await newRes.save();
         
-        sendReservationEmail({ reservationCode, startDate, endDate, time, name, email, passcode: result.pin, phone })
-            .catch(err => console.error("⚠️ Email error:", err));
-
+        sendReservationEmail({ reservationCode, startDate, endDate, time, name, email, passcode: result.pin, phone });
         res.json({ success: true, pin: result.pin, reservationCode: reservationCode });
 
-    } catch (err) { 
-        console.error(err);
-        res.status(500).json({ error: "Chyba serveru" }); 
-    }
+    } catch (err) { res.status(500).json({ error: "Chyba serveru" }); }
 });
 
 const checkAdmin = (req, res, next) => { if (req.headers["x-admin-password"] !== ADMIN_PASSWORD) return res.status(403).json({error:"Access denied"}); next(); };
-
 app.get("/admin/reservations", checkAdmin, async (req, res) => {
     const r = await Reservation.find().sort({ created: -1 });
     res.json(r.map((x, i) => ({ index: i + 1, ...x.toObject() })));
 });
-
 app.delete("/admin/reservations/:id", checkAdmin, async (req, res) => {
-    const id = req.params.id;
-    try {
-        const reservation = await Reservation.findById(id);
-        if (!reservation) return res.status(404).json({ error: "Nenalezeno" });
-        if (reservation.keyboardPwdId) await deletePinFromLock(reservation.keyboardPwdId);
-        await Reservation.findByIdAndDelete(id);
-        res.json({ success: true });
-    } catch (err) { res.status(500).json({ error: "Chyba" }); }
+    const r = await Reservation.findById(req.params.id);
+    if(r && r.keyboardPwdId) await deletePinFromLock(r.keyboardPwdId);
+    await Reservation.findByIdAndDelete(req.params.id);
+    res.json({success:true});
 });
 
-// AUTOMATICKÁ SPRÁVA EXPIRACE (Volitelné)
 setInterval(async () => {
     try {
         const now = Date.now();
         const activeReservations = await Reservation.find({ keyboardPwdId: { $ne: null } });
         for (const r of activeReservations) {
             const endMs = new Date(`${r.endDate}T${r.time}:00`).getTime();
-            // Pokud rezervace skončila před více než hodinou, smažeme PIN ze zámku (ale v DB necháme záznam)
             if (endMs < now - 3600000) { 
-                console.log(`🕒 Expirace PINu: ${r.name}`);
                 await deletePinFromLock(r.keyboardPwdId);
                 r.keyboardPwdId = null; 
                 await r.save();
             }
         }
     } catch (e) { console.error("Auto-expire error", e); }
-}, 3600000); // Kontrola každou hodinu
+}, 3600000);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, "0.0.0.0", () => console.log(`🚀 Server běží na portu ${PORT}`));
