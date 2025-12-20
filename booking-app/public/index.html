@@ -1,112 +1,157 @@
-<div style="margin-top: 30px; padding-top: 20px; border-top: 1px dashed #ddd;">
-        <h3 style="font-size: 0.9rem; color: #888; text-transform: uppercase; margin-bottom: 10px;">
-            Máte již rezervaci?
-        </h3>
-        <div style="display: flex; gap: 10px;">
-            <input type="text" id="inp-retrieve-code" placeholder="Kód rezervace (např. X7A2P9)" 
-                   style="text-transform: uppercase; letter-spacing: 1px;">
-            <button onclick="retrieveBooking()" class="btn-small" style="background: #fff; border: 1px solid #333; color: #333;">
-                NAJÍT
-            </button>
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vozík 24/7 - Půjčovna přívěsných vozíků Mohelnice</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="main-container">
+        <h1>Vozík 24/7</h1>
+
+        <div class="about-section">
+            <p>
+                Potřebujete převézt nábytek, stavební materiál nebo zahradní techniku? 
+                Nabízíme <strong>samoobslužný pronájem přívěsného vozíku v Mohelnici</strong>. 
+                Rezervujte online, zaplaťte kartou a vyzvedněte si vozík kdykoliv – ve dne i v noci.
+            </p>
+            
+            <div class="features-grid">
+                <div class="feature-item">
+                    <span class="feature-icon">🕒</span>
+                    <strong>NONSTOP provoz</strong>
+                    <span>Vyzvednutí i vrácení 24 hodin denně.</span>
+                </div>
+                <div class="feature-item price-item">
+                    <span class="feature-icon">💰</span>
+                    <strong>230 Kč / den</strong>
+                    <span>Žádné skryté poplatky.</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">📱</span>
+                    <strong>Samoobslužné</strong>
+                    <span>Odemknutí zámku pomocí PIN kódu.</span>
+                </div>
+            </div>
         </div>
-        <p style="font-size: 0.75rem; color: #aaa; margin-top: 5px;">
-            Zadejte kód rezervace, který se zobrazil po zaplacení, pro opětovné zobrazení PINu.
-        </p>
+
+        <div class="content-wrapper">
+            <div class="calendar-section">
+                <h2>1. Vyberte termín</h2>
+                <div class="calendar-header">
+                    <button class="btn-month" onclick="changeMonth(-1)">❮</button>
+                    <span id="month-year">Prosinec 2023</span>
+                    <button class="btn-month" onclick="changeMonth(1)">❯</button>
+                </div>
+                <div class="calendar-days-label">
+                    <div>Po</div><div>Út</div><div>St</div><div>Čt</div><div>Pá</div><div>So</div><div>Ne</div>
+                </div>
+                <div id="calendar" class="calendar-grid"></div>
+                <div class="legend">
+                    <span class="dot available"></span> Volno &nbsp;
+                    <span class="dot booked"></span> Obsazeno &nbsp;
+                    <span class="dot selected"></span> Váš výběr
+                </div>
+            </div>
+
+            <div id="booking-form">
+                <h2>2. Dokončení rezervace</h2>
+                
+                <div id="selection-info">Vyberte termín v kalendáři</div>
+                
+                <div class="price-summary">
+                    Celkem k úhradě: <span id="total-price">0 Kč</span>
+                </div>
+
+                <div class="form-group">
+                    <label>Čas vyzvednutí (orientační)</label>
+                    <select id="inp-time">
+                        <option value="08:00">08:00</option>
+                        <option value="09:00">09:00</option>
+                        <option value="10:00">10:00</option>
+                        <option value="12:00" selected>12:00</option>
+                        <option value="14:00">14:00</option>
+                        <option value="16:00">16:00</option>
+                        <option value="18:00">18:00</option>
+                        <option value="20:00">20:00</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Jméno a příjmení</label>
+                    <input type="text" id="inp-name" placeholder="Jan Novák">
+                </div>
+
+                <div class="form-group">
+                    <label>Email (pro zaslání kódu)</label>
+                    <input type="email" id="inp-email" placeholder="jan.novak@email.cz">
+                </div>
+
+                <div class="form-group">
+                    <label>Telefon</label>
+                    <input type="text" id="inp-phone" placeholder="+420 777 123 456" value="+420 ">
+                </div>
+
+                <div class="checkbox-wrapper">
+                    <input type="checkbox" id="inp-agree">
+                    <label for="inp-agree">Souhlasím s <a href="conditions.html" target="_blank">obchodními podmínkami</a> a zpracováním údajů.</label>
+                </div>
+
+                <button class="btn-pay" onclick="submitReservation()">REZERVOVAT A ZAPLATIT</button>
+                <div class="secure-note">🔒 Platba proběhne bezpečně (Simulace)</div>
+
+                <div style="margin-top: 30px; padding-top: 20px; border-top: 1px dashed #ddd;">
+                    <h3 style="font-size: 0.9rem; color: #888; text-transform: uppercase; margin-bottom: 10px; margin-top: 0;">
+                        Máte již rezervaci?
+                    </h3>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="inp-retrieve-code" placeholder="Kód rezervace (např. X7A2P9)" 
+                               style="text-transform: uppercase; letter-spacing: 1px; flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+                        <button onclick="retrieveBooking()" class="btn-small" style="background: #fff; border: 1px solid #333; color: #333; padding: 0 15px; cursor: pointer; border-radius: 4px; font-weight: bold;">
+                            NAJÍT
+                        </button>
+                    </div>
+                    <p style="font-size: 0.75rem; color: #aaa; margin-top: 5px; margin-bottom: 0;">
+                        Zadejte kód rezervace pro opětovné zobrazení PINu.
+                    </p>
+                </div>
+                </div>
+        </div>
+
+        <div class="footer">
+            <div class="footer-col">
+                <h3>Kontakt</h3>
+                <p><strong>Martin Husička</strong><br>
+                Dubová 1490/2, Mohelnice<br>
+                IČO: 76534898<br>
+                Email: <a href="mailto:info@vozik247.cz">info@vozik247.cz</a></p>
+            </div>
+            <div class="footer-col">
+                <h3>Informace</h3>
+                <p>
+                    <a href="pricelist.html" target="_blank">Ceník služeb</a><br>
+                    <a href="conditions.html" target="_blank">Obchodní podmínky</a><br>
+                    <a href="privacy.html" target="_blank">Ochrana údajů</a>
+                </p>
+            </div>
+            <div class="footer-col">
+                <h3>Bezpečné platby</h3>
+                <div class="payment-logos">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/5/5e/Visa_Inc._logo.svg" alt="Visa">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/2/2a/Mastercard-logo.svg" alt="Mastercard">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/b/b5/PayPal.svg" alt="PayPal">
+                </div>
+                <p style="font-size: 0.75rem; margin-top: 10px;">Zabezpečeno SSL šifrováním.</p>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            &copy; 2023 Vozík 24/7 Mohelnice. Všechna práva vyhrazena.
+        </div>
     </div>
 
-</div> ```
-
----
-
-### 3. Frontend: `script.js`
-Zde musíme upravit funkci `submitReservation` (přidat nové parametry do URL) a přidat funkci `retrieveBooking`.
-
-```javascript
-// ... (začátek souboru script.js beze změny) ...
-
-// Přidejte tuto novou funkci na konec souboru nebo někam mezi funkce
-async function retrieveBooking() {
-    const codeInput = document.getElementById("inp-retrieve-code");
-    const code = codeInput.value.trim();
-    const btn = codeInput.nextElementSibling; // tlačítko vedle inputu
-
-    if (!code) { alert("Zadejte prosím kód rezervace."); return; }
-
-    btn.innerText = "...";
-    btn.disabled = true;
-
-    try {
-        const res = await fetch(`${API_BASE}/retrieve-booking`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ orderId: code })
-        });
-        const result = await res.json();
-
-        if (result.success) {
-            // Přesměrujeme na success stránku s načtenými daty
-            const params = new URLSearchParams({
-                pin: result.pin,
-                start: result.start,
-                end: result.end,
-                time: result.time,
-                orderId: result.orderId,
-                restored: "true" // příznak, že jde o obnovení
-            });
-            window.location.href = `success.html?${params.toString()}`;
-        } else {
-            alert("Chyba: " + (result.error || "Rezervace nenalezena"));
-        }
-    } catch (e) {
-        alert("Chyba komunikace se serverem.");
-    } finally {
-        btn.innerText = "NAJÍT";
-        btn.disabled = false;
-    }
-}
-
-// ...
-
-// UPRAVTE FUNKCI submitReservation takto:
-async function submitReservation() {
-    const agreeCheckbox = document.getElementById("inp-agree");
-    if (!agreeCheckbox || !agreeCheckbox.checked) {
-        alert("Pro provedení rezervace musíte souhlasit se smluvními podmínkami.");
-        return;
-    }
-    // ... (validace polí name, email atd. beze změny) ...
-    // ...
-
-    const btn = document.querySelector(".btn-pay");
-    btn.innerText = "Generuji přístup...";
-    btn.disabled = true;
-
-    try {
-        const res = await fetch(`${API_BASE}/reserve-range`, {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ startDate, endDate, time, name, email, phone })
-        });
-        const result = await res.json();
-
-        if (result.success) {
-            // ÚPRAVA: Předáváme orderId a emailStatus
-            const params = new URLSearchParams({
-                pin: result.pin,
-                start: startDate,
-                end: endDate,
-                time: time,
-                orderId: result.orderId,      // <--- NOVÉ
-                emailStatus: result.emailStatus // <--- NOVÉ (z předchozího kroku)
-            });
-            window.location.href = `success.html?${params.toString()}`;
-        } else {
-            alert("Chyba: " + (result.error || "Neznámá chyba"));
-            btn.innerText = "REZERVOVAT A ZAPLATIT"; 
-            btn.disabled = false;
-        }
-    } catch (e) { 
-        alert("Chyba komunikace."); 
-        btn.innerText = "REZERVOVAT A ZAPLATIT"; 
-        btn.disabled = false;
-    } 
-}
+    <script src="script.js"></script>
+</body>
+</html>
