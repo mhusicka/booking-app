@@ -32,6 +32,34 @@ h2 { font-size: 1.2rem; margin-top: 0; margin-bottom: 20px; border-bottom: 2px s
 .day.range-start, .day.range-end { background: #bfa37c !important; color: white; }
 .day.range, .day.hover-range { background: #f3e9d9; }
 
+/* Oprava řádku s časem a tlačítkem TEĎ */
+.time-row { 
+    display: flex; 
+    gap: 10px; 
+    align-items: stretch; /* Aby byly oba prvky stejně vysoké */
+}
+
+.time-row input[type="time"] { 
+    flex: 3; /* Čas zabere většinu místa */
+}
+
+#btn-now { 
+    flex: 1; /* Tlačítko se smrskne */
+    white-space: nowrap; /* Text se nezalomí */
+    padding: 0 15px;
+    background: #f0f0f0;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+#btn-now:hover {
+    background: #e0e0e0;
+    border-color: #ccc;
+}
+
 /* OPRAVA SOUHLASU A FORMULÁŘE */
 .summary-box { background: white; border: 1px solid #eee; padding: 20px; border-radius: 8px; margin-bottom: 25px; }
 .price-tag { font-size: 1.4rem; font-weight: 800; color: #bfa37c; margin-top: 15px; border-top: 1px solid #eee; padding-top: 15px; }
@@ -75,3 +103,4 @@ input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radiu
     .footer-content { flex-direction: column; text-align: center; }
     .payment-logos, .gopay-banner img { margin: 0 auto; }
 }
+
