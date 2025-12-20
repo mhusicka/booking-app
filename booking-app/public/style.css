@@ -4,7 +4,7 @@ body { font-family: 'Montserrat', sans-serif; background: #f8f9fa; color: #333; 
 h1 { text-align: center; margin-bottom: 40px; text-transform: uppercase; letter-spacing: 2px; color: #444; }
 h2 { font-size: 1.2rem; margin-top: 0; margin-bottom: 20px; border-bottom: 2px solid #bfa37c; display: inline-block; padding-bottom: 5px; text-transform: uppercase; letter-spacing: 2px; color: #444; }
 
-/* 2. POPIS A VÝHODY - INTERAKTIVNÍ BOXY */
+/* 2. POPIS A VÝHODY */
 .about-section { text-align: center; margin-bottom: 50px; padding: 0 10px; }
 .about-section p { font-size: 1.1rem; color: #555; line-height: 1.6; margin-bottom: 30px; max-width: 700px; margin-left: auto; margin-right: auto; }
 
@@ -106,15 +106,6 @@ h2 { font-size: 1.2rem; margin-top: 0; margin-bottom: 20px; border-bottom: 2px s
 .box { width: 14px; height: 14px; display: inline-block; margin-right: 8px; border: 1px solid #ddd; border-radius: 3px; }
 .box.booked { background: #f0f0f0; } .box.selecting { background: #bfa37c; } .box.available { background: white; }
 
-/* VYHLEDÁVÁNÍ PINU (PŘESUNUTO POD KALENDÁŘ) */
-.retrieve-container { margin-top: 30px; padding: 20px; background: #fff; border: 1px dashed #d1b894; border-radius: 8px; }
-.retrieve-title { font-size: 0.85rem; font-weight: 700; color: #444; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
-.retrieve-input-group { display: flex; gap: 10px; }
-.retrieve-input-group input { flex: 2; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit; }
-.btn-retrieve { flex: 1; background: #333; color: white; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; transition: 0.3s; }
-.btn-retrieve:hover { background: #bfa37c; }
-.retrieve-note { font-size: 0.75rem; color: #888; margin-top: 8px; font-style: italic; }
-
 /* FORMULÁŘ - OPRAVA ČASU A TLAČÍTKA */
 .time-row { display: flex; gap: 10px; align-items: stretch; margin-top: 5px; }
 .time-row input[type="time"] { flex: 3; }
@@ -149,6 +140,66 @@ input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radiu
 .btn-pay:hover:not(:disabled) { background: #bfa37c; }
 .btn-pay:disabled { background: #ccc; cursor: not-allowed; }
 
+/* --- 6. ELEGANTNÍ VYHLEDÁVÁNÍ PINU (ROZBALOVACÍ) --- */
+.retrieve-wrapper {
+    margin-top: 25px;
+    border-top: 1px solid #eee;
+    padding-top: 15px;
+    text-align: center;
+}
+
+.retrieve-details {
+    width: 100%;
+    cursor: pointer;
+}
+
+.retrieve-details summary {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #888;
+    list-style: none; 
+    transition: 0.3s;
+    user-select: none;
+}
+
+.retrieve-details summary::after {
+    content: ' ▼';
+    font-size: 0.7rem;
+    position: relative;
+    top: -1px;
+    margin-left: 5px;
+}
+
+.retrieve-details[open] summary::after { content: ' ▲'; }
+.retrieve-details summary:hover { color: #bfa37c; }
+
+.retrieve-content {
+    margin-top: 15px;
+    background: #fff;
+    padding: 15px;
+    border: 1px dashed #ddd;
+    border-radius: 6px;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+.retrieve-note { font-size: 0.8rem; color: #666; margin-bottom: 10px; margin-top: 0; text-align: left; }
+.retrieve-input-group { display: flex; gap: 10px; }
+.retrieve-input-group input { flex: 2; padding: 10px; font-size: 0.9rem; border: 1px solid #ccc; border-radius: 4px; }
+
+.btn-retrieve {
+    flex: 1;
+    background: #666;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: 0.3s;
+}
+.btn-retrieve:hover { background: #333; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+
 /* 4. SEKCE JAK TO FUNGUJE A MAPA */
 .process-section, .map-section { max-width: 1100px; margin: 80px auto; text-align: center; padding: 0 20px; }
 .process-grid { display: flex; justify-content: center; flex-wrap: wrap; gap: 40px; margin-top: 40px; align-items: flex-start; }
@@ -171,89 +222,39 @@ input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radiu
 /* 7. MOBILNÍ ZOBRAZENÍ (KOMPAKTNÍ VERZE) */
 @media (max-width: 768px) {
     /* Menší okraje hlavního kontejneru */
-    .main-container { 
-        padding: 20px 10px; /* Méně místa po stranách */
-        box-shadow: none; 
-        border-radius: 0; 
-        margin-top: 0; 
-    }
-
-    /* Nadpisy menší */
+    .main-container { padding: 20px 10px; box-shadow: none; border-radius: 0; margin-top: 0; }
     h1 { margin-bottom: 25px; font-size: 1.8rem; }
     h2 { margin-bottom: 15px; }
 
-    /* --- 1. KOMPAKTNÍ MŘÍŽKA VÝHOD (2x2 místo 1x4) --- */
-    .features-grid { 
-        grid-template-columns: 1fr 1fr; /* Dva sloupce */
-        gap: 10px; /* Menší mezera */
-    }
-
-    .feature-item { 
-        aspect-ratio: 1/1; /* Zůstanou čtvercové */
-        height: auto; 
-        padding: 10px; /* Méně vnitřního místa */
-    }
-
-    /* Zmenšení písma a ikon v boxech, aby se to vešlo */
+    /* MŘÍŽKA VÝHOD - 2x2 */
+    .features-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .feature-item { aspect-ratio: 1/1; height: auto; padding: 10px; }
     .feature-icon { font-size: 2rem; margin-bottom: 8px; }
     .feature-item strong { font-size: 0.95rem; margin-bottom: 5px; }
     .feature-item span { font-size: 0.75rem; line-height: 1.2; }
-    
-    /* Hover stav na mobilu (po kliknutí) */
     .feature-icon-small { font-size: 1.2rem; margin-bottom: 5px; }
     .feature-hover p { font-size: 0.75rem; margin-bottom: 5px; }
     .btn-fake { font-size: 0.7rem; }
 
-    /* --- 2. OBSAH (KALENDÁŘ A FORMULÁŘ) --- */
-    .content-wrapper { 
-        flex-direction: column; 
-        gap: 30px; /* Menší mezera mezi kalendářem a formulářem */
-    }
-    
-    .calendar-section, #booking-form { 
-        width: 100%; 
-        min-width: 100%; 
-        flex: none; 
-    }
+    /* OBSAH */
+    .content-wrapper { flex-direction: column; gap: 30px; }
+    .calendar-section, #booking-form { width: 100%; min-width: 100%; flex: none; }
+    #booking-form { padding: 0; border: none; background: transparent; }
+    .summary-box { border: 1px solid #ddd; background: #fdfdfd; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
 
-    #booking-form { 
-        padding: 0; 
-        border: none; 
-        background: transparent; 
-    }
-
-    /* Výraznější oddělení souhrnu, když chybí pozadí formuláře */
-    .summary-box {
-        border: 1px solid #ddd;
-        background: #fdfdfd;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-    }
-
-    /* Větší prvky pro ovládání prstem */
+    /* Ovládací prvky */
     input, select, .btn-pay { padding: 14px; font-size: 1rem; }
-    .nav-btn { padding: 10px 20px; } /* Větší šipky kalendáře */
-    
+    .nav-btn { padding: 10px 20px; }
     .btn-pay { max-width: 100%; margin-top: 20px; }
 
     /* Vyhledávání PINu */
-    .retrieve-container { margin-top: 20px; }
     .retrieve-input-group { flex-direction: column; }
     .btn-retrieve { margin-top: 5px; padding: 12px; }
 
-    /* --- 3. PATIČKA A MAPA (KOMPAKTNÍ) --- */
-    .process-section, .map-section { margin: 50px auto; /* Menší vertikální mezera */ }
-    
-    .map-container iframe {
-        height: 250px; /* Nižší mapa šetří místo */
-    }
-
-    .footer-content { 
-        flex-direction: column; 
-        text-align: center; 
-        gap: 30px; 
-    }
-    
+    /* Patička a mapa */
+    .process-section, .map-section { margin: 50px auto; }
+    .map-container iframe { height: 250px; }
+    .footer-content { flex-direction: column; text-align: center; gap: 30px; }
     .site-footer { padding: 40px 20px 20px; }
     .payment-logos, .gopay-banner img { margin: 0 auto; }
 }
-
