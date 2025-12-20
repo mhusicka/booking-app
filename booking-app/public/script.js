@@ -139,6 +139,7 @@ async function submitReservation() {
         const result = await res.json();
 
         if (result.success) {
+            // Záloha dat do prohlížeče
             localStorage.setItem("lastBooking", JSON.stringify({ pin: result.pin, orderId: result.orderId }));
             
             const params = new URLSearchParams({
@@ -162,7 +163,7 @@ async function submitReservation() {
     } 
 }
 
-// NOVÁ FUNKCE
+// NOVÁ FUNKCE - Hledání
 async function retrieveBooking() {
     const code = document.getElementById("inp-retrieve-code").value.trim();
     if (!code) { alert("Zadejte kód."); return; }
