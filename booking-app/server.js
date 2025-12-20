@@ -12,10 +12,10 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
-// Statické soubory (index, script, style)
+// Statické soubory
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Explicitní trasa pro Admin panel
+// Trasa pro Admin panel
 app.get('/admin', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
@@ -41,7 +41,6 @@ mongoose.connect(MONGO_URI)
     .then(async () => {
         console.log("✅ DB připojena");
         try {
-            // Vyčištění starých indexů, které blokují ukládání (chyba E11000)
             const collections = await mongoose.connection.db.listCollections({name: 'reservations'}).toArray();
             if (collections.length > 0) {
                 await mongoose.connection.db.collection("reservations").dropIndexes();
@@ -74,7 +73,7 @@ function generatePin() { return Array.from({ length: 6 }, () => Math.floor(Math.
 function hashPassword(password) { return crypto.createHash("md5").update(password).digest("hex"); }
 
 // ==========================================
-// DESIGN EMAILU (PODLE PŘEDLOHY)
+// DESIGN EMAILU (OPRAVA IKONY A TEČKY)
 // ==========================================
 async function sendReservationEmail(data) { 
     if (!BREVO_API_KEY) return;
@@ -108,7 +107,7 @@ async function sendReservationEmail(data) {
                                 <table width="100%" cellspacing="0" cellpadding="0" border="0" style="border: 2px dashed #bfa37c; border-radius: 15px;">
                                     <tr>
                                         <td align="center" style="padding: 30px;">
-                                            <span style="font-size: 13px; color: #888888; text-transform: uppercase;">VÁŠ KÓD K ZÁMKU</span><br>
+                                            <span style="font-size: 13px; color: #888888; text-transform: uppercase; letter-spacing: 1.5px;">VÁŠ KÓD K ZÁMKU</span><br>
                                             <span style="font-size: 56px; font-weight: bold; color: #333333; letter-spacing: 8px;">${data.passcode}</span>
                                         </td>
                                     </tr>
@@ -118,24 +117,44 @@ async function sendReservationEmail(data) {
                         <tr>
                             <td align="center" style="padding: 0 20px;">
                                 <table width="100%" style="background-color: #f8f9fa; border-radius: 12px; padding: 25px; text-align: left;">
-                                    <tr><td style="padding-bottom: 20px;"><strong>Termín rezervace:</strong><br>${startF} ${data.time} — ${endF} ${data.time}</td></tr>
-                                    <tr><td><strong>Váš telefon:</strong><br>${data.phone}</td></tr>
+                                    <tr>
+                                        <td style="padding-bottom: 15px;">
+                                            <strong style="color: #333;">Termín rezervace:</strong><br>
+                                            <span style="color: #555;">${startF} ${data.time} — ${endF} ${data.time}</span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding-bottom: 15px;">
+                                            <strong style="color: #333;">Váš telefon:</strong><br>
+                                            <span style="color: #555;">${data.phone}</span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <strong style="color: #333;">ID rezervace:</strong><br>
+                                            <span style="color: #555; font-weight: bold;">${data.reservationCode}</span>
+                                        </td>
+                                    </tr>
                                 </table>
                             </td>
                         </tr>
                         <tr>
                             <td style="padding: 40px 30px 20px 30px; text-align: left;">
-                                <strong>Jak odemknout?</strong>
-                                <ol style="color: #555; line-height: 1.8;">
-                                    <li>Probuďte klávesnici dotykem.</li>
-                                    <li>Zadejte PIN: <strong>${data.passcode}</strong></li>
-                                    <li>Potvrďte tlačítkem 🔒 (vpravo dole) nebo #.</li>
+                                <h3 style="font-size: 18px; margin: 0 0 15px 0; color: #333;">Jak odemknout?</h3>
+                                <ol style="color: #555; line-height: 1.8; margin: 0; padding-left: 20px;">
+                                    <li>Probuďte klávesnici zámku dotykem.</li>
+                                    <li>Zadejte váš PIN kód: <strong>${data.passcode}</strong></li>
+                                    <li>Potvrďte stisknutím tlačítka 🔑 (vpravo dole) nebo #.</li>
                                 </ol>
                             </td>
                         </tr>
                         <tr>
-                            <td align="center" style="background-color: #333; padding: 30px 20px; color: #fff;">
-                                <strong>Přívěsný vozík 24/7</strong>
+                            <td align="center" style="background-color: #333333; padding: 30px 20px; color: #ffffff; border-radius: 0 0 12px 12px;">
+                                <p style="font-size: 14px; margin: 0; font-weight: bold;">Přívěsný vozík 24/7 Mohelnice</p>
+                                <p style="font-size: 11px; color: #aaaaaa; margin: 10px 0 0 0;">
+                                    Toto je automaticky generovaná zpráva systémem Vozík247.cz.<br>
+                                    Máte-li dotazy, kontaktujte nás na info@vozik247.cz.
+                                </p>
                             </td>
                         </tr>
                     </table>
@@ -152,6 +171,7 @@ async function sendReservationEmail(data) {
             subject: `Potvrzení rezervace - ${data.reservationCode}`,
             htmlContent: htmlContent
         }, { headers: { "api-key": BREVO_API_KEY, "Content-Type": "application/json" } });
+        console.log("📧 E-mail odeslán.");
     } catch (e) { console.error("❌ Email error:", e.message); }
 }
 
@@ -224,7 +244,7 @@ app.post("/reserve-range", async (req, res) => {
         await reservation.save();
         sendReservationEmail({ reservationCode: rCode, startDate, endDate, time, name, email, passcode: pin, phone });
         res.json({ success: true, pin, reservationCode: rCode });
-    } catch (e) { res.status(500).json({ error: "Chyba" }); }
+    } catch (e) { res.status(500).json({ error: "Chyba při ukládání." }); }
 });
 
 app.post("/retrieve-booking", async (req, res) => {
@@ -251,7 +271,6 @@ app.get("/admin/reservations", checkAdmin, async (req, res) => {
     res.json(r);
 });
 
-// Hromadné mazání pro admin panel
 app.delete("/admin/reservations/bulk", checkAdmin, async (req, res) => {
     const { ids } = req.body;
     try {
@@ -261,7 +280,7 @@ app.delete("/admin/reservations/bulk", checkAdmin, async (req, res) => {
             await Reservation.findByIdAndDelete(id);
         }
         res.json({ success: true });
-    } catch (e) { res.status(500).json({ error: "Chyba při mazání" }); }
+    } catch (e) { res.status(500).json({ error: "Chyba" }); }
 });
 
 app.delete("/admin/reservations/:id", checkAdmin, async (req, res) => {
