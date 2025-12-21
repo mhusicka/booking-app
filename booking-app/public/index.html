@@ -105,17 +105,11 @@
             <div id="booking-form">
                 <div class="form-header-row">
                     <h2>2. Vaše rezervace</h2>
-                    <span class="pin-toggle-link" onclick="togglePinBox()">Už máte rezervaci?</span>
+                    <a href="check.html" class="pin-toggle-link" style="text-decoration:none;">
+                        <i class="fa-solid fa-key"></i> Máte už rezervaci?
+                    </a>
                 </div>
 
-                <div id="pin-retrieve-box" class="pin-retrieve-box" style="display: none;">
-                    <p class="retrieve-note">Zadejte kód rezervace z e-mailu:</p>
-                    <div class="retrieve-input-group">
-                        <input type="text" id="inp-retrieve-code" placeholder="Např. A1B2C3">
-                        <button onclick="retrieveBooking()" class="btn-retrieve">NAJÍT</button>
-                    </div>
-                </div>
-                
                 <div class="summary-box">
                     <p>Vyzvednutí: <strong id="date-start-text">-</strong></p>
                     <p>Vrácení: <strong id="date-end-text">-</strong></p>
@@ -125,16 +119,15 @@
                     </div>
                 </div>
                 
-               <div class="form-group">
-    <label>Čas vyzvednutí</label>
-    <div class="time-row">
-        <input type="time" id="inp-time" value="09:00">
-        <button id="btn-now" class="btn-small">Teď</button>
-    </div>
-    <small id="time-hint" style="color: #d9534f; font-weight: bold; display: none; margin-top: 5px;"></small>
-</div>
+                <div class="form-group">
+                    <label>Čas vyzvednutí</label>
+                    <div class="time-row">
+                        <input type="time" id="inp-time" value="09:00">
+                        <button id="btn-now" class="btn-small">Teď</button>
+                    </div>
+                    <small id="time-hint" style="color: #d9534f; font-weight: bold; display: none; margin-top: 5px;"></small>
+                </div>
                 
-
                 <div class="form-group"><label>Jméno a příjmení</label><input type="text" id="inp-name" placeholder="Jan Novák"></div>
                 <div class="form-group"><label>Email</label><input type="email" id="inp-email" placeholder="jan@novak.cz"></div>
                 <div class="form-group"><label>Telefon</label><input type="tel" id="inp-phone" placeholder="+420 777 123 456"></div>
@@ -229,59 +222,6 @@
         </div>
     </footer>
 
-    <div id="reservation-modal" class="modal-overlay">
-        <div class="modal-content">
-            <span class="close-modal" onclick="closeModal()">&times;</span>
-            
-            <div class="modal-header">
-                <div class="status-badge" id="res-status">AKTIVNÍ</div>
-                <h2>Detail rezervace</h2>
-            </div>
-
-            <div class="modal-pin-box">
-                <p>VÁŠ PIN KÓD</p>
-                <strong id="res-pin">----</strong>
-            </div>
-
-            <div class="modal-details-grid">
-                <div class="detail-item">
-                    <span class="label">Vyzvednutí:</span>
-                    <strong id="res-start">--.--. ---- --:--</strong>
-                </div>
-                <div class="detail-item">
-                    <span class="label">Vrácení do:</span>
-                    <strong id="res-end" style="color: #d9534f;">--.--. ---- --:--</strong>
-                </div>
-                <div class="detail-item">
-                    <span class="label">Vozík:</span>
-                    <strong id="res-car">Vozík č. 1</strong>
-                </div>
-                <div class="detail-item">
-                    <span class="label">Cena:</span>
-                    <strong id="res-price">--- Kč</strong>
-                </div>
-            </div>
-
-            <div class="modal-actions">
-                <a href="tel:+420777123456" class="btn-sos">
-                    <i class="fa-solid fa-phone"></i> Mám problém (Volat)
-                </a>
-                <button onclick="closeModal()" class="btn-outline">Zavřít</button>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        function togglePinBox() {
-            var box = document.getElementById("pin-retrieve-box");
-            if (box.style.display === "none") {
-                box.style.display = "block";
-            } else {
-                box.style.display = "none";
-            }
-        }
-    </script>
     <script src="script.js"></script>
 </body>
 </html>
-
