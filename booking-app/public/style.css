@@ -45,39 +45,16 @@ h2 { font-size: 1.2rem; margin-top: 0; margin-bottom: 0; border-bottom: 2px soli
 .day.range-start, .day.range-end { background: #bfa37c !important; color: white; }
 .day.range, .day.hover-range { background: #f3e9d9; }
 
-/* --- OPRAVA: STYLY PRO NEAKTIVNÍ DNY --- */
-
-/* 1. Minulé dny */
-.day.past {
-    background-color: #fcfcfc;
-    color: #e0e0e0;
-    cursor: default;
-    pointer-events: none;
-}
-
-/* Dny plně obsazené (celý den šedý) */
-.day.booked {
-    cursor: not-allowed;
-    pointer-events: none;
-    /* Barvu už řeší inline styl z JavaScriptu (gradient), takže background-color tu není potřeba */
-}
+.day.past { background-color: #fcfcfc; color: #e0e0e0; cursor: default; pointer-events: none; }
+.day.booked { cursor: not-allowed; pointer-events: none; }
 
 #legend { display: flex; flex-wrap: wrap; gap: 20px; margin-top: 25px; font-size: 0.85rem; justify-content: center; padding: 10px; border-top: 1px solid #f5f5f5; }
 .legend-item { display: flex; align-items: center; color: #666; white-space: nowrap; }
 .box { width: 14px; height: 14px; display: inline-block; margin-right: 8px; border: 1px solid #ddd; border-radius: 3px; }
 .box.booked { background: #f0f0f0; } .box.selecting { background: #bfa37c; } .box.available { background: white; }
 
-/* 4. FORMULÁŘ A HLAVIČKA S PINEM */
+/* 4. FORMULÁŘ A HLAVIČKA */
 .form-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
-.pin-toggle-link { font-size: 0.8rem; color: #888; text-decoration: underline; cursor: pointer; transition: 0.3s; }
-.pin-toggle-link:hover { color: #bfa37c; }
-
-.pin-retrieve-box { background: #fff; border: 1px dashed #d1b894; padding: 15px; border-radius: 6px; margin-bottom: 20px; }
-.retrieve-note { font-size: 0.8rem; color: #666; margin-bottom: 8px; margin-top: 0; }
-.retrieve-input-group { display: flex; gap: 10px; }
-.retrieve-input-group input { flex: 2; padding: 8px; font-size: 0.9rem; border: 1px solid #ccc; border-radius: 4px; }
-.btn-retrieve { flex: 1; background: #666; color: white; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; transition: 0.3s; }
-.btn-retrieve:hover { background: #333; }
 
 .time-row { display: flex; gap: 10px; align-items: stretch; margin-top: 5px; }
 .time-row input[type="time"] { flex: 3; }
@@ -136,8 +113,6 @@ input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radiu
     input, select, .btn-pay { padding: 14px; font-size: 1rem; }
     .nav-btn { padding: 10px 20px; }
     .btn-pay { max-width: 100%; margin-top: 20px; }
-    .retrieve-input-group { flex-direction: column; }
-    .btn-retrieve { margin-top: 5px; padding: 12px; }
     .process-section, .map-section { margin: 50px auto; }
     .map-container iframe { height: 250px; }
     .footer-content { flex-direction: column; text-align: center; gap: 30px; }
@@ -145,63 +120,58 @@ input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radiu
     .payment-logos, .gopay-banner img { margin: 0 auto; }
 }
 
-/* 8. MODÁLNÍ OKNO */
+/* 8. MODÁLNÍ OKNA A DALŠÍ PRVKY */
 .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 1000; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box; }
 .modal-content { background: white; width: 100%; max-width: 450px; padding: 30px; border-radius: 12px; text-align: center; position: relative; box-shadow: 0 10px 40px rgba(0,0,0,0.3); animation: slideUp 0.3s ease-out; }
 @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 .close-modal { position: absolute; top: 15px; right: 20px; font-size: 2rem; cursor: pointer; color: #aaa; }
 .close-modal:hover { color: #333; }
-.modal-header h2 { margin-top: 10px; border-bottom: none; font-size: 1.5rem; color: #333; }
-.status-badge { display: inline-block; padding: 5px 12px; background: #d4edda; color: #155724; border-radius: 20px; font-size: 0.8rem; font-weight: 800; text-transform: uppercase; }
-.modal-pin-box { background: #f8f9fa; border: 2px dashed #bfa37c; padding: 20px; border-radius: 8px; margin: 20px 0; }
-.modal-pin-box p { margin: 0; font-size: 0.8rem; color: #888; text-transform: uppercase; letter-spacing: 1px; }
-.modal-pin-box strong { font-size: 3rem; color: #333; display: block; letter-spacing: 5px; margin-top: 5px; }
-.modal-details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; text-align: left; margin-bottom: 30px; background: #fffcf5; padding: 15px; border-radius: 8px; }
-.detail-item { display: flex; flex-direction: column; }
-.detail-item .label { font-size: 0.75rem; color: #888; text-transform: uppercase; }
-.detail-item strong { font-size: 1rem; color: #333; }
-.modal-actions { display: flex; flex-direction: column; gap: 10px; }
-.btn-sos { background: #dc3545; color: white; text-decoration: none; padding: 12px; border-radius: 6px; font-weight: 700; transition: 0.3s; }
-.btn-sos:hover { background: #c82333; }
 
-/* OPRAVA MODÁLNÍCH OKEN */
-.modal {
-    display: none;
-    position: fixed;
-    z-index: 1000; /* Musí být vysoké číslo */
-    left: 0;
-    top: 0;
+/* === NOVÉ: Styl pro malé vyhledávací okénko === */
+.mini-search-box {
+    display: flex;
+    align-items: center;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 20px;
+    padding: 2px 5px 2px 15px;
+    width: 200px;
+    transition: all 0.3s ease;
+}
+
+.mini-search-box:focus-within {
+    border-color: #bfa37c;
+    box-shadow: 0 0 5px rgba(191, 163, 124, 0.3);
+}
+
+.mini-search-box input {
+    border: none;
+    outline: none;
+    font-size: 12px;
     width: 100%;
-    height: 100%;
-    background-color: rgba(0,0,0,0.6);
-    backdrop-filter: blur(5px);
-    overflow-y: auto; /* Důležité pro mobily */
-}
-
-.modal-content {
-    background-color: #fff;
-    margin: 5% auto;
-    padding: 30px;
-    border-radius: 12px;
-    width: 90%;
-    max-width: 600px;
-    position: relative;
-    pointer-events: auto; /* Zajišťuje, že na obsah lze klikat */
-}
-
-.close-modal {
-    position: absolute;
-    top: 15px;
-    right: 20px;
-    font-size: 30px;
-    font-weight: bold;
+    background: transparent;
     color: #333;
-    cursor: pointer !important; /* Vynutí kurzor ruky */
-    z-index: 1100;
-    padding: 10px; /* Větší plocha pro kliknutí na mobilu */
-    line-height: 1;
+    text-transform: uppercase;
+    padding: 5px;
 }
 
-.close-modal:hover {
+.mini-search-box input::placeholder {
+    text-transform: none;
+    color: #999;
+}
+
+.mini-search-box button {
+    background: none;
+    border: none;
+    cursor: pointer;
     color: #bfa37c;
+    padding: 6px 10px;
+    font-size: 14px;
+    border-radius: 50%;
+    transition: background 0.2s;
+}
+
+.mini-search-box button:hover {
+    background: #f0f0f0;
+    color: #333;
 }
