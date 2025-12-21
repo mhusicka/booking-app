@@ -33,8 +33,8 @@ h2 { font-size: 1.2rem; margin-top: 0; margin-bottom: 0; border-bottom: 2px soli
 
 /* 3. KALENDÁŘ A FORMULÁŘ */
 .content-wrapper { display: flex; flex-wrap: wrap; gap: 40px; align-items: flex-start; }
-.calendar-section { flex: 1.2; min-width: 350px; }
-#booking-form { flex: 1; min-width: 300px; background: #fafafa; padding: 30px; border-radius: 10px; border: 1px solid #eee; }
+.calendar-section { flex: 1; min-width: 350px; }
+#booking-form { flex: 1.3; min-width: 300px; background: #fafafa; padding: 30px; border-radius: 10px; border: 1px solid #eee; }
 
 .controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
 .nav-btn { background: white; border: 1px solid #ddd; padding: 8px 15px; cursor: pointer; border-radius: 4px; font-weight: bold; }
@@ -187,3 +187,4 @@ input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radiu
     background: #f0f0f0;
     color: #333;
 }
+
