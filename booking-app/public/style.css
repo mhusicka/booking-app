@@ -54,7 +54,14 @@ h2 { font-size: 1.2rem; margin-top: 0; margin-bottom: 0; border-bottom: 2px soli
 .box.booked { background: #f0f0f0; } .box.selecting { background: #bfa37c; } .box.available { background: white; }
 
 /* 4. FORMULÁŘ A HLAVIČKA */
-.form-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+.form-header-row { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    margin-bottom: 20px; 
+    flex-wrap: nowrap; /* Zabrání zalomení na mobilu */
+    gap: 10px; 
+}
 
 .time-row { display: flex; gap: 10px; align-items: stretch; margin-top: 5px; }
 .time-row input[type="time"] { flex: 3; }
@@ -118,6 +125,11 @@ input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radiu
     .footer-content { flex-direction: column; text-align: center; gap: 30px; }
     .site-footer { padding: 40px 20px 20px; }
     .payment-logos, .gopay-banner img { margin: 0 auto; }
+
+    /* SPECIÁLNÍ ÚPRAVA PRO VYHLEDÁVÁNÍ NA MOBILU */
+    .mini-search-box { width: 140px; } /* Zmenšit šířku */
+    .mini-search-box input { font-size: 11px; } /* Menší písmo */
+    .form-header-row h2 { font-size: 1rem; } /* Menší nadpis, aby se vešli vedle sebe */
 }
 
 /* 8. MODÁLNÍ OKNA A DALŠÍ PRVKY */
