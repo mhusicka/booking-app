@@ -53,7 +53,7 @@
         <h2 style="margin:0; color:#333;">Najít rezervaci</h2>
         <p style="color:#888; margin-top:10px; font-size:14px;">Zadejte 6místný kód rezervace (z e-mailu)</p>
         
-        <input type="text" id="inp-code" maxlength="6" placeholder="A1B2C3">
+        <input type="text" id="inp-code" maxlength="6" placeholder="A1B2C3" onkeypress="handleEnter(event)">
         <div id="loader" class="loader"><i class="fa-solid fa-circle-notch fa-spin"></i> Hledám...</div>
         
         <button onclick="fetchBooking()" class="btn-pay" style="width:100%;">ZOBRAZIT</button>
@@ -88,7 +88,7 @@
             </div>
 
             <div class="action-grid">
-                <a href="https://www.google.com/maps/search/?api=1&query=Dubová+1490/2,+Mohelnice" target="_blank" class="btn-action btn-map">
+                <a href="http://googleusercontent.com/maps.google.com/6" target="_blank" class="btn-action btn-map">
                     <i class="fa-solid fa-location-arrow"></i> Navigovat
                 </a>
                 <a href="tel:+420777123456" class="btn-action btn-sos">
@@ -105,7 +105,7 @@
                 </ul>
             </div>
 
-            <button onclick="location.reload()" style="background:none; border:none; color:#aaa; margin-top:20px; cursor:pointer; font-size:12px;">Zavřít / Hledat jinou</button>
+            <button onclick="resetSearch()" style="background:none; border:none; color:#aaa; margin-top:20px; cursor:pointer; font-size:12px;">Zavřít / Hledat jinou</button>
         </div>
     </div>
 
@@ -117,11 +117,33 @@
     window.onload = () => {
         const urlParams = new URLSearchParams(window.location.search);
         const urlId = urlParams.get('id');
+        
+        // Pokud je ID v URL, zkusíme rovnou načíst
         if (urlId) {
             document.getElementById('inp-code').value = urlId;
             fetchBooking();
+        } else {
+            // Pokud není ID, ujistíme se, že vidíme vyhledávací pole
+            resetSearch();
         }
     };
+
+    function handleEnter(e) {
+        if (e.key === "Enter") fetchBooking();
+    }
+
+    // Funkce pro resetování formuláře (Zavřít / Hledat jinou)
+    function resetSearch() {
+        // Vyčistíme URL od parametrů bez reloadu stránky
+        window.history.replaceState({}, document.title, window.location.pathname);
+        
+        // Vyčistíme input
+        document.getElementById('inp-code').value = "";
+        
+        // Přepneme zobrazení
+        document.getElementById('detail-section').style.display = 'none';
+        document.getElementById('login-section').style.display = 'block';
+    }
 
     async function fetchBooking() {
         const code = document.getElementById('inp-code').value.trim().toUpperCase();
@@ -143,6 +165,9 @@
 
             if (data.success) {
                 showDetail(data);
+                // Přidáme ID do URL, aby šlo stránku obnovit
+                const newUrl = window.location.pathname + '?id=' + code;
+                window.history.pushState({path:newUrl}, '', newUrl);
             } else {
                 alert("Rezervace nebyla nalezena. Zkontrolujte kód.");
             }
@@ -173,6 +198,8 @@
         } else {
             statusEl.innerText = "REZERVACE AKTIVNÍ";
             statusEl.className = "status-header bg-active";
+            document.getElementById('out-pin').style.textDecoration = "none";
+            document.getElementById('out-pin').style.color = "#333";
         }
     }
 </script>
