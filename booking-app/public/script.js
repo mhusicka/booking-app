@@ -338,4 +338,26 @@ async function submitReservation() {
     }
 }
 
+// === RYCHLÉ VYHLEDÁVÁNÍ Z HLAVNÍ STRÁNKY ===
+function quickCheckRedirect() {
+    const input = document.getElementById("quick-check-input");
+    const code = input.value.trim().toUpperCase();
+    
+    if (code.length < 3) {
+        alert("Zadejte prosím kód rezervace.");
+        input.focus();
+        return;
+    }
+    
+    // Přesměruje na check.html a předá ID v URL
+    window.location.href = `check.html?id=${code}`;
+}
+
+// Aby fungoval i Enter
+function handleEnter(e) {
+    if (e.key === "Enter") {
+        quickCheckRedirect();
+    }
+}
+
 document.addEventListener("DOMContentLoaded", init);
