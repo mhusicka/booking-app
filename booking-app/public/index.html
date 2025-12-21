@@ -105,9 +105,12 @@
             <div id="booking-form">
                 <div class="form-header-row">
                     <h2>2. Vaše rezervace</h2>
-                    <a href="check.html" class="pin-toggle-link" style="text-decoration:none;">
-                        <i class="fa-solid fa-key"></i> Máte už rezervaci?
-                    </a>
+                    <div class="mini-search-box">
+                        <input type="text" id="quick-check-input" placeholder="Máte rezervaci?" maxlength="6" onkeypress="handleEnter(event)">
+                        <button onclick="quickCheckRedirect()" title="Vyhledat">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                        </button>
+                    </div>
                 </div>
 
                 <div class="summary-box">
