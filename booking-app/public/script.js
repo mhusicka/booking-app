@@ -338,6 +338,30 @@ async function submitReservation() {
     }
 }
 
+// === FUNKCE PRO POSUN Z PATIČKY K VYHLEDÁVÁNÍ ===
+function scrollToCheck() {
+    const searchBox = document.querySelector('.mini-search-box');
+    const input = document.getElementById('quick-check-input');
+    
+    // 1. Plynulý posun k elementu
+    searchBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    
+    // 2. Zaměření kurzoru
+    setTimeout(() => {
+        input.focus();
+    }, 500);
+
+    // 3. Vizuální efekt (zablikání)
+    searchBox.style.transition = "box-shadow 0.3s, transform 0.3s";
+    searchBox.style.boxShadow = "0 0 20px #bfa37c";
+    searchBox.style.transform = "scale(1.1)";
+
+    setTimeout(() => {
+        searchBox.style.boxShadow = "";
+        searchBox.style.transform = "scale(1)";
+    }, 800);
+}
+
 // === RYCHLÉ VYHLEDÁVÁNÍ Z HLAVNÍ STRÁNKY ===
 function quickCheckRedirect() {
     const input = document.getElementById("quick-check-input");
@@ -361,3 +385,4 @@ function handleEnter(e) {
 }
 
 document.addEventListener("DOMContentLoaded", init);
+
