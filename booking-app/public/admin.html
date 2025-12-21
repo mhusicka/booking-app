@@ -4,58 +4,206 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin - Vozík 24/7</title>
-    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        .admin-box { max-width: 1100px; margin: 40px auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
-        .login-screen { text-align: center; margin-top: 50px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9rem; margin-bottom: 30px; }
-        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; }
-        th { background: #f9f9f9; color: #bfa37c; text-transform: uppercase; font-size: 0.8rem; }
+        body { font-family: 'Montserrat', sans-serif; background: #f0f2f5; margin: 0; padding: 20px; color: #333; }
+        
+        /* Boxy */
+        .admin-box { max-width: 1200px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); margin-bottom: 30px; }
+        .login-screen { max-width: 400px; margin-top: 100px; text-align: center; }
+        
+        h1, h2, h3 { color: #333; margin-top: 0; }
+        h1 { color: #bfa37c; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 30px; }
+        
+        /* Formuláře */
+        .form-group { margin-bottom: 15px; text-align: left; }
+        label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 0.9rem; }
+        input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 1rem; }
+        input:focus, select:focus { border-color: #bfa37c; outline: none; }
+
+        /* Tlačítka */
+        .btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: 700; transition: 0.2s; font-size: 0.9rem; }
+        .btn-primary { background: #333; color: white; width: 100%; }
+        .btn-primary:hover { background: #bfa37c; }
+        .btn-small { padding: 5px 10px; font-size: 0.8rem; background: #eee; color: #333; }
+        .btn-delete { background: #ffebee; color: #c62828; }
+        .btn-delete:hover { background: #ffcdd2; }
+        
+        .header-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+
+        /* TABULKA (Desktop) */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { text-align: left; padding: 15px; border-bottom: 1px solid #eee; vertical-align: middle; }
+        th { background: #f9f9f9; color: #666; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; }
         tr:hover { background: #fafafa; }
-        h3.section-title { border-bottom: 2px solid #ddd; padding-bottom: 10px; margin-top: 40px; color: #444; }
-        h3.active-title { border-color: #28a745; color: #28a745; }
-        h3.archive-title { border-color: #999; color: #999; }
-        .btn-delete { background: #ffcccc; color: #a00; border: none; padding: 5px 10px; cursor: pointer; border-radius: 4px; font-weight: bold; }
-        .action-group { display: flex; gap: 5px; align-items: center; }
-        .action-select { padding: 5px; border-radius: 4px; border: 1px solid #ccc; font-size: 0.85rem; }
-        .btn-execute { background: #333; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 4px; font-size: 0.85rem; }
-        .pin-cell { color: #28a745; font-weight: bold; font-family: monospace; font-size: 1.1rem; }
+        
+        /* PIN Styly */
+        .pin-cell { font-family: monospace; font-size: 1.1rem; font-weight: bold; color: #28a745; background: #e8f5e9; padding: 4px 8px; border-radius: 4px; display: inline-block; }
+        .pin-error { color: #dc3545; background: #f8d7da; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.9rem; }
         .pin-inactive { color: #999; text-decoration: line-through; }
-        .pin-error { color: red; font-weight: bold; }
-        .bulk-action-bar { display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-bottom: 15px; }
+
+        /* Akce v tabulce */
+        .action-group { display: flex; gap: 5px; }
+        .action-select { padding: 6px; font-size: 0.85rem; border-radius: 4px; border: 1px solid #ccc; max-width: 120px; }
+
+        /* Sekce nadpisů */
+        .section-header { display: flex; align-items: center; gap: 10px; margin-top: 40px; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px; }
+        .section-header h3 { margin: 0; }
+        .badge { padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; color: white; font-weight: bold; }
+        .badge-active { background: #28a745; }
+        .badge-archive { background: #6c757d; }
+
+        /* --- MOBILNÍ ZOBRAZENÍ (RESPONZIVNÍ TABULKA) --- */
+        @media screen and (max-width: 768px) {
+            body { padding: 10px; }
+            .admin-box { padding: 15px; }
+            
+            /* Tabulka se změní na bloky (Karty) */
+            table, thead, tbody, th, td, tr { display: block; }
+            thead tr { position: absolute; top: -9999px; left: -9999px; } /* Skrýt hlavičku */
+            
+            tr { 
+                background: white; 
+                border: 1px solid #e0e0e0; 
+                border-radius: 8px; 
+                margin-bottom: 15px; 
+                box-shadow: 0 2px 5px rgba(0,0,0,0.05); 
+                padding: 10px;
+            }
+            
+            td { 
+                border: none; 
+                position: relative; 
+                padding-left: 40% !important; /* Místo pro popisek */
+                padding: 10px 10px 10px 40%;
+                text-align: right; 
+                border-bottom: 1px solid #f0f0f0;
+                min-height: 25px;
+                display: flex;
+                align-items: center;
+                justify-content: flex-end;
+            }
+            
+            td:last-child { border-bottom: none; display: block; padding-left: 0 !important; text-align: center; padding-top: 15px; }
+            
+            /* Popisky vlevo (Jméno, PIN...) */
+            td:before { 
+                position: absolute; 
+                top: 50%;
+                transform: translateY(-50%);
+                left: 10px; 
+                width: 35%; 
+                padding-right: 10px; 
+                white-space: nowrap; 
+                text-align: left; 
+                font-weight: bold; 
+                color: #999; 
+                content: attr(data-label); 
+                font-size: 0.85rem;
+                text-transform: uppercase;
+            }
+            
+            /* Specifika pro mobil */
+            .action-group { justify-content: center; width: 100%; }
+            .action-select { width: 100%; max-width: none; margin-bottom: 10px; padding: 10px; }
+            .btn-execute { width: 100%; padding: 10px; background: #333; color: white; border-radius: 6px; }
+            
+            /* Checkbox vlevo nahoře na kartě */
+            td:first-child { 
+                padding-left: 0 !important; 
+                text-align: left; 
+                background: #fcfcfc;
+                border-bottom: none;
+                padding: 5px;
+                margin: -10px -10px 10px -10px;
+                border-radius: 8px 8px 0 0;
+                border-bottom: 1px solid #eee;
+            }
+            td:first-child:before { content: "Vybrat"; position: static; transform: none; margin-left: 5px; width: auto; }
+            input[type="checkbox"] { width: 20px; height: 20px; vertical-align: middle; }
+            
+            .header-actions { flex-direction: column; align-items: stretch; }
+            .header-actions div { display: flex; gap: 10px; }
+            .header-actions button { flex: 1; }
+        }
     </style>
 </head>
 <body>
-    <div id="login-section" class="main-container login-screen">
-        <h1>Administrace</h1>
-        <div class="form-group" style="max-width: 300px; margin: 0 auto;">
-            <label>Heslo:</label>
-            <input type="password" id="admin-pass">
-            <button onclick="login()" class="btn-pay" style="margin-top:10px;">Vstoupit</button>
+
+    <div id="login-section" class="admin-box login-screen">
+        <h1><i class="fa-solid fa-lock"></i> Admin</h1>
+        <div class="form-group">
+            <input type="password" id="admin-pass" placeholder="Zadejte heslo...">
         </div>
+        <button onclick="login()" class="btn btn-primary">VSTOUPIT</button>
     </div>
-    <div id="data-section" class="admin-box" style="display:none;">
-        <div style="display:flex;justify-content:space-between;align-items:center;">
-            <h2>Správa Rezervací</h2>
-            <div><button onclick="loadReservations()" class="btn-small">Obnovit</button> <button onclick="logout()" class="btn-small">Odhlásit</button></div>
+
+    <div id="data-section" style="display:none;">
+        
+        <div class="admin-box header-actions">
+            <h2 style="margin:0;">Správa Rezervací</h2>
+            <div>
+                <button onclick="loadReservations()" class="btn btn-small"><i class="fa-solid fa-sync"></i> Obnovit</button> 
+                <button onclick="logout()" class="btn btn-small"><i class="fa-solid fa-sign-out-alt"></i> Odhlásit</button>
+            </div>
+        </div>
+
+        <div class="admin-box">
+            <h3><i class="fa-solid fa-plus-circle"></i> Ruční vytvoření rezervace</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; align-items: end;">
+                <div class="form-group"><label>Od:</label><input type="date" id="admin-start"></div>
+                <div class="form-group"><label>Do:</label><input type="date" id="admin-end"></div>
+                <div class="form-group"><label>Čas:</label><input type="time" id="admin-time" value="12:00"></div>
+                <div class="form-group"><label>Jméno:</label><input type="text" id="admin-name" placeholder="Jméno"></div>
+                <div class="form-group"><label>Email:</label><input type="email" id="admin-email" placeholder="@"></div>
+                <div class="form-group"><label>Tel:</label><input type="text" id="admin-phone" placeholder="+420"></div>
+                <button onclick="manualReserve()" class="btn btn-primary" style="margin-bottom: 15px;">VYTVOŘIT</button>
+            </div>
         </div>
         
-        <div class="bulk-action-bar">
-            <label>Vybráno: <span id="selected-count">0</span></label>
-            <button class="btn-delete" onclick="bulkDelete()">SMAZAT VYBRANÉ</button>
+        <div class="admin-box" style="padding-top: 0;">
+            <div style="padding: 15px 0; border-bottom: 1px solid #eee; display:flex; justify-content:space-between; align-items:center;">
+                <span>Vybráno: <strong id="selected-count">0</strong></span>
+                <button class="btn btn-small btn-delete" onclick="bulkDelete()">SMAZAT VYBRANÉ</button>
+            </div>
+
+            <div class="section-header">
+                <h3>Aktivní (Budoucí)</h3>
+                <span class="badge badge-active" id="count-active">0</span>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th width="40"><input type="checkbox" id="select-active-all" onclick="toggleAll('active')"></th>
+                        <th>Kód</th>
+                        <th>Termín</th>
+                        <th>PIN</th>
+                        <th>Zákazník</th>
+                        <th>Akce</th>
+                    </tr>
+                </thead>
+                <tbody id="table-body-active"></tbody>
+            </table>
+
+            <div class="section-header">
+                <h3>Archiv (Proběhlé)</h3>
+                <span class="badge badge-archive" id="count-archive">0</span>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th width="40"><input type="checkbox" id="select-archive-all" onclick="toggleAll('archive')"></th>
+                        <th>Kód</th>
+                        <th>Termín</th>
+                        <th>PIN</th>
+                        <th>Zákazník</th>
+                        <th>Akce</th>
+                    </tr>
+                </thead>
+                <tbody id="table-body-archive"></tbody>
+            </table>
         </div>
-
-        <h3 class="section-title active-title">🟢 Aktivní (Budoucí)</h3>
-        <table>
-            <thead><tr><th><input type="checkbox" id="select-active-all" onclick="toggleAll('active')"></th><th>Kód</th><th>Termín</th><th>PIN</th><th>Jméno</th><th>Akce</th></tr></thead>
-            <tbody id="table-body-active"></tbody>
-        </table>
-
-        <h3 class="section-title archive-title">📂 Archiv (Proběhlé)</h3>
-        <table>
-            <thead><tr><th><input type="checkbox" id="select-archive-all" onclick="toggleAll('archive')"></th><th>Kód</th><th>Termín</th><th>PIN</th><th>Jméno</th><th>Akce</th></tr></thead>
-            <tbody id="table-body-archive"></tbody>
-        </table>
     </div>
 
     <script>
@@ -81,50 +229,89 @@
             const activeBody = document.getElementById("table-body-active");
             const archiveBody = document.getElementById("table-body-archive");
             activeBody.innerHTML = ""; archiveBody.innerHTML = "";
+            
+            // Seřadit: Nejnovější nahoře
             data.sort((a, b) => new Date(b.created) - new Date(a.created)); 
 
             const now = new Date();
+            let countAct = 0; let countArch = 0;
 
             data.forEach(r => {
                 const start = new Date(r.startDate).toLocaleDateString("cs-CZ");
                 const end = new Date(r.endDate).toLocaleDateString("cs-CZ");
-                let dateStr = r.startDate !== r.endDate ? `${start} – ${end} (${r.time})` : `${start} (${r.time})`;
-                
-                // ROZHODOVACÍ LOGIKA: AKTIVNÍ vs ARCHIV
-                // Rezervace je aktivní, pokud její KONEC je v budoucnosti
+                let dateStr = r.startDate !== r.endDate ? `${start} – ${end}` : `${start}`;
+                dateStr += ` <small style='color:#666'>(${r.time})</small>`;
+
+                // Logika Aktivní vs Archiv
                 const endTime = new Date(`${r.endDate}T${r.time}:00`);
                 const isActiveTime = endTime > now;
 
                 let pinHtml = "";
                 if (r.keyboardPwdId) pinHtml = `<span class="pin-cell">${r.passcode}</span>`;
-                else if (isActiveTime) pinHtml = `<span class="pin-error">CHYBA PINU</span> <small>(${r.passcode})</small>`;
+                else if (isActiveTime) pinHtml = `<span class="pin-error">CHYBA PINU</span> <br><small>(${r.passcode})</small>`;
                 else pinHtml = `<span class="pin-inactive">${r.passcode}</span>`;
 
                 const tr = document.createElement("tr");
+                
+                // DŮLEŽITÉ: data-label atributy jsou klíčové pro mobilní zobrazení!
                 const actionHtml = `
-                    <div class="action-group">
+                    <div style="display:block; width:100%">
                         <select id="act-${r._id}" class="action-select">
                             <option value="">-- Akce --</option>
-                            ${isActiveTime ? '<option value="archive">Ukončit (Archivovat)</option>' : ''}
+                            ${isActiveTime ? '<option value="archive">Ukončit</option>' : ''}
                             <option value="delete">Smazat</option>
                         </select>
                         <button onclick="executeAction('${r._id}')" class="btn-execute">OK</button>
                     </div>`;
 
                 tr.innerHTML = `
-                    <td><input type="checkbox" data-id="${r._id}" onclick="updateSelectedCount()"></td>
-                    <td><strong>${r.reservationCode || "-"}</strong></td>
-                    <td>${dateStr}</td>
-                    <td>${pinHtml}</td>
-                    <td>${r.name}<br><small>${r.phone}</small></td>
-                    <td>${actionHtml}</td>
+                    <td data-label="Vybrat"><input type="checkbox" data-id="${r._id}" onclick="updateSelectedCount()"></td>
+                    <td data-label="Kód"><strong>${r.reservationCode || "-"}</strong></td>
+                    <td data-label="Termín">${dateStr}</td>
+                    <td data-label="PIN">${pinHtml}</td>
+                    <td data-label="Zákazník"><strong>${r.name}</strong><br><small>${r.phone}</small><br><small style="color:#999">${r.email}</small></td>
+                    <td data-label="Akce">${actionHtml}</td>
                 `;
 
-                if (isActiveTime) activeBody.appendChild(tr);
-                else archiveBody.appendChild(tr);
+                if (isActiveTime) { activeBody.appendChild(tr); countAct++; }
+                else { archiveBody.appendChild(tr); countArch++; }
             });
-            if (!activeBody.innerHTML) activeBody.innerHTML = "<tr><td colspan='6' style='text-align:center;color:#999'>Žádné rezervace</td></tr>";
-            if (!archiveBody.innerHTML) archiveBody.innerHTML = "<tr><td colspan='6' style='text-align:center;color:#999'>Prázdno</td></tr>";
+
+            document.getElementById("count-active").innerText = countAct;
+            document.getElementById("count-archive").innerText = countArch;
+
+            if (countAct === 0) activeBody.innerHTML = "<tr><td colspan='6' style='text-align:center; color:#999; padding:20px;'>Žádné aktivní rezervace</td></tr>";
+            if (countArch === 0) archiveBody.innerHTML = "<tr><td colspan='6' style='text-align:center; color:#999; padding:20px;'>Archiv je prázdný</td></tr>";
+        }
+
+        async function manualReserve() {
+            const startDate = document.getElementById("admin-start").value;
+            const endDate = document.getElementById("admin-end").value;
+            const time = document.getElementById("admin-time").value;
+            const name = document.getElementById("admin-name").value;
+            const email = document.getElementById("admin-email").value;
+            const phone = document.getElementById("admin-phone").value;
+
+            if (!startDate || !endDate || !time || !name || !email || !phone) { alert("Vyplňte vše."); return; }
+            
+            if(!confirm("Opravdu vytvořit rezervaci?")) return;
+
+            try {
+                const res = await fetch(`${API_BASE}/reserve-range`, {
+                    method: "POST", 
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ startDate, endDate, time, name, email, phone })
+                });
+                const result = await res.json();
+                if (result.success) {
+                    alert(`✅ Vytvořeno. PIN: ${result.pin}`);
+                    loadReservations();
+                    // Vyčistit pole
+                    document.getElementById("admin-name").value = "";
+                    document.getElementById("admin-email").value = "";
+                    document.getElementById("admin-phone").value = "";
+                } else { alert("Chyba: " + result.error); }
+            } catch (e) { alert("Chyba komunikace."); }
         }
 
         function toggleAll(type) {
@@ -139,7 +326,9 @@
 
         async function bulkDelete() {
             const ids = Array.from(document.querySelectorAll('tbody input:checked')).map(c => c.dataset.id);
-            if (!ids.length || !confirm("Smazat vybrané?")) return;
+            if (!ids.length) return alert("Nic není vybráno.");
+            if (!confirm(`Opravdu smazat ${ids.length} rezervací?`)) return;
+            
             await fetch(`${API_BASE}/admin/reservations/bulk`, {
                 method: "DELETE",
                 headers: { "x-admin-password": localStorage.getItem("adminPass"), "Content-Type": "application/json" },
@@ -151,9 +340,13 @@
         async function executeAction(id) {
             const act = document.getElementById(`act-${id}`).value;
             if (!act) return;
-            if (!confirm("Provést akci?")) return;
+            
+            let msg = act === 'delete' ? "Opravdu SMAZAT tuto rezervaci?" : "Ukončit rezervaci a přesunout do archivu?";
+            if (!confirm(msg)) return;
+
             const url = act === 'archive' ? `${API_BASE}/admin/reservations/${id}/archive` : `${API_BASE}/admin/reservations/${id}`;
             const method = act === 'archive' ? 'POST' : 'DELETE';
+            
             await fetch(url, { method, headers: { "x-admin-password": localStorage.getItem("adminPass") } });
             loadReservations();
         }
