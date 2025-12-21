@@ -11,18 +11,16 @@
         body { background: #f4f4f4; }
         .check-container { max-width: 500px; margin: 40px auto; padding: 20px; }
         
-        /* Karta pro zadání kódu */
         .login-card { background: white; padding: 40px 30px; border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.05); text-align: center; }
         .login-card input { font-size: 24px; text-align: center; letter-spacing: 5px; text-transform: uppercase; width: 100%; max-width: 250px; padding: 10px; border: 2px solid #eee; border-radius: 8px; margin: 20px 0; outline: none; transition: 0.3s; }
         .login-card input:focus { border-color: #bfa37c; }
 
-        /* Detail rezervace (skrytý) */
         .detail-card { display: none; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.1); position: relative; }
         
         .status-header { padding: 15px; text-align: center; font-weight: 800; color: white; text-transform: uppercase; font-size: 14px; letter-spacing: 1px; }
-        .bg-active { background: #28a745; } /* Zelená - běží */
-        .bg-future { background: #17a2b8; } /* Modrá - teprve bude */
-        .bg-ended { background: #6c757d; }  /* Šedá - skončila */
+        .bg-active { background: #28a745; }
+        .bg-future { background: #17a2b8; }
+        .bg-ended { background: #6c757d; }
 
         .detail-body { padding: 30px 20px; text-align: center; }
         
@@ -90,10 +88,10 @@
             </div>
 
             <div class="action-grid">
-                <a href="https://www.google.com/maps/search/?api=1&query=49.7758767,16.9242550" target="_blank" class="btn-action btn-map">
+                <a href="https://www.google.com/maps/search/?api=1&query=Dubová+1490/2,+Mohelnice" target="_blank" class="btn-action btn-map">
                     <i class="fa-solid fa-location-arrow"></i> Navigovat
                 </a>
-                <a href="tel:+420777000000" class="btn-action btn-sos">
+                <a href="tel:+420777123456" class="btn-action btn-sos">
                     <i class="fa-solid fa-phone"></i> Pomoc
                 </a>
             </div>
@@ -101,9 +99,9 @@
             <div class="instructions-mini">
                 <strong><i class="fa-solid fa-circle-info"></i> Jak odemknout?</strong>
                 <ul style="padding:0; margin:10px 0 0 0;">
-                    <li><i class="fa-solid fa-hand-pointer"></i> 1. Probuďte zámek dotykem dlaně.</li>
-                    <li><i class="fa-solid fa-keyboard"></i> 2. Zadejte PIN a stiskněte 🔓 (nebo #).</li>
-                    <li><i class="fa-solid fa-unlock"></i> 3. Zámek se odemkne na 5 vteřin.</li>
+                    <li><i class="fa-solid fa-hand-pointer"></i> 1. Probuďte zámek dotykem na klávesnici.</li>
+                    <li><i class="fa-solid fa-keyboard"></i> 2. Zadejte PIN a stiskněte <i class="fa-solid fa-key"></i> (klíček).</li>
+                    <li><i class="fa-solid fa-unlock"></i> 3. Zámek se odemkne do 2 vteřin.</li>
                 </ul>
             </div>
 
@@ -116,7 +114,6 @@
 <script>
     const API_BASE = "";
 
-    // Získání parametru z URL (např. check.html?id=ABCDEF)
     window.onload = () => {
         const urlParams = new URLSearchParams(window.location.search);
         const urlId = urlParams.get('id');
@@ -130,7 +127,6 @@
         const code = document.getElementById('inp-code').value.trim().toUpperCase();
         if (code.length < 3) return alert("Zadejte platný kód.");
 
-        // UI Efekty
         document.getElementById('loader').style.display = "block";
         document.querySelector('.btn-pay').disabled = true;
 
@@ -159,32 +155,22 @@
     }
 
     function showDetail(data) {
-        // Přepnutí obrazovek
         document.getElementById('login-section').style.display = 'none';
         document.getElementById('detail-section').style.display = 'block';
 
-        // Vyplnění dat
         document.getElementById('out-id').innerText = data.orderId;
         document.getElementById('out-pin').innerText = data.pin;
         document.getElementById('out-start').innerText = data.start;
         document.getElementById('out-end').innerText = data.end;
 
-        // Logika pro status bar
         const statusEl = document.getElementById('status-bar');
-        const now = new Date();
-        // Pozn: data.start je string "DD.MM.YYYY HH:MM", musíme ho převést pro porovnání, 
-        // ale pro jednoduchost zde použijeme status vrácený ze serveru, pokud ho posíláme, 
-        // nebo jednoduchou logiku. Server v retrieve-booking vrací 'status': "AKTIVNÍ" nebo "UKONČENO".
         
-        // Zde si pomůžeme tím, co vrací server, nebo obarvíme podle logiky:
         if (data.status === "UKONČENO") {
             statusEl.innerText = "REZERVACE UKONČENA";
             statusEl.className = "status-header bg-ended";
             document.getElementById('out-pin').style.textDecoration = "line-through";
             document.getElementById('out-pin').style.color = "#ccc";
         } else {
-            // Je aktivní, ale je už teď, nebo teprve bude?
-            // To bychom museli parsovat datum. Pro zjednodušení dáme prostě "AKTIVNÍ".
             statusEl.innerText = "REZERVACE AKTIVNÍ";
             statusEl.className = "status-header bg-active";
         }
