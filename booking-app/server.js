@@ -12,9 +12,11 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
+// Statické soubory
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 
+// KONFIGURACE
 const MONGO_URI = process.env.MONGO_URI;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
@@ -26,6 +28,7 @@ const TTLOCK_USERNAME = process.env.TTLOCK_USERNAME;
 const TTLOCK_PASSWORD = process.env.TTLOCK_PASSWORD;
 const MY_LOCK_ID = parseInt(process.env.MY_LOCK_ID);
 
+// DB PŘIPOJENÍ
 mongoose.connect(MONGO_URI).then(async () => {
     console.log("✅ DB připojena");
     try {
@@ -34,6 +37,7 @@ mongoose.connect(MONGO_URI).then(async () => {
     } catch (e) {}
 }).catch(err => console.error("❌ Chyba DB:", err));
 
+// SCHÉMA
 const ReservationSchema = new mongoose.Schema({
     reservationCode: String,
     startDate: String,
@@ -48,11 +52,13 @@ const ReservationSchema = new mongoose.Schema({
 });
 const Reservation = mongoose.model("Reservation", ReservationSchema);
 
+// POMOCNÉ FUNKCE
 function formatDateCz(dateStr) { return new Date(dateStr).toLocaleDateString("cs-CZ"); }
 function generateResCode() { return Math.random().toString(36).substring(2, 8).toUpperCase(); }
 function generatePin() { return Array.from({ length: 6 }, () => Math.floor(Math.random() * 10)).join(""); }
 function hashPassword(password) { return crypto.createHash("md5").update(password).digest("hex"); }
 
+// EMAILING
 async function sendReservationEmail(data) { 
     if (!BREVO_API_KEY) return;
     const startF = formatDateCz(data.startDate);
@@ -84,6 +90,7 @@ async function sendReservationEmail(data) {
     } catch (e) { console.error("❌ Email error:", e.message); }
 }
 
+// TTLOCK LOGIKA
 async function getTTLockToken() {
     const params = new URLSearchParams({ client_id: TTLOCK_CLIENT_ID, client_secret: TTLOCK_CLIENT_SECRET, username: TTLOCK_USERNAME, password: hashPassword(TTLOCK_PASSWORD), grant_type: "password", redirect_uri: "https://www.vozik247.cz" });
     const res = await axios.post("https://euapi.ttlock.com/oauth2/token", params.toString());
@@ -112,6 +119,7 @@ async function deletePinFromLock(keyboardPwdId) {
     } catch (e) {}
 }
 
+// ENDPOINTY
 app.get("/availability", async (req, res) => {
     try { res.json(await Reservation.find({}, "startDate endDate time")); } catch (e) { res.status(500).send("Chyba"); }
 });
@@ -119,7 +127,6 @@ app.get("/availability", async (req, res) => {
 app.post("/reserve-range", async (req, res) => {
     const { startDate, endDate, time, name, email, phone } = req.body;
     try {
-        // ANTI-DUPLICITY CHECK (Pokud stejný uživatel klikl před chvílí)
         const recent = await Reservation.findOne({ email, startDate, time, created: { $gt: new Date(Date.now() - 15000) } });
         if (recent) return res.status(409).json({ error: "Rezervace již byla vytvořena." });
 
@@ -135,13 +142,12 @@ app.post("/reserve-range", async (req, res) => {
         let pin = "123456"; let lId = null;
         const lock = await addPinToLock(startDate, endDate, time);
         if (lock) { pin = lock.pin; lId = lock.keyboardPwdId; }
-        else pin = generatePin(); // Fallback PIN, pokud zámek selže (aby se rezervace uložila)
+        else pin = generatePin(); 
 
         const rCode = generateResCode();
         const reservation = new Reservation({ reservationCode: rCode, startDate, endDate, time, name, email, phone, passcode: pin, keyboardPwdId: lId });
         await reservation.save();
         
-        // E-mail jen jednou
         sendReservationEmail({ reservationCode: rCode, startDate, endDate, time, name, email, passcode: pin, phone });
         
         res.json({ success: true, pin, reservationCode: rCode });
@@ -159,23 +165,63 @@ app.post("/retrieve-booking", async (req, res) => {
     } catch (e) { res.status(500).json({ success: false }); }
 });
 
+// ADMIN API
 const checkAdmin = (req, res, next) => { if (req.headers["x-admin-password"] !== ADMIN_PASSWORD) return res.status(403).send("Forbidden"); next(); };
+
 app.get("/admin/reservations", checkAdmin, async (req, res) => { res.json(await Reservation.find().sort({ created: -1 })); });
+
+// Smazání hromadné (i z TTLocku)
 app.delete("/admin/reservations/bulk", checkAdmin, async (req, res) => {
-    try { for (let id of req.body.ids) { const r = await Reservation.findById(id); if (r?.keyboardPwdId) await deletePinFromLock(r.keyboardPwdId); await Reservation.findByIdAndDelete(id); } res.json({ success: true }); } catch (e) { res.status(500).json({ error: "Chyba" }); }
-});
-app.delete("/admin/reservations/:id", checkAdmin, async (req, res) => {
-    try { const r = await Reservation.findById(req.params.id); if (r?.keyboardPwdId) await deletePinFromLock(r.keyboardPwdId); await Reservation.findByIdAndDelete(req.params.id); res.json({ success: true }); } catch (e) { res.status(500).json({ error: "Chyba" }); }
-});
-app.post("/admin/reservations/:id/archive", checkAdmin, async (req, res) => {
-    try { const r = await Reservation.findById(req.params.id); if (r?.keyboardPwdId) { await deletePinFromLock(r.keyboardPwdId); r.keyboardPwdId = null; await r.save(); } res.json({ success: true }); } catch (e) { res.status(500).json({ error: "Chyba" }); }
+    try { 
+        for (let id of req.body.ids) { 
+            const r = await Reservation.findById(id); 
+            if (r && r.keyboardPwdId) await deletePinFromLock(r.keyboardPwdId); 
+            await Reservation.findByIdAndDelete(id); 
+        } 
+        res.json({ success: true }); 
+    } catch (e) { res.status(500).json({ error: "Chyba" }); }
 });
 
+// Smazání jedné (i z TTLocku)
+app.delete("/admin/reservations/:id", checkAdmin, async (req, res) => {
+    try { 
+        const r = await Reservation.findById(req.params.id); 
+        if (r && r.keyboardPwdId) await deletePinFromLock(r.keyboardPwdId); 
+        await Reservation.findByIdAndDelete(req.params.id); 
+        res.json({ success: true }); 
+    } catch (e) { res.status(500).json({ error: "Chyba" }); }
+});
+
+// Archivace / Ukončení (i z TTLocku + změna data pro UI)
+app.post("/admin/reservations/:id/archive", checkAdmin, async (req, res) => {
+    try { 
+        const r = await Reservation.findById(req.params.id); 
+        if (r) { 
+            // 1. Smazat PIN z TTLocku
+            if (r.keyboardPwdId) await deletePinFromLock(r.keyboardPwdId); 
+            r.keyboardPwdId = null; 
+
+            // 2. Nastavit datum na včerejšek (pro vizuální přesun do archivu)
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            r.endDate = yesterday.toISOString().split('T')[0];
+
+            await r.save(); 
+        } 
+        res.json({ success: true }); 
+    } catch (e) { res.status(500).json({ error: "Chyba" }); }
+});
+
+// Automatický úklid po expiraci (každou hodinu)
 setInterval(async () => {
     const now = Date.now();
     const active = await Reservation.find({ keyboardPwdId: { $ne: null } });
     for (let r of active) {
-        if (new Date(`${r.endDate}T${r.time}:00`).getTime() < now) { await deletePinFromLock(r.keyboardPwdId); r.keyboardPwdId = null; await r.save(); }
+        if (new Date(`${r.endDate}T${r.time}:00`).getTime() < now) { 
+            await deletePinFromLock(r.keyboardPwdId); 
+            r.keyboardPwdId = null; 
+            await r.save(); 
+        }
     }
 }, 3600000);
 
