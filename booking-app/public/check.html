@@ -1,24 +1,195 @@
-<div class="reservation-card">
-    <div class="status-badge active">AKTIVNÍ</div>
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Moje Rezervace - Vozík 24/7</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { background: #f4f4f4; }
+        .check-container { max-width: 500px; margin: 40px auto; padding: 20px; }
+        
+        /* Karta pro zadání kódu */
+        .login-card { background: white; padding: 40px 30px; border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.05); text-align: center; }
+        .login-card input { font-size: 24px; text-align: center; letter-spacing: 5px; text-transform: uppercase; width: 100%; max-width: 250px; padding: 10px; border: 2px solid #eee; border-radius: 8px; margin: 20px 0; outline: none; transition: 0.3s; }
+        .login-card input:focus { border-color: #bfa37c; }
+
+        /* Detail rezervace (skrytý) */
+        .detail-card { display: none; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.1); position: relative; }
+        
+        .status-header { padding: 15px; text-align: center; font-weight: 800; color: white; text-transform: uppercase; font-size: 14px; letter-spacing: 1px; }
+        .bg-active { background: #28a745; } /* Zelená - běží */
+        .bg-future { background: #17a2b8; } /* Modrá - teprve bude */
+        .bg-ended { background: #6c757d; }  /* Šedá - skončila */
+
+        .detail-body { padding: 30px 20px; text-align: center; }
+        
+        .pin-wrapper { background: #fffdfa; border: 2px dashed #bfa37c; padding: 20px; border-radius: 10px; margin: 20px 0; }
+        .pin-label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 2px; display: block; margin-bottom: 5px; }
+        .pin-value { font-size: 48px; font-weight: 800; color: #333; letter-spacing: 8px; line-height: 1; }
+        
+        .info-row { display: flex; justify-content: space-between; border-bottom: 1px solid #f0f0f0; padding: 15px 0; font-size: 14px; }
+        .info-row:last-child { border-bottom: none; }
+        .info-label { color: #888; }
+        .info-val { font-weight: 600; color: #333; text-align: right; }
+
+        .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
+        .btn-action { padding: 12px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; font-size: 13px; }
+        .btn-map { background: #f0f0f0; color: #333; }
+        .btn-sos { background: #ffebeb; color: #d63031; }
+        
+        .instructions-mini { margin-top: 25px; background: #f8f9fa; padding: 15px; border-radius: 8px; text-align: left; font-size: 13px; color: #555; }
+        .instructions-mini i { color: #bfa37c; width: 20px; text-align: center; margin-right: 5px; }
+        .instructions-mini li { margin-bottom: 8px; list-style: none; }
+
+        .loader { display: none; color: #bfa37c; margin: 20px 0; }
+    </style>
+</head>
+<body>
+
+<div class="check-container">
     
-    <h2>Vaše rezervace vozíku</h2>
-    <p class="res-id">ID: <span id="display-id">X5Y8Z2</span></p>
-
-    <div class="pin-section">
-        <small>VÁŠ KÓD K ZÁMKU</small>
-        <div class="pin-number" id="display-pin">372 816</div>
+    <div id="login-section" class="login-card">
+        <h2 style="margin:0; color:#333;">Najít rezervaci</h2>
+        <p style="color:#888; margin-top:10px; font-size:14px;">Zadejte 6místný kód rezervace (z e-mailu)</p>
+        
+        <input type="text" id="inp-code" maxlength="6" placeholder="A1B2C3">
+        <div id="loader" class="loader"><i class="fa-solid fa-circle-notch fa-spin"></i> Hledám...</div>
+        
+        <button onclick="fetchBooking()" class="btn-pay" style="width:100%;">ZOBRAZIT</button>
+        <p style="margin-top:20px; font-size:12px;"><a href="index.html" style="color:#aaa;">Zpět na hlavní web</a></p>
     </div>
 
-    <div class="info-grid">
-        <div><strong>Od:</strong> <span id="display-start">12.05. 08:00</span></div>
-        <div><strong>Do:</strong> <span id="display-end">13.05. 08:00</span></div>
+    <div id="detail-section" class="detail-card">
+        <div id="status-bar" class="status-header bg-future">...</div>
+        
+        <div class="detail-body">
+            <p style="margin:0; color:#aaa; font-size:12px; text-transform:uppercase;">ID Rezervace</p>
+            <h1 id="out-id" style="margin:5px 0 20px 0; color:#333; letter-spacing:2px;">---</h1>
+
+            <div class="pin-wrapper">
+                <span class="pin-label">PIN K ZÁMKU</span>
+                <span id="out-pin" class="pin-value">---</span>
+            </div>
+
+            <div class="info-group">
+                <div class="info-row">
+                    <span class="info-label">Vyzvednutí:</span>
+                    <span id="out-start" class="info-val">--.--. --:--</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Vrácení:</span>
+                    <span id="out-end" class="info-val">--.--. --:--</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Vozík:</span>
+                    <span class="info-val">Vozík č. 1 (Agados)</span>
+                </div>
+            </div>
+
+            <div class="action-grid">
+                <a href="https://www.google.com/maps/search/?api=1&query=49.7758767,16.9242550" target="_blank" class="btn-action btn-map">
+                    <i class="fa-solid fa-location-arrow"></i> Navigovat
+                </a>
+                <a href="tel:+420777000000" class="btn-action btn-sos">
+                    <i class="fa-solid fa-phone"></i> Pomoc
+                </a>
+            </div>
+
+            <div class="instructions-mini">
+                <strong><i class="fa-solid fa-circle-info"></i> Jak odemknout?</strong>
+                <ul style="padding:0; margin:10px 0 0 0;">
+                    <li><i class="fa-solid fa-hand-pointer"></i> 1. Probuďte zámek dotykem dlaně.</li>
+                    <li><i class="fa-solid fa-keyboard"></i> 2. Zadejte PIN a stiskněte 🔓 (nebo #).</li>
+                    <li><i class="fa-solid fa-unlock"></i> 3. Zámek se odemkne na 5 vteřin.</li>
+                </ul>
+            </div>
+
+            <button onclick="location.reload()" style="background:none; border:none; color:#aaa; margin-top:20px; cursor:pointer; font-size:12px;">Zavřít / Hledat jinou</button>
+        </div>
     </div>
 
-    <hr>
-    
-    <h3>Potřebujete pomoct?</h3>
-    <div class="action-buttons">
-        <a href="https://maps.google.com/..." class="btn-map">📍 Navigovat k vozíku</a>
-        <button onclick="window.print()" class="btn-print">📄 Vytisknout potvrzení</button>
-    </div>
 </div>
+
+<script>
+    const API_BASE = "";
+
+    // Získání parametru z URL (např. check.html?id=ABCDEF)
+    window.onload = () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlId = urlParams.get('id');
+        if (urlId) {
+            document.getElementById('inp-code').value = urlId;
+            fetchBooking();
+        }
+    };
+
+    async function fetchBooking() {
+        const code = document.getElementById('inp-code').value.trim().toUpperCase();
+        if (code.length < 3) return alert("Zadejte platný kód.");
+
+        // UI Efekty
+        document.getElementById('loader').style.display = "block";
+        document.querySelector('.btn-pay').disabled = true;
+
+        try {
+            const res = await fetch(`${API_BASE}/retrieve-booking`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ code })
+            });
+            const data = await res.json();
+
+            document.getElementById('loader').style.display = "none";
+            document.querySelector('.btn-pay').disabled = false;
+
+            if (data.success) {
+                showDetail(data);
+            } else {
+                alert("Rezervace nebyla nalezena. Zkontrolujte kód.");
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Chyba připojení.");
+            document.getElementById('loader').style.display = "none";
+            document.querySelector('.btn-pay').disabled = false;
+        }
+    }
+
+    function showDetail(data) {
+        // Přepnutí obrazovek
+        document.getElementById('login-section').style.display = 'none';
+        document.getElementById('detail-section').style.display = 'block';
+
+        // Vyplnění dat
+        document.getElementById('out-id').innerText = data.orderId;
+        document.getElementById('out-pin').innerText = data.pin;
+        document.getElementById('out-start').innerText = data.start;
+        document.getElementById('out-end').innerText = data.end;
+
+        // Logika pro status bar
+        const statusEl = document.getElementById('status-bar');
+        const now = new Date();
+        // Pozn: data.start je string "DD.MM.YYYY HH:MM", musíme ho převést pro porovnání, 
+        // ale pro jednoduchost zde použijeme status vrácený ze serveru, pokud ho posíláme, 
+        // nebo jednoduchou logiku. Server v retrieve-booking vrací 'status': "AKTIVNÍ" nebo "UKONČENO".
+        
+        // Zde si pomůžeme tím, co vrací server, nebo obarvíme podle logiky:
+        if (data.status === "UKONČENO") {
+            statusEl.innerText = "REZERVACE UKONČENA";
+            statusEl.className = "status-header bg-ended";
+            document.getElementById('out-pin').style.textDecoration = "line-through";
+            document.getElementById('out-pin').style.color = "#ccc";
+        } else {
+            // Je aktivní, ale je už teď, nebo teprve bude?
+            // To bychom museli parsovat datum. Pro zjednodušení dáme prostě "AKTIVNÍ".
+            statusEl.innerText = "REZERVACE AKTIVNÍ";
+            statusEl.className = "status-header bg-active";
+        }
+    }
+</script>
+
+</body>
+</html>
