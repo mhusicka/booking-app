@@ -164,3 +164,44 @@ input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radiu
 .btn-sos { background: #dc3545; color: white; text-decoration: none; padding: 12px; border-radius: 6px; font-weight: 700; transition: 0.3s; }
 .btn-sos:hover { background: #c82333; }
 
+/* OPRAVA MODÁLNÍCH OKEN */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000; /* Musí být vysoké číslo */
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.6);
+    backdrop-filter: blur(5px);
+    overflow-y: auto; /* Důležité pro mobily */
+}
+
+.modal-content {
+    background-color: #fff;
+    margin: 5% auto;
+    padding: 30px;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 600px;
+    position: relative;
+    pointer-events: auto; /* Zajišťuje, že na obsah lze klikat */
+}
+
+.close-modal {
+    position: absolute;
+    top: 15px;
+    right: 20px;
+    font-size: 30px;
+    font-weight: bold;
+    color: #333;
+    cursor: pointer !important; /* Vynutí kurzor ruky */
+    z-index: 1100;
+    padding: 10px; /* Větší plocha pro kliknutí na mobilu */
+    line-height: 1;
+}
+
+.close-modal:hover {
+    color: #bfa37c;
+}
