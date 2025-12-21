@@ -328,34 +328,6 @@ function updateSummaryUI(previewEndDate = null) {
     if(priceEl) priceEl.innerText = (diffDays * PRICE_PER_DAY).toLocaleString("cs-CZ") + " Kč";
 }
 
-// Přidej tyto funkce do script-1.js
-
-function openModal(id) {
-    const modal = document.getElementById(id);
-    if (modal) {
-        modal.style.display = "block";
-        document.body.style.overflow = "hidden"; // Zamezí rolování stránky pod oknem
-    }
-}
-
-function closeModal(id) {
-    const modal = document.getElementById(id);
-    if (modal) {
-        modal.style.display = "none";
-        document.body.style.overflow = "auto"; // Vrátí rolování
-    }
-}
-
-// Zajištění zavírání kliknutím mimo okno (šedá plocha)
-window.onclick = function(event) {
-    if (event.target.classList.contains('modal')) {
-        event.target.style.display = "none";
-        document.body.style.overflow = "auto";
-    }
-}
-
-// ... (začátek souboru zůstává stejný)
-
 async function submitReservation() {
     if (!startDate) return alert("Vyberte termín.");
     if (!endDate) endDate = getNextDay(startDate);
@@ -366,15 +338,10 @@ async function submitReservation() {
     const phone = document.getElementById("inp-phone").value;
     const btn = document.querySelector(".btn-pay");
 
-    // OCHRANA PROTI DUPLICITÁM
-    if (btn.disabled) return; 
-
     if(!name || !email || !phone || phone.replace(/\s+/g, '').length < 13) return alert("Vyplňte údaje.");
 
-    // OKAMŽITÁ DEAKTIVACE
     btn.innerText = "Zpracovávám...";
     btn.disabled = true;
-    btn.style.opacity = "0.6";
 
     try {
         const res = await fetch(`${API_BASE}/reserve-range`, {
@@ -397,15 +364,13 @@ async function submitReservation() {
             alert("Chyba: " + (result.error || "Obsazeno."));
             btn.innerText = "REZERVOVAT A ZAPLATIT"; 
             btn.disabled = false;
-            btn.style.opacity = "1";
         }
     } catch (e) { 
         alert("Chyba serveru."); 
         btn.innerText = "REZERVOVAT"; 
-        btn.disabled = false;
-        btn.style.opacity = "1";
+        btn.disabled = false; 
     }
 }
 
+// Spuštění inicializace po načtení DOMu
 document.addEventListener("DOMContentLoaded", init);
-
