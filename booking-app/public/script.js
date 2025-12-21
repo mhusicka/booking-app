@@ -7,7 +7,7 @@ let viewStartYear = new Date().getFullYear();
 let startDate = null;
 let endDate = null;
 let cachedReservations = []; 
-let isSubmitting = false; // HLAVNÍ OCHRANA PROTI DVOJITÉ REZERVACI
+let isSubmitting = false; 
 
 async function init() {
     console.log("🚀 Startuji aplikaci...");
@@ -20,13 +20,19 @@ async function init() {
     const phoneInput = document.getElementById("inp-phone");
     if (phoneInput) {
         if (!phoneInput.value) phoneInput.value = "+420 ";
+        // Reset chyby při psaní
         phoneInput.addEventListener("input", function() { 
             this.value = this.value.replace(/[^0-9+\s]/g, ''); 
+            clearError("phone");
         });
         phoneInput.addEventListener("blur", function() { 
             if (this.value.trim() === "" || this.value.trim() === "+") this.value = "+420 ";
         });
     }
+
+    // Reset chyb při psaní pro ostatní pole
+    document.getElementById("inp-name")?.addEventListener("input", () => clearError("name"));
+    document.getElementById("inp-email")?.addEventListener("input", () => clearError("email"));
 
     const agreeCheckbox = document.getElementById("inp-agree");
     const submitBtn = document.getElementById("btn-submit");
@@ -43,34 +49,132 @@ async function init() {
     document.getElementById("next")?.addEventListener("click", () => changeMonth(1));
     document.getElementById("inp-time")?.addEventListener("change", () => updateSummaryUI());
     document.getElementById("btn-now")?.addEventListener("click", setNow);
-    
-    // Tlačítko pro odeslání
     document.getElementById("btn-submit")?.addEventListener("click", submitReservation);
 }
 
-// === GLOBÁLNÍ FUNKCE PRO ZAVÍRÁNÍ OKEN (OPRAVA) ===
+// === VALIDACE A ZOBRAZENÍ CHYB ===
+function showError(field, message) {
+    const input = document.getElementById(`inp-${field}`);
+    const errDiv = document.getElementById(`error-${field}`);
+    
+    if (input) input.classList.add("input-error");
+    if (errDiv) {
+        errDiv.innerText = message;
+        errDiv.style.display = "block";
+    }
+}
+
+function clearError(field) {
+    const input = document.getElementById(`inp-${field}`);
+    const errDiv = document.getElementById(`error-${field}`);
+    
+    if (input) input.classList.remove("input-error");
+    if (errDiv) {
+        errDiv.style.display = "none";
+        errDiv.innerText = "";
+    }
+}
+
+function clearAllErrors() {
+    clearError("name");
+    clearError("email");
+    clearError("phone");
+    const calendarErr = document.getElementById("error-calendar");
+    if (calendarErr) calendarErr.innerText = "";
+}
+
+
+// === HLAVNÍ FUNKCE ODESLÁNÍ (BEZ ALERTŮ) ===
+async function submitReservation() {
+    if (isSubmitting) return; 
+
+    clearAllErrors();
+    let hasError = false;
+
+    // 1. Validace Termínu
+    if (!startDate) {
+        const calErr = document.getElementById("error-calendar");
+        if(calErr) calErr.innerText = "⚠️ Prosím vyberte termín v kalendáři.";
+        hasError = true;
+    }
+    if (!endDate && startDate) endDate = getNextDay(startDate);
+    
+    // 2. Validace Polí
+    const time = document.getElementById("inp-time").value;
+    const nameInp = document.getElementById("inp-name");
+    const emailInp = document.getElementById("inp-email");
+    const phoneInp = document.getElementById("inp-phone");
+    const btn = document.querySelector(".btn-pay");
+
+    const name = nameInp.value.trim();
+    const email = emailInp.value.trim();
+    const phone = phoneInp.value.trim();
+
+    if (!name) { showError("name", "Vyplňte jméno."); hasError = true; }
+    
+    if (!email) { showError("email", "Vyplňte email."); hasError = true; }
+    else if (!email.includes("@") || !email.includes(".")) { showError("email", "Neplatný formát emailu."); hasError = true; }
+    
+    if (!phone || phone.length < 5) { showError("phone", "Vyplňte telefon."); hasError = true; }
+    else if (phone.replace(/\s+/g, '').length < 9) { showError("phone", "Telefonní číslo je příliš krátké."); hasError = true; }
+
+    if (hasError) return; // Pokud je chyba, končíme a neposíláme
+
+    // 3. Odeslání
+    isSubmitting = true;
+    btn.innerText = "Zpracovávám...";
+    btn.disabled = true;
+    btn.style.opacity = "0.7";
+
+    try {
+        const res = await fetch(`${API_BASE}/reserve-range`, {
+            method: "POST", 
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ startDate, endDate, time, name, email, phone })
+        });
+        const result = await res.json();
+        
+        if (result.success) {
+            const params = new URLSearchParams({ pin: result.pin, start: startDate, end: endDate, time: time, orderId: result.reservationCode });
+            window.location.href = `success.html?${params.toString()}`;
+        } else {
+            alert("Chyba rezervace: " + (result.error || "Termín je již obsazen.")); // Zde alert necháme pro server chyby
+            btn.innerText = "REZERVOVAT A ZAPLATIT"; 
+            btn.disabled = false;
+            btn.style.opacity = "1";
+            isSubmitting = false; 
+        }
+    } catch (e) { 
+        alert("Chyba serveru. Zkuste to prosím později."); 
+        btn.innerText = "REZERVOVAT"; 
+        btn.disabled = false; 
+        btn.style.opacity = "1";
+        isSubmitting = false; 
+    }
+}
+
+
+// === POMOCNÉ FUNKCE (ZBYTEK KÓDU) ===
 window.closeModal = function() {
     const modals = document.querySelectorAll('.modal-overlay');
     modals.forEach(m => m.style.display = 'none');
-    document.body.style.overflow = 'auto'; // Povolit scrollování
+    document.body.style.overflow = 'auto'; 
 }
 
 window.openModal = function(id) {
     const m = document.getElementById(id);
     if(m) {
         m.style.display = 'flex';
-        document.body.style.overflow = 'hidden'; // Zákaz scrollování
+        document.body.style.overflow = 'hidden'; 
     }
 }
 
-// Zavření kliknutím mimo okno
 window.onclick = function(event) {
     if (event.target.classList.contains('modal-overlay')) {
         window.closeModal();
     }
 }
 
-// === KALENDÁŘ ===
 function getNextDay(dateStr) {
     const date = new Date(dateStr);
     date.setDate(date.getDate() + 1);
@@ -93,6 +197,9 @@ function setNow() {
     
     updateSummaryUI();
     renderSingleCalendar();
+    // Vyčistit chybu kalendáře pokud byla zobrazena
+    const errCal = document.getElementById("error-calendar");
+    if(errCal) errCal.innerText = "";
 }
 
 function changeMonth(delta) {
@@ -241,6 +348,10 @@ function handleDayClick(dateStr) {
     }
     document.querySelectorAll('.day.hover-range').forEach(d => d.classList.remove('hover-range'));
     updateSummaryUI(); renderSingleCalendar();
+    
+    // Nové: Vyčistit chybu kalendáře pokud uživatel klikne
+    const errCal = document.getElementById("error-calendar");
+    if(errCal) errCal.innerText = "";
 }
 
 function checkAvailabilityTime(dateStr) {
@@ -291,50 +402,24 @@ function updateSummaryUI(previewEndDate = null) {
     if(priceEl) priceEl.innerText = (diffDays * PRICE_PER_DAY).toLocaleString("cs-CZ") + " Kč";
 }
 
-// === ZABEZPEČENÁ FUNKCE ODESLÁNÍ (Fix dvojitého e-mailu) ===
-async function submitReservation() {
-    if (isSubmitting) return; // ZASTAVÍ DVOJKLIK
-
-    if (!startDate) return alert("Vyberte termín.");
-    if (!endDate) endDate = getNextDay(startDate);
+// === RYCHLÉ VYHLEDÁVÁNÍ Z HLAVNÍ STRÁNKY ===
+function quickCheckRedirect() {
+    const input = document.getElementById("quick-check-input");
+    const code = input.value.trim().toUpperCase();
     
-    const time = document.getElementById("inp-time").value;
-    const name = document.getElementById("inp-name").value;
-    const email = document.getElementById("inp-email").value;
-    const phone = document.getElementById("inp-phone").value;
-    const btn = document.querySelector(".btn-pay");
+    if (code.length < 3) {
+        // Zde můžeme také zvýraznit input místo alertu
+        input.style.border = "1px solid red";
+        setTimeout(() => input.style.border = "none", 1000);
+        input.focus();
+        return;
+    }
+    window.location.href = `check.html?id=${code}`;
+}
 
-    if(!name || !email || !phone || phone.replace(/\s+/g, '').length < 13) return alert("Vyplňte údaje.");
-
-    isSubmitting = true; // ZAMKNOUT
-    btn.innerText = "Zpracovávám...";
-    btn.disabled = true;
-    btn.style.opacity = "0.7";
-
-    try {
-        const res = await fetch(`${API_BASE}/reserve-range`, {
-            method: "POST", 
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ startDate, endDate, time, name, email, phone })
-        });
-        const result = await res.json();
-        
-        if (result.success) {
-            const params = new URLSearchParams({ pin: result.pin, start: startDate, end: endDate, time: time, orderId: result.reservationCode });
-            window.location.href = `success.html?${params.toString()}`;
-        } else {
-            alert("Chyba: " + (result.error || "Obsazeno."));
-            btn.innerText = "REZERVOVAT A ZAPLATIT"; 
-            btn.disabled = false;
-            btn.style.opacity = "1";
-            isSubmitting = false; // ODEMKNOUT PŘI CHYBĚ
-        }
-    } catch (e) { 
-        alert("Chyba serveru."); 
-        btn.innerText = "REZERVOVAT"; 
-        btn.disabled = false; 
-        btn.style.opacity = "1";
-        isSubmitting = false; 
+function handleEnter(e) {
+    if (e.key === "Enter") {
+        quickCheckRedirect();
     }
 }
 
@@ -342,47 +427,12 @@ async function submitReservation() {
 function scrollToCheck() {
     const searchBox = document.querySelector('.mini-search-box');
     const input = document.getElementById('quick-check-input');
-    
-    // 1. Plynulý posun k elementu
     searchBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    
-    // 2. Zaměření kurzoru
-    setTimeout(() => {
-        input.focus();
-    }, 500);
-
-    // 3. Vizuální efekt (zablikání)
+    setTimeout(() => { input.focus(); }, 500);
     searchBox.style.transition = "box-shadow 0.3s, transform 0.3s";
     searchBox.style.boxShadow = "0 0 20px #bfa37c";
     searchBox.style.transform = "scale(1.1)";
-
-    setTimeout(() => {
-        searchBox.style.boxShadow = "";
-        searchBox.style.transform = "scale(1)";
-    }, 800);
-}
-
-// === RYCHLÉ VYHLEDÁVÁNÍ Z HLAVNÍ STRÁNKY ===
-function quickCheckRedirect() {
-    const input = document.getElementById("quick-check-input");
-    const code = input.value.trim().toUpperCase();
-    
-    if (code.length < 3) {
-        alert("Zadejte prosím kód rezervace.");
-        input.focus();
-        return;
-    }
-    
-    // Přesměruje na check.html a předá ID v URL
-    window.location.href = `check.html?id=${code}`;
-}
-
-// Aby fungoval i Enter
-function handleEnter(e) {
-    if (e.key === "Enter") {
-        quickCheckRedirect();
-    }
+    setTimeout(() => { searchBox.style.boxShadow = ""; searchBox.style.transform = "scale(1)"; }, 800);
 }
 
 document.addEventListener("DOMContentLoaded", init);
-
