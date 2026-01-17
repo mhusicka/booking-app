@@ -175,12 +175,17 @@ async function deletePinFromLock(keyboardPwdId) {
     } catch (e) {}
 }
 
+// ADMIN API MIDDLEWARE
+const checkAdmin = (req, res, next) => { 
+    if (req.headers["x-admin-password"] !== ADMIN_PASSWORD && req.query.pwd !== ADMIN_PASSWORD) return res.status(403).send("Forbidden"); 
+    next(); 
+};
+
 // ENDPOINTY
 app.get("/availability", async (req, res) => {
     try { res.json(await Reservation.find({}, "startDate endDate time")); } catch (e) { res.status(500).send("Chyba"); }
 });
 
-// Hlavní rezervační funkce (volaná i z Adminu)
 app.post("/reserve-range", async (req, res) => {
     const { startDate, endDate, time, name, email, phone, price } = req.body;
     try {
@@ -208,12 +213,6 @@ app.post("/reserve-range", async (req, res) => {
     } catch (e) { res.status(500).json({ error: "Chyba" }); }
 });
 
-// ADMIN API
-const checkAdmin = (req, res, next) => { 
-    if (req.headers["x-admin-password"] !== ADMIN_PASSWORD && req.query.pwd !== ADMIN_PASSWORD) return res.status(403).send("Forbidden"); 
-    next(); 
-};
-
 app.get("/admin/reservations", checkAdmin, async (req, res) => { res.json(await Reservation.find().sort({ created: -1 })); });
 
 app.get("/admin/reservations/:id/invoice", checkAdmin, async (req, res) => {
@@ -232,6 +231,23 @@ app.delete("/admin/reservations/:id", checkAdmin, async (req, res) => {
         await Reservation.findByIdAndDelete(req.params.id); 
         res.json({ success: true }); 
     } catch (e) { res.status(500).json({ error: "Chyba" }); }
+});
+
+// --- OPRAVA: ENDPOINT PRO HROMADNÉ MAZÁNÍ ---
+app.delete("/admin/reservations/bulk", checkAdmin, async (req, res) => {
+    try {
+        const { ids } = req.body;
+        if (!ids || !Array.isArray(ids)) return res.status(400).json({ error: "Chybí ID" });
+        
+        for (let id of ids) {
+            const r = await Reservation.findById(id);
+            if (r && r.keyboardPwdId) await deletePinFromLock(r.keyboardPwdId);
+            await Reservation.findByIdAndDelete(id);
+        }
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ error: "Chyba při hromadném mazání" });
+    }
 });
 
 app.post("/admin/reservations/:id/archive", checkAdmin, async (req, res) => {
@@ -273,4 +289,3 @@ setInterval(async () => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, "0.0.0.0", () => console.log(`🚀 Port ${PORT}`));
-
