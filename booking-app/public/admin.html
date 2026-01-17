@@ -2,44 +2,36 @@
 <html lang="cs">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin - Vozík 24/7</title>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { font-family: 'Montserrat', sans-serif; background: #f0f2f5; padding: 20px; }
-        .admin-box { max-width: 1200px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
-        h1 { color: #bfa37c; text-align: center; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { padding: 12px; border-bottom: 1px solid #eee; text-align: left; }
-        .btn { padding: 8px 15px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
-        .btn-delete { background: #d9534f; color: white; }
-        .pin-cell { font-family: monospace; font-weight: bold; color: #28a745; background: #e8f5e9; padding: 3px 6px; }
+        body { font-family: 'Montserrat', sans-serif; background: #f0f2f5; margin: 0; padding: 20px; color: #333; }
+        .admin-box { max-width: 1400px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); margin-bottom: 30px; }
+        .login-screen { max-width: 400px; margin-top: 100px; text-align: center; }
+        h1 { color: #bfa37c; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 30px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { text-align: left; padding: 15px; border-bottom: 1px solid #eee; }
+        th { background: #f9f9f9; color: #666; font-size: 0.8rem; text-transform: uppercase; }
+        .btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: 700; }
+        .btn-delete { background: #ffebee; color: #c62828; }
     </style>
 </head>
 <body>
-    <div id="login-section" class="admin-box" style="max-width: 400px; margin-top: 100px; text-align: center;">
-        <h1>Admin přihlášení</h1>
-        <input type="password" id="admin-pass" placeholder="Heslo" style="width:100%; padding:10px; margin-bottom:10px;">
+
+    <div id="login-section" class="admin-box login-screen">
+        <h1>Admin</h1>
+        <input type="password" id="admin-pass" placeholder="Heslo" style="width:100%; padding:12px; margin-bottom:15px;">
         <button onclick="login()" class="btn" style="background:#333; color:white; width:100%;">VSTOUPIT</button>
     </div>
 
     <div id="data-section" style="display:none;">
         <div class="admin-box">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <h2>Rezervace</h2>
-                <button onclick="logout()" class="btn">Odhlásit</button>
-            </div>
-            
-            <div style="margin: 20px 0;">
-                <button onclick="bulkDelete()" class="btn btn-delete">Smazat označené</button>
-                <input type="text" id="search-input" onkeyup="applyFilters()" placeholder="Hledat..." style="padding:8px; margin-left:10px;">
-            </div>
-
+            <h2>Přehled rezervací</h2>
             <table>
                 <thead>
                     <tr>
-                        <th><input type="checkbox" onchange="toggleAll(this)"></th>
-                        <th>Vytvořeno</th>
                         <th>Zákazník / ID</th>
                         <th>Termín</th>
                         <th>PIN</th>
@@ -52,82 +44,38 @@
     </div>
 
     <script>
-        const API_BASE = "";
-        let allReservations = [];
-
-        function login() { const p = document.getElementById("admin-pass").value; loadReservations(p); }
-        function logout() { localStorage.removeItem("adminPass"); location.reload(); }
-
-        async function loadReservations(pwd = null) {
-            const password = pwd || localStorage.getItem("adminPass");
-            try {
-                const res = await fetch(`${API_BASE}/admin/reservations`, { headers: { "x-admin-password": password } });
-                if (res.status === 403) return alert("Špatné heslo!");
-                allReservations = await res.json();
-                document.getElementById("login-section").style.display = "none";
-                document.getElementById("data-section").style.display = "block";
-                localStorage.setItem("adminPass", password);
-                renderTable(allReservations);
-            } catch(e) { alert("Chyba spojení"); }
+        async function login() {
+            const pwd = document.getElementById("admin-pass").value;
+            const res = await fetch("/admin/reservations", { headers: { "x-admin-password": pwd } });
+            if (res.status === 403) return alert("Špatné heslo!");
+            const data = await res.json();
+            localStorage.setItem("adminPass", pwd);
+            document.getElementById("login-section").style.display = "none";
+            document.getElementById("data-section").style.display = "block";
+            render(data);
         }
 
-        function renderTable(data) {
+        function render(data) {
             const tbody = document.getElementById("table-body");
             tbody.innerHTML = "";
             data.forEach(r => {
-                const tr = document.createElement("tr");
-                tr.innerHTML = `
-                    <td><input type="checkbox" class="row-chk" data-id="${r._id}"></td>
-                    <td>${new Date(r.created).toLocaleDateString()}</td>
-                    <td><strong>${r.name}</strong><br><small>ID: ${r.reservationCode}</small></td>
-                    <td>${r.startDate} - ${r.endDate}</td>
-                    <td><span class="pin-cell">${r.passcode}</span></td>
-                    <td><button onclick="deleteRes('${r._id}')" class="btn btn-delete">Smazat</button></td>
-                `;
-                tbody.appendChild(tr);
+                tbody.innerHTML += `
+                    <tr>
+                        <td><strong>${r.name}</strong><br><small style="color:#bfa37c">ID: ${r.reservationCode}</small></td>
+                        <td>${r.startDate} - ${r.endDate}</td>
+                        <td>${r.passcode}</td>
+                        <td><button onclick="deleteRes('${r._id}')" class="btn btn-delete">Smazat</button></td>
+                    </tr>`;
             });
-        }
-
-        function toggleAll(source) { document.querySelectorAll('.row-chk').forEach(c => c.checked = source.checked); }
-
-        function applyFilters() {
-            const term = document.getElementById("search-input").value.toLowerCase();
-            const filtered = allReservations.filter(r => 
-                r.name.toLowerCase().includes(term) || 
-                r.reservationCode.toLowerCase().includes(term)
-            );
-            renderTable(filtered);
-        }
-
-        async function bulkDelete() {
-            const selected = document.querySelectorAll('.row-chk:checked');
-            const ids = Array.from(selected).map(c => c.dataset.id);
-            if (ids.length === 0) return alert("Vyberte rezervace.");
-            if (!confirm(`Smazat ${ids.length} rezervací?`)) return;
-
-            try {
-                const res = await fetch(`${API_BASE}/admin/reservations/bulk`, {
-                    method: "DELETE",
-                    headers: { 
-                        "x-admin-password": localStorage.getItem("adminPass"),
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({ ids: ids })
-                });
-                if (res.ok) { alert("Smazáno"); loadReservations(); }
-                else alert("Chyba při mazání na serveru.");
-            } catch (e) { alert("Chyba spojení."); }
         }
 
         async function deleteRes(id) {
-            if(!confirm("Smazat?")) return;
-            await fetch(`${API_BASE}/admin/reservations/${id}`, { 
+            if(!confirm("Opravdu smazat?")) return;
+            await fetch(`/admin/reservations/${id}`, { 
                 method: "DELETE", headers: { "x-admin-password": localStorage.getItem("adminPass") } 
             });
-            loadReservations();
+            login();
         }
-
-        window.onload = () => { if(localStorage.getItem("adminPass")) loadReservations(); };
     </script>
 </body>
 </html>
