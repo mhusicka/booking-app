@@ -72,7 +72,7 @@
         .badge-archive { background: #6c757d; }
 
         /* Drobný text */
-        .meta-date { font-size: 0.8rem; color: #888; display: block; }
+        .meta-date { font-size: 0.8rem; color: #888; display: block; margin-top: 2px; }
         
         /* --- MOBILNÍ ZOBRAZENÍ --- */
         @media screen and (max-width: 768px) {
@@ -240,10 +240,10 @@
             const archiveBody = document.getElementById("table-body-archive");
             activeBody.innerHTML = ""; archiveBody.innerHTML = "";
             
-            // Seřazení: Nejnovější vytvořené nahoře
+            // Seřazení: Nejnovější vytvořené nahoře (podle r.created)
             data.sort((a, b) => {
-                const dA = a.createdAt ? new Date(a.createdAt) : new Date(0);
-                const dB = b.createdAt ? new Date(b.createdAt) : new Date(0);
+                const dA = a.created ? new Date(a.created) : new Date(0);
+                const dB = b.created ? new Date(b.created) : new Date(0);
                 return dB - dA;
             });
 
@@ -255,13 +255,16 @@
                 const end = new Date(r.endDate).toLocaleDateString("cs-CZ");
                 let dateStr = r.startDate !== r.endDate ? `${start}<br>⬇<br>${end}` : `${start}`;
                 
-                // Datum vytvoření
+                // OPRAVENO: Čteme r.created (server) místo r.createdAt
                 let createdDate = "-";
-                if(r.createdAt) {
-                    const c = new Date(r.createdAt);
+                if(r.created) {
+                    const c = new Date(r.created);
                     createdDate = `${c.toLocaleDateString("cs-CZ")}<br><small class="meta-date">${c.toLocaleTimeString("cs-CZ", {hour: '2-digit', minute:'2-digit'})}</small>`;
                 }
 
+                // Logika pro řazení Aktivní vs Archiv
+                // Pokud je v keyboardPwdId hodnota (pin existuje), bereme to jako aktivní, jinak archiv
+                // Nebo podle data:
                 const endTime = new Date(`${r.endDate}T${r.time || '23:59'}:00`);
                 const isActiveTime = endTime > now;
 
@@ -270,7 +273,7 @@
                 else if (isActiveTime) pinHtml = `<span class="pin-error">CHYBA PIN</span><br><small>(${r.passcode})</small>`;
                 else pinHtml = `<span class="pin-inactive">${r.passcode}</span>`;
 
-                // Platba
+                // Platba a Cena
                 let priceDisplay = r.price ? `<strong>${r.price} Kč</strong>` : "";
                 let paymentBadge = "";
                 
@@ -285,6 +288,8 @@
                 }
 
                 const tr = document.createElement("tr");
+                
+                // Akce
                 const actionHtml = `
                     <div style="display:block; width:100%">
                         <select id="act-${r._id}" class="action-select">
