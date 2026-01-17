@@ -65,7 +65,7 @@ function generateResCode() { return Math.random().toString(36).substring(2, 8).t
 function generatePin() { return Array.from({ length: 6 }, () => Math.floor(Math.random() * 10)).join(""); }
 function hashPassword(password) { return crypto.createHash("md5").update(password).digest("hex"); }
 
-// --- FUNKCE PRO PDF (OPRAVENO DATUM A CENA) ---
+// --- FUNKCE PRO PDF (S ČESKÝM FONTEM A SPRÁVNOU CENOU) ---
 function createInvoicePdf(data) {
     return new Promise((resolve, reject) => {
         try {
@@ -107,10 +107,10 @@ function createInvoicePdf(data) {
 
             doc.moveDown(3);
 
-            // Datumy (Manuální formátování pro jistotu)
+            // Datumy (D.M.RRRR)
             const topDates = 230;
             const now = new Date();
-            const dateStr = `${now.getDate()}.${now.getMonth() + 1}.${now.getFullYear()}`; // Formát D.M.RRRR
+            const dateStr = `${now.getDate()}.${now.getMonth() + 1}.${now.getFullYear()}`; 
             
             doc.fillColor('#888888').text('Datum vystavení:', 50, topDates);
             doc.fillColor('#333333').text(dateStr, 150, topDates);
@@ -126,11 +126,11 @@ function createInvoicePdf(data) {
             doc.text('Položka', 60, tableTop + 7);
             doc.text('Cena', 450, tableTop + 7, { align: 'right', width: 80 });
 
-            // Položka - zajištění že cena je číslo
+            // Položka 
             const itemY = tableTop + 35;
             doc.fontSize(10).text(`Pronájem vozíku (${data.startDate} - ${data.endDate})`, 60, itemY);
             
-            // Fix ceny: převedeme na číslo, pak na fixed(2)
+            // Fix ceny: zajistíme formát
             let finalPrice = parseFloat(data.price);
             if (isNaN(finalPrice)) finalPrice = 0;
             const priceStr = finalPrice.toFixed(2).replace('.', ',') + ' Kč';
@@ -157,24 +157,27 @@ function createInvoicePdf(data) {
     });
 }
 
-// EMAILING
+// EMAILING - NÁVRAT PŮVODNÍHO HEZKÉHO DESIGNU
 async function sendReservationEmail(data, pdfBuffer) { 
     if (!BREVO_API_KEY) return;
     const startF = formatDateCz(data.startDate);
     const endF = formatDateCz(data.endDate);
 
     const htmlContent = `
-    <!DOCTYPE html><html><body style="font-family:Arial,sans-serif;">
-    <div style="max-width:600px;margin:0 auto;border:1px solid #eee;padding:20px;">
-    <h2 style="color:#bfa37c;">Rezervace potvrzena</h2>
-    <p>Dobrý den, <strong>${data.name}</strong>,</p>
-    <div style="background:#f9f9f9;padding:15px;border-left:5px solid #28a745;margin:20px 0;">
-    <h3 style="margin:0;">PIN K ZÁMKU:</h3>
-    <div style="font-size:24px;font-weight:bold;">${data.passcode}</div>
-    </div>
-    <p>Termín: ${startF} - ${endF} (${data.time})</p>
-    <p>Fakturu naleznete v příloze.</p>
-    </div></body></html>`;
+    <!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;padding:0;background-color:#fff;font-family:Arial,sans-serif;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="padding:20px;"><tr><td align="center">
+    <table width="100%" style="max-width:550px;">
+    <tr><td align="center" style="padding:20px 0;"><div style="width:80px;height:80px;border:3px solid #28a745;border-radius:50%;text-align:center;"><span style="color:#28a745;font-size:50px;line-height:80px;">✔</span></div></td></tr>
+    <tr><td align="center" style="padding:10px;"><h1 style="font-size:28px;color:#333;margin:0;text-transform:uppercase;">Rezervace úspěšná!</h1><p style="color:#666;margin-top:10px;">Děkujeme, <strong>${data.name}</strong>.<br>Váš přívěsný vozík je rezervován.</p></td></tr>
+    <tr><td align="center" style="padding:30px 20px;"><div style="border:2px dashed #bfa37c;border-radius:15px;padding:30px;"><span style="font-size:13px;color:#888;text-transform:uppercase;">VÁŠ KÓD K ZÁMKU</span><br><span style="font-size:56px;font-weight:bold;color:#333;letter-spacing:8px;">${data.passcode}</span></div></td></tr>
+    <tr><td align="center"><div style="background:#f8f9fa;border-radius:12px;padding:25px;text-align:left;">
+    <p><strong>Termín:</strong><br>${startF} ${data.time} — ${endF} ${data.time}</p>
+    <p><strong>Telefon:</strong><br>${data.phone}</p>
+    <p><strong>ID rezervace:</strong><br><b>${data.reservationCode}</b></p>
+    </div></td></tr>
+    <tr><td style="padding:30px;text-align:left;"><h3 style="margin:0 0 10px;">Jak odemknout?</h3><ol style="color:#555;padding-left:20px;line-height:1.8;"><li>Probuďte klávesnici dotykem.</li><li>Zadejte PIN: <strong>${data.passcode}</strong></li><li>Potvrďte tlačítkem 🔑 (vpravo dole).</li></ol></td></tr>
+    <tr><td align="center" style="background:#333;padding:30px;color:#fff;border-radius:0 0 12px 12px;"><p style="font-weight:bold;margin:0;">Přívěsný vozík 24/7 Mohelnice</p><p style="font-size:11px;color:#aaa;margin-top:10px;">Automatická zpráva. info@vozik247.cz</p></td></tr>
+    </table></td></tr></table></body></html>`;
 
     let attachment = [];
     if (pdfBuffer) {
@@ -188,7 +191,7 @@ async function sendReservationEmail(data, pdfBuffer) {
         await axios.post("https://api.brevo.com/v3/smtp/email", {
             sender: { name: "Vozík 24/7", email: SENDER_EMAIL },
             to: [{ email: data.email, name: data.name }],
-            subject: `Rezervace ${data.reservationCode}`,
+            subject: `Potvrzení rezervace - ${data.reservationCode}`,
             htmlContent: htmlContent,
             attachment: attachment 
         }, { headers: { "api-key": BREVO_API_KEY, "Content-Type": "application/json" } });
@@ -230,7 +233,10 @@ app.get("/availability", async (req, res) => {
 });
 
 app.post("/reserve-range", async (req, res) => {
+    // 1. ZDE JE OPRAVA CENY
+    // Čteme cenu z body, ale pokud tam není, dopočítáme ji
     const { startDate, endDate, time, name, email, phone, price } = req.body;
+    
     try {
         const recent = await Reservation.findOne({ email, startDate, time, created: { $gt: new Date(Date.now() - 15000) } });
         if (recent) return res.status(409).json({ error: "Rezervace již byla vytvořena." });
@@ -250,15 +256,24 @@ app.post("/reserve-range", async (req, res) => {
         else pin = generatePin(); 
 
         const rCode = generateResCode();
+        
+        // VÝPOČET CENY NA SERVERU (pokud ji klient nepošle)
+        let finalPrice = price;
+        if (!finalPrice || finalPrice == 0) {
+            const diffTime = Math.abs(new Date(endDate) - new Date(startDate));
+            const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+            finalPrice = diffDays * 230;
+        }
+
         const reservation = new Reservation({ 
             reservationCode: rCode, startDate, endDate, time, name, email, phone, passcode: pin, keyboardPwdId: lId, 
-            price: price || 0, paymentStatus: 'PAID' 
+            price: finalPrice, paymentStatus: 'PAID' 
         });
         await reservation.save();
         
         let pdfBuffer = null;
         try {
-            pdfBuffer = await createInvoicePdf({ reservationCode: rCode, startDate, endDate, name, email, phone, price: price || 0 });
+            pdfBuffer = await createInvoicePdf({ reservationCode: rCode, startDate, endDate, name, email, phone, price: finalPrice });
         } catch(e) { console.error("PDF Fail", e); }
 
         sendReservationEmail({ reservationCode: rCode, startDate, endDate, time, name, email, passcode: pin, phone }, pdfBuffer);
