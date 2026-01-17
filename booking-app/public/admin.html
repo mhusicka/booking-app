@@ -26,12 +26,26 @@
         .btn-primary { background: #333; color: white; width: 100%; }
         .btn-primary:hover { background: #bfa37c; }
         .btn-small { padding: 5px 10px; font-size: 0.8rem; background: #eee; color: #333; }
-        .btn-delete { background: #ffebee; color: #c62828; }
         
+        /* Červené tlačítko pro smazání */
+        .btn-delete { background: #ffebee; color: #c62828; border: 1px solid #ffcdd2; }
+        .btn-delete:hover { background: #ffcdd2; }
+
+        /* Tlačítko pro Ukončení/Archivaci */
+        .btn-archive { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+        .btn-archive:hover { background: #ffe8a1; }
+
+        /* Tlačítko Faktura */
+        .btn-invoice { display: inline-flex; align-items: center; gap: 5px; background: #333; color: white; text-decoration: none; padding: 6px 12px; border-radius: 4px; font-size: 0.85rem; }
+        .btn-invoice:hover { background: #bfa37c; }
+
+        /* Akční tlačítka v řádku */
+        .action-buttons { display: flex; gap: 5px; flex-wrap: wrap; }
+        .action-buttons button { padding: 6px 10px; font-size: 0.8rem; cursor: pointer; border-radius: 4px; border: none; font-weight: 600; }
+
         /* Filtry */
-        .filters-row { display: flex; gap: 15px; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #eee; align-items: center; }
+        .filters-row { display: flex; gap: 15px; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #eee; align-items: center; justify-content: space-between; flex-wrap: wrap; }
         .filter-group { display: flex; align-items: center; gap: 10px; }
-        .filter-select { padding: 8px; border: 1px solid #ddd; border-radius: 5px; }
 
         /* Tabulka */
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
@@ -43,15 +57,14 @@
         .badge-pay { padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; display: inline-block; margin-top: 4px;}
         .pay-ok { background: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; }
         
-        .btn-invoice { display: inline-flex; align-items: center; gap: 5px; background: #333; color: white; text-decoration: none; padding: 5px 10px; border-radius: 4px; font-size: 0.8rem; margin-top: 5px; }
-        .btn-invoice:hover { background: #bfa37c; }
-
+        /* Mobil */
         @media screen and (max-width: 768px) {
-            .filters-row { flex-direction: column; align-items: flex-start; }
             table, thead, tbody, th, td, tr { display: block; }
             thead tr { position: absolute; top: -9999px; left: -9999px; } 
             tr { border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); padding: 5px; }
-            td { border: none; padding: 10px !important; text-align: left; border-bottom: 1px solid #f8f8f8; }
+            td { border: none; padding: 10px !important; text-align: left; border-bottom: 1px solid #f8f8f8; display: flex; flex-direction: column; }
+            td:before { content: attr(data-label); font-weight: bold; color: #999; font-size: 0.75rem; margin-bottom: 5px; }
+            .action-buttons { flex-direction: row; justify-content: flex-start; }
         }
     </style>
 </head>
@@ -67,12 +80,19 @@
         <div class="admin-box">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
                 <h2 style="margin:0;">Přehled rezervací</h2>
-                <button onclick="logout()" class="btn btn-small">Odhlásit</button>
+                <div style="display:flex; gap:10px;">
+                    <button onclick="loadReservations()" class="btn btn-small"><i class="fa-solid fa-rotate"></i> Obnovit</button>
+                    <button onclick="logout()" class="btn btn-small">Odhlásit</button>
+                </div>
             </div>
 
             <div class="filters-row">
                 <div class="filter-group">
-                    <strong><i class="fa-solid fa-filter"></i> Filtrovat:</strong>
+                    <button class="btn btn-small btn-delete" onclick="bulkDelete()">Smazat označené</button>
+                </div>
+                
+                <div class="filter-group">
+                    <strong><i class="fa-solid fa-filter"></i></strong>
                     <select id="filter-month" class="filter-select" onchange="applyFilters()">
                         <option value="all">Všechny měsíce</option>
                         <option value="0">Leden</option><option value="1">Únor</option><option value="2">Březen</option>
@@ -86,22 +106,20 @@
                         <option value="2026">2026</option>
                         <option value="2027">2027</option>
                     </select>
-                </div>
-                <div style="flex-grow:1; text-align:right;">
-                     <input type="text" id="search-input" onkeyup="applyFilters()" placeholder="Hledat jméno..." style="max-width:200px; padding:8px;">
+                    <input type="text" id="search-input" onkeyup="applyFilters()" placeholder="Hledat..." style="padding:8px; border:1px solid #ddd; border-radius:5px;">
                 </div>
             </div>
 
             <table id="main-table">
                 <thead>
                     <tr>
-                        <th width="40"></th>
+                        <th width="40"><input type="checkbox" onchange="toggleAll(this)"></th>
                         <th>Vytvořeno</th>
                         <th>Zákazník</th>
                         <th>Termín</th>
                         <th>Platba</th>
                         <th>PIN</th>
-                        <th>Akce / Faktura</th>
+                        <th>Akce</th>
                     </tr>
                 </thead>
                 <tbody id="table-body"></tbody>
@@ -138,16 +156,18 @@
                 const data = await res.json();
                 
                 allReservations = data;
-                applyFilters(); // Aplikovat filtry hned po načtení
                 
                 document.getElementById("login-section").style.display = "none";
                 document.getElementById("data-section").style.display = "block";
                 localStorage.setItem("adminPass", password);
                 
-                // Nastavit aktuální rok do filtru
-                document.getElementById("filter-year").value = new Date().getFullYear().toString();
-                document.getElementById("filter-month").value = new Date().getMonth().toString();
-                applyFilters(); // Znovu přefiltrovat pro aktuální měsíc
+                // Nastavit aktuální datum do filtrů, pokud ještě není
+                if (document.getElementById("filter-year").value === "all") {
+                    document.getElementById("filter-year").value = new Date().getFullYear().toString();
+                    document.getElementById("filter-month").value = new Date().getMonth().toString();
+                }
+                
+                applyFilters(); 
 
             } catch (e) { alert("Chyba spojení."); }
         }
@@ -158,15 +178,10 @@
             const term = document.getElementById('search-input').value.toLowerCase();
 
             const filtered = allReservations.filter(r => {
-                const date = new Date(r.created || r.createdAt); // Datum vytvoření
-                
-                // Filtr Měsíc
+                const date = new Date(r.created || r.createdAt); 
                 if (month !== 'all' && date.getMonth().toString() !== month) return false;
-                // Filtr Rok
                 if (year !== 'all' && date.getFullYear().toString() !== year) return false;
-                // Hledání
                 if (term && !r.name.toLowerCase().includes(term) && !r.reservationCode.toLowerCase().includes(term)) return false;
-
                 return true;
             });
 
@@ -177,41 +192,91 @@
             const tbody = document.getElementById("table-body");
             tbody.innerHTML = "";
             
+            // Seřadit od nejnovějších
+            data.sort((a,b) => new Date(b.created || 0) - new Date(a.created || 0));
+
             if (data.length === 0) {
-                tbody.innerHTML = "<tr><td colspan='7' style='text-align:center; padding:20px; color:#999;'>Žádné záznamy pro tento měsíc/rok.</td></tr>";
+                tbody.innerHTML = "<tr><td colspan='7' style='text-align:center; padding:20px; color:#999;'>Žádné záznamy.</td></tr>";
                 return;
             }
 
+            const now = new Date();
+
             data.forEach(r => {
                 const created = new Date(r.created || r.createdAt);
-                const createdStr = `${created.getDate()}.${created.getMonth()+1}.${created.getFullYear()} <small>${created.getHours()}:${String(created.getMinutes()).padStart(2,'0')}</small>`;
+                const createdStr = `${created.getDate()}.${created.getMonth()+1}. <small>${created.getHours()}:${String(created.getMinutes()).padStart(2,'0')}</small>`;
                 
                 const start = new Date(r.startDate).toLocaleDateString("cs-CZ");
                 const end = new Date(r.endDate).toLocaleDateString("cs-CZ");
                 const price = r.price ? `${r.price} Kč` : "0 Kč";
 
-                // Odkaz na stažení faktury (přidáme heslo do URL, aby to prošlo přes checkAdmin middleware)
+                // URL pro fakturu
                 const pwd = localStorage.getItem("adminPass");
                 const invoiceUrl = `${API_BASE}/admin/reservations/${r._id}/invoice?pwd=${pwd}`;
 
+                // Logika pro zobrazení tlačítka "Ukončit" (Archivovat)
+                // Pokud je endDate v budoucnosti, je rezervace "aktivní"
+                const endDateObj = new Date(r.endDate);
+                // Pro jistotu přidáme čas 23:59, aby platila celý den
+                endDateObj.setHours(23,59,59);
+                const isActive = endDateObj > now;
+
                 const tr = document.createElement("tr");
                 tr.innerHTML = `
-                    <td><button onclick="deleteRes('${r._id}')" style="color:red; border:none; background:none; cursor:pointer;" title="Smazat">✖</button></td>
-                    <td>${createdStr}</td>
-                    <td><strong>${r.name}</strong><br><small>${r.email}</small></td>
-                    <td>${start} - ${end}<br><small>${r.time}</small></td>
-                    <td><div style="font-weight:bold;">${price}</div><span class="badge-pay pay-ok">ZAPLACENO</span></td>
-                    <td><span class="pin-cell">${r.passcode}</span></td>
-                    <td>
-                        <a href="${invoiceUrl}" target="_blank" class="btn-invoice"><i class="fa-solid fa-file-pdf"></i> Faktura</a>
+                    <td data-label="Výběr"><input type="checkbox" class="row-chk" data-id="${r._id}"></td>
+                    <td data-label="Vytvořeno">${createdStr}</td>
+                    <td data-label="Zákazník"><strong>${r.name}</strong><br><small>${r.email}</small></td>
+                    <td data-label="Termín">${start} - ${end}<br><small>${r.time}</small></td>
+                    <td data-label="Platba"><div style="font-weight:bold;">${price}</div><span class="badge-pay pay-ok">ZAPLACENO</span></td>
+                    <td data-label="PIN"><span class="pin-cell">${r.passcode}</span></td>
+                    <td data-label="Akce">
+                        <div class="action-buttons">
+                            <a href="${invoiceUrl}" target="_blank" class="btn-invoice"><i class="fa-solid fa-file-pdf"></i> PDF</a>
+                            ${isActive ? `<button onclick="archiveRes('${r._id}')" class="btn-archive" title="Ukončit předčasně">Ukončit</button>` : ''}
+                            <button onclick="deleteRes('${r._id}')" class="btn-delete" title="Smazat">Smazat</button>
+                        </div>
                     </td>
                 `;
                 tbody.appendChild(tr);
             });
         }
 
+        // HROMADNÉ AKCE
+        function toggleAll(source) {
+            document.querySelectorAll('.row-chk').forEach(c => c.checked = source.checked);
+        }
+
+        async function bulkDelete() {
+            const ids = Array.from(document.querySelectorAll('.row-chk:checked')).map(c => c.dataset.id);
+            if (!ids.length) return alert("Nic není vybráno.");
+            if (!confirm(`Opravdu smazat ${ids.length} rezervací?`)) return;
+            
+            await fetch(`${API_BASE}/admin/reservations/bulk`, {
+                method: "DELETE",
+                headers: { "x-admin-password": localStorage.getItem("adminPass"), "Content-Type": "application/json" },
+                body: JSON.stringify({ ids })
+            });
+            loadReservations();
+        }
+
+        // JEDNOTLIVÉ AKCE
+        async function deleteRes(id) {
+            if(!confirm("Opravdu smazat?")) return;
+            await fetch(`${API_BASE}/admin/reservations/${id}`, { 
+                method: "DELETE", headers: { "x-admin-password": localStorage.getItem("adminPass") } 
+            });
+            loadReservations();
+        }
+
+        async function archiveRes(id) {
+            if(!confirm("Ukončit rezervaci a smazat PIN ze zámku?")) return;
+            await fetch(`${API_BASE}/admin/reservations/${id}/archive`, { 
+                method: "POST", headers: { "x-admin-password": localStorage.getItem("adminPass") } 
+            });
+            loadReservations();
+        }
+
         async function manualReserve() {
-            // ... (stejné jako předtím)
             const startDate = document.getElementById("admin-start").value;
             const endDate = document.getElementById("admin-end").value;
             const time = document.getElementById("admin-time").value;
@@ -227,14 +292,7 @@
                 body: JSON.stringify({ startDate, endDate, time, name, email, phone, price })
             });
             loadReservations();
-        }
-
-        async function deleteRes(id) {
-            if(!confirm("Smazat?")) return;
-            await fetch(`${API_BASE}/admin/reservations/${id}`, { 
-                method: "DELETE", headers: { "x-admin-password": localStorage.getItem("adminPass") } 
-            });
-            loadReservations();
+            alert("Vytvořeno.");
         }
         
         window.onload = () => { if(localStorage.getItem("adminPass")) loadReservations(); };
