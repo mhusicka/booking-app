@@ -436,3 +436,30 @@ function scrollToCheck() {
 }
 
 document.addEventListener("DOMContentLoaded", init);
+
+// --- NOVÁ FUNKCE: Automatické nastavení času podle obsazenosti ---
+function autoSetAvailableTime(selectedDateStr) {
+    // selectedDateStr musí být ve formátu YYYY-MM-DD
+    
+    // 1. Najdeme rezervaci, která v tento den KONČÍ
+    // (cachedReservations je proměnná, kterou už ve scriptu máš z načtení kalendáře)
+    const blockingReservation = cachedReservations.find(res => res.endDate === selectedDateStr);
+
+    const timeInput = document.getElementById("inp-time");
+
+    if (blockingReservation) {
+        console.log("Na tento den končí rezervace v:", blockingReservation.time);
+        
+        // Nastavíme čas formuláře na čas konce té rezervace
+        // Můžeme přidat logiku "plus hodina", ale pro jednoduchost dáme stejný čas
+        // (Vozík je k dispozici od okamžiku vrácení)
+        timeInput.value = blockingReservation.time;
+        
+        // Volitelně: Upozorníme uživatele bliknutím nebo změnou barvy
+        timeInput.style.backgroundColor = "#fff3cd"; // Žlutá pro upozornění
+        setTimeout(() => timeInput.style.backgroundColor = "", 1000);
+    } else {
+        // Pokud žádná rezervace nekončí, nastavíme default (např. 08:00 nebo aktuální čas)
+        // timeInput.value = "08:00"; // Odkomentuj, pokud chceš vracet default
+    }
+}
