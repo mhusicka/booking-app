@@ -175,8 +175,10 @@
                         "x-admin-password": localStorage.getItem("adminPass"), 
                         "Content-Type": "application/json" 
                     },
-                    body: JSON.stringify({ ids })
+                    // OPRAVA: Data musí být v objektu s klíčem "ids", aby je server v server.js mohl přečíst
+                    body: JSON.stringify({ ids: ids }) 
                 });
+                
                 if (res.ok) {
                     loadReservations();
                 } else {
