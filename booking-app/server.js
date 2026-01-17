@@ -149,8 +149,8 @@ async function sendReservationEmail(data, pdfBuffer) {
 
 // TTLOCK
 async function getTTLockToken() {
-    const params = new URLSearchParams({ client_id: TTLOCK_CLIENT_ID, client_secret: TTLOCK_CLIENT_SECRET, username: TTLOCK_USERNAME, password: hashPassword(TTLOCK_PASSWORD), grant_type: \"password\", redirect_uri: \"https://www.vozik247.cz\" });
-    const res = await axios.post(\"https://euapi.ttlock.com/oauth2/token\", params.toString());
+    const params = new URLSearchParams({ client_id: TTLOCK_CLIENT_ID, client_secret: TTLOCK_CLIENT_SECRET, username: TTLOCK_USERNAME, password: hashPassword(TTLOCK_PASSWORD), grant_type: "password", redirect_uri: "https://www.vozik247.cz" });
+    const res = await axios.post("https://euapi.ttlock.com/oauth2/token", params.toString());
     return res.data.access_token;
 }
 
@@ -161,8 +161,8 @@ async function addPinToLock(startStr, endStr, timeStr) {
         const endMs = new Date(`${endStr}T${timeStr}:00`).getTime() + 60000;
         const pin = generatePin();
         const params = { clientId: TTLOCK_CLIENT_ID, accessToken: token, lockId: MY_LOCK_ID, keyboardPwd: pin, startDate: startMs, endDate: endMs, date: Date.now(), addType: 2, keyboardPwdName: `Rez ${startStr}` };
-        const sign = crypto.createHash(\"md5\").update(Object.keys(params).sort().map(k => `${k}=${params[k]}`).join(\"&\") + TTLOCK_CLIENT_SECRET).digest(\"hex\").toUpperCase();
-        const res = await axios.post(\"https://euapi.ttlock.com/v3/keyboardPwd/add\", new URLSearchParams({ ...params, sign }).toString());
+        const sign = crypto.createHash("md5").update(Object.keys(params).sort().map(k => `${k}=${params[k]}`).join("&") + TTLOCK_CLIENT_SECRET).digest("hex").toUpperCase();
+        const res = await axios.post("https://euapi.ttlock.com/v3/keyboardPwd/add", new URLSearchParams({ ...params, sign }).toString());
         return { pin, keyboardPwdId: res.data.keyboardPwdId };
     } catch (err) { return null; }
 }
@@ -171,21 +171,21 @@ async function deletePinFromLock(keyboardPwdId) {
     try {
         const token = await getTTLockToken();
         const params = { clientId: TTLOCK_CLIENT_ID, accessToken: token, lockId: MY_LOCK_ID, keyboardPwdId, date: Date.now() };
-        const sign = crypto.createHash(\"md5\").update(Object.keys(params).sort().map(k => `${k}=${params[k]}`).join(\"&\") + TTLOCK_CLIENT_SECRET).digest(\"hex\").toUpperCase();
-        await axios.post(\"https://euapi.ttlock.com/v3/keyboardPwd/delete\", new URLSearchParams({ ...params, sign }).toString());
+        const sign = crypto.createHash("md5").update(Object.keys(params).sort().map(k => `${k}=${params[k]}`).join("&") + TTLOCK_CLIENT_SECRET).digest("hex").toUpperCase();
+        await axios.post("https://euapi.ttlock.com/v3/keyboardPwd/delete", new URLSearchParams({ ...params, sign }).toString());
     } catch (e) {}
 }
 
 // ENDPOINTY
-app.get(\"/availability\", async (req, res) => {
-    try { res.json(await Reservation.find({}, \"startDate endDate time\")); } catch (e) { res.status(500).send(\"Chyba\"); }
+app.get("/availability", async (req, res) => {
+    try { res.json(await Reservation.find({}, "startDate endDate time")); } catch (e) { res.status(500).send("Chyba"); }
 });
 
 // Hlavní rezervační funkce (volaná i z Adminu)
-app.post(\"/reserve-range\", async (req, res) => {
+app.post("/reserve-range", async (req, res) => {
     const { startDate, endDate, time, name, email, phone, price } = req.body;
     try {
-        let pin = \"123456\"; let lId = null;
+        let pin = "123456"; let lId = null;
         const lock = await addPinToLock(startDate, endDate, time);
         if (lock) { pin = lock.pin; lId = lock.keyboardPwdId; } else pin = generatePin(); 
 
@@ -206,36 +206,36 @@ app.post(\"/reserve-range\", async (req, res) => {
         sendReservationEmail({ reservationCode: rCode, startDate, endDate, time, name, email, passcode: pin, phone }, pdfBuffer);
         
         res.json({ success: true, pin, reservationCode: rCode });
-    } catch (e) { res.status(500).json({ error: \"Chyba\" }); }
+    } catch (e) { res.status(500).json({ error: "Chyba" }); }
 });
 
 // ADMIN API
 const checkAdmin = (req, res, next) => { 
-    if (req.headers[\"x-admin-password\"] !== ADMIN_PASSWORD && req.query.pwd !== ADMIN_PASSWORD) return res.status(403).send(\"Forbidden\"); 
+    if (req.headers["x-admin-password"] !== ADMIN_PASSWORD && req.query.pwd !== ADMIN_PASSWORD) return res.status(403).send("Forbidden"); 
     next(); 
 };
 
-app.get(\"/admin/reservations\", checkAdmin, async (req, res) => { res.json(await Reservation.find().sort({ created: -1 })); });
+app.get("/admin/reservations", checkAdmin, async (req, res) => { res.json(await Reservation.find().sort({ created: -1 })); });
 
-app.get(\"/admin/reservations/:id/invoice\", checkAdmin, async (req, res) => {
+app.get("/admin/reservations/:id/invoice", checkAdmin, async (req, res) => {
     try {
         const r = await Reservation.findById(req.params.id);
         const pdfBuffer = await createInvoicePdf({ reservationCode: r.reservationCode, startDate: r.startDate, endDate: r.endDate, name: r.name, email: r.email, phone: r.phone, price: r.price });
         res.setHeader('Content-Type', 'application/pdf');
         res.send(pdfBuffer);
-    } catch (e) { res.status(500).send(\"Chyba\"); }
+    } catch (e) { res.status(500).send("Chyba"); }
 });
 
-app.delete(\"/admin/reservations/:id\", checkAdmin, async (req, res) => {
+app.delete("/admin/reservations/:id", checkAdmin, async (req, res) => {
     try { 
         const r = await Reservation.findById(req.params.id); 
         if (r && r.keyboardPwdId) await deletePinFromLock(r.keyboardPwdId); 
         await Reservation.findByIdAndDelete(req.params.id); 
         res.json({ success: true }); 
-    } catch (e) { res.status(500).json({ error: \"Chyba\" }); }
+    } catch (e) { res.status(500).json({ error: "Chyba" }); }
 });
 
-app.post(\"/admin/reservations/:id/archive\", checkAdmin, async (req, res) => {
+app.post("/admin/reservations/:id/archive", checkAdmin, async (req, res) => {
     try { 
         const r = await Reservation.findById(req.params.id); 
         if (r) { 
@@ -246,16 +246,16 @@ app.post(\"/admin/reservations/:id/archive\", checkAdmin, async (req, res) => {
             await r.save(); 
         } 
         res.json({ success: true }); 
-    } catch (e) { res.status(500).json({ error: \"Chyba\" }); }
+    } catch (e) { res.status(500).json({ error: "Chyba" }); }
 });
 
-app.post(\"/retrieve-booking\", async (req, res) => {
+app.post("/retrieve-booking", async (req, res) => {
     const { code } = req.body;
     try {
         const r = await Reservation.findOne({ reservationCode: code.toUpperCase() });
         if (r) {
             const diff = Math.max(1, Math.ceil(Math.abs(new Date(r.endDate) - new Date(r.startDate)) / 86400000));
-            res.json({ success: true, pin: r.passcode, start: formatDateCz(r.startDate) + \" \" + r.time, end: formatDateCz(r.endDate) + \" \" + r.time, price: diff * 230 + \" Kč\", orderId: r.reservationCode });
+            res.json({ success: true, pin: r.passcode, start: formatDateCz(r.startDate) + " " + r.time, end: formatDateCz(r.endDate) + " " + r.time, price: diff * 230 + " Kč", orderId: r.reservationCode });
         } else res.json({ success: false });
     } catch (e) { res.status(500).json({ success: false }); }
 });
@@ -273,4 +273,4 @@ setInterval(async () => {
 }, 3600000);
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, \"0.0.0.0\", () => console.log(`🚀 Port ${PORT}`));
+app.listen(PORT, "0.0.0.0", () => console.log(`🚀 Port ${PORT}`));
