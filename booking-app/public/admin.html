@@ -106,7 +106,7 @@
                         <option value="2026">2026</option>
                         <option value="2027">2027</option>
                     </select>
-                    <input type="text" id="search-input" onkeyup="applyFilters()" placeholder="Hledat..." style="padding:8px; border:1px solid #ddd; border-radius:5px;">
+                    <input type="text" id="search-input" onkeyup="applyFilters()" placeholder="Hledat (Jméno, ID)..." style="padding:8px; border:1px solid #ddd; border-radius:5px;">
                 </div>
             </div>
 
@@ -161,7 +161,6 @@
                 document.getElementById("data-section").style.display = "block";
                 localStorage.setItem("adminPass", password);
                 
-                // Nastavit aktuální datum do filtrů, pokud ještě není
                 if (document.getElementById("filter-year").value === "all") {
                     document.getElementById("filter-year").value = new Date().getFullYear().toString();
                     document.getElementById("filter-month").value = new Date().getMonth().toString();
@@ -181,7 +180,10 @@
                 const date = new Date(r.created || r.createdAt); 
                 if (month !== 'all' && date.getMonth().toString() !== month) return false;
                 if (year !== 'all' && date.getFullYear().toString() !== year) return false;
-                if (term && !r.name.toLowerCase().includes(term) && !r.reservationCode.toLowerCase().includes(term)) return false;
+                
+                // Hledání v jménu, ID kódu nebo emailu
+                const searchStr = (r.name + (r.reservationCode || "") + (r.email || "")).toLowerCase();
+                if (term && !searchStr.includes(term)) return false;
                 return true;
             });
 
@@ -192,7 +194,6 @@
             const tbody = document.getElementById("table-body");
             tbody.innerHTML = "";
             
-            // Seřadit od nejnovějších
             data.sort((a,b) => new Date(b.created || 0) - new Date(a.created || 0));
 
             if (data.length === 0) {
@@ -208,16 +209,12 @@
                 
                 const start = new Date(r.startDate).toLocaleDateString("cs-CZ");
                 const end = new Date(r.endDate).toLocaleDateString("cs-CZ");
-                const price = r.price ? `${r.price} Kč` : "0 Kč";
+                const price = r.price ? `${r.price} Kč` : "230 Kč";
 
-                // URL pro fakturu
                 const pwd = localStorage.getItem("adminPass");
                 const invoiceUrl = `${API_BASE}/admin/reservations/${r._id}/invoice?pwd=${pwd}`;
 
-                // Logika pro zobrazení tlačítka "Ukončit" (Archivovat)
-                // Pokud je endDate v budoucnosti, je rezervace "aktivní"
                 const endDateObj = new Date(r.endDate);
-                // Pro jistotu přidáme čas 23:59, aby platila celý den
                 endDateObj.setHours(23,59,59);
                 const isActive = endDateObj > now;
 
@@ -225,7 +222,11 @@
                 tr.innerHTML = `
                     <td data-label="Výběr"><input type="checkbox" class="row-chk" data-id="${r._id}"></td>
                     <td data-label="Vytvořeno">${createdStr}</td>
-                    <td data-label="Zákazník"><strong>${r.name}</strong><br><small>${r.email}</small></td>
+                    <td data-label="Zákazník">
+                        <strong>${r.name}</strong><br>
+                        <small style="color: #bfa37c; font-weight: bold;">ID: ${r.reservationCode || "---"}</small><br>
+                        <small>${r.email}</small>
+                    </td>
                     <td data-label="Termín">${start} - ${end}<br><small>${r.time}</small></td>
                     <td data-label="Platba"><div style="font-weight:bold;">${price}</div><span class="badge-pay pay-ok">ZAPLACENO</span></td>
                     <td data-label="PIN"><span class="pin-cell">${r.passcode}</span></td>
@@ -241,7 +242,6 @@
             });
         }
 
-        // HROMADNÉ AKCE
         function toggleAll(source) {
             document.querySelectorAll('.row-chk').forEach(c => c.checked = source.checked);
         }
@@ -259,7 +259,6 @@
             loadReservations();
         }
 
-        // JEDNOTLIVÉ AKCE
         async function deleteRes(id) {
             if(!confirm("Opravdu smazat?")) return;
             await fetch(`${API_BASE}/admin/reservations/${id}`, { 
