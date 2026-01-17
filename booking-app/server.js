@@ -13,7 +13,7 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
-// Statické soubory (Frontend)
+// Statické soubory
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 
@@ -72,56 +72,40 @@ const Reservation = mongoose.model("Reservation", reservationSchema);
 
 // --- POMOCNÉ FUNKCE ---
 
-// 1. Generování PDF Faktury
+// Generování PDF
 function createInvoice(reservation, callback) {
     const doc = new PDFDocument({ margin: 50 });
     let buffers = [];
-    
     doc.on('data', buffers.push.bind(buffers));
-    doc.on('end', () => {
-        let pdfData = Buffer.concat(buffers);
-        callback(pdfData);
-    });
+    doc.on('end', () => { let pdfData = Buffer.concat(buffers); callback(pdfData); });
 
-    // Hlavička
     doc.fontSize(20).text('Faktura - Daňový doklad', { align: 'center' });
     doc.moveDown();
-
-    // Dodavatel
     doc.fontSize(10).text('Dodavatel:', { underline: true });
     doc.text('Vozík 24/7 Mohelnice');  
     doc.text('Mohelnice');   
     doc.moveDown();
-
-    // Odběratel
     doc.text('Odběratel:', { underline: true });
     doc.text(reservation.name);
     doc.text(reservation.email);
     doc.text(reservation.phone);
     doc.moveDown();
-
-    // Detaily
     doc.text(`Číslo dokladu: ${reservation.reservationCode}`);
     doc.text(`Datum vystavení: ${new Date(reservation.createdAt).toLocaleDateString('cs-CZ')}`);
     doc.moveDown();
-
-    // Položky
     const tableTop = doc.y;
     doc.text('Položka', 50, tableTop, { bold: true });
     doc.text('Cena', 400, tableTop, { align: 'right', bold: true });
     doc.moveTo(50, tableTop + 15).lineTo(550, tableTop + 15).stroke();
-
     doc.text(`Pronájem vozíku (${reservation.startDate} - ${reservation.endDate})`, 50, tableTop + 25);
     const priceTxt = reservation.price ? `${reservation.price} Kč` : "0 Kč";
     doc.text(priceTxt, 400, tableTop + 25, { align: 'right' });
-
     doc.moveDown(4);
     doc.fontSize(14).text(`Celkem zaplaceno: ${priceTxt}`, { align: 'right', bold: true });
-    
     doc.end();
 }
 
-// 2. TTLock Login
+// Login k zámku
 let ttLockToken = null;
 let tokenExpiresAt = 0;
 
@@ -152,7 +136,6 @@ async function getLockToken() {
     }
 }
 
-// 3. Smazání PINu (Admin)
 async function deletePinFromLock(keyboardPwdId) {
     try {
         const token = await getLockToken();
@@ -162,22 +145,17 @@ async function deletePinFromLock(keyboardPwdId) {
         params.append('lockId', MY_LOCK_ID);
         params.append('keyboardPwdId', keyboardPwdId);
         params.append('deleteType', 2); 
-        
         await axios.post('https://euapi.ttlock.com/v3/keyboardPwd/delete', params);
         console.log(`🗑 PIN ${keyboardPwdId} smazán.`);
-    } catch (e) {
-        console.error("⚠️ Nepodařilo se smazat PIN (možná už neexistuje).");
-    }
+    } catch (e) { console.error("⚠️ Nepodařilo se smazat PIN."); }
 }
 
-// --- VEŘEJNÉ API (Front-End) ---
+// --- ENDPOINTY ---
 
-// 1. Kalendář - Získání obsazených termínů
-// !!! TADY BYLA CHYBA: ZMĚNA Z '/reservations' NA '/availability' !!!
+// 1. Kalendář (shoduje se se script.js)
 app.get('/availability', async (req, res) => {
     try {
         const data = await Reservation.find({ archived: { $ne: true } });
-        // Frontend potřebuje pole objektů { startDate, endDate, time }
         const publicData = data.map(r => ({
             startDate: r.startDate,
             endDate: r.endDate,
@@ -190,7 +168,7 @@ app.get('/availability', async (req, res) => {
     }
 });
 
-// 2. Kontrola dostupnosti konkrétního termínu
+// 2. Kontrola dostupnosti
 app.post("/check-availability", async (req, res) => {
     const { startDate, endDate } = req.body;
     try {
@@ -202,12 +180,11 @@ app.post("/check-availability", async (req, res) => {
         });
         if (existing.length > 0) return res.json({ available: false });
         res.json({ available: true });
-    } catch (e) {
-        res.status(500).json({ error: "Chyba serveru" });
-    }
+    } catch (e) { res.status(500).json({ error: "Chyba serveru" }); }
 });
 
-// 3. HLAVNÍ REZERVACE (Vytvoření PINu + PDF + Email)
+// 3. HLAVNÍ REZERVACE
+// ZDE JSEM VRÁTIL TVŮJ PŮVODNÍ KÓD (typ 3)
 app.post("/reserve-range", async (req, res) => {
     const { startDate, endDate, time, name, email, phone, price } = req.body;
 
@@ -216,7 +193,7 @@ app.post("/reserve-range", async (req, res) => {
     const endTs = new Date(`${endDate}T${time || "12:00"}:00`).getTime();
 
     try {
-        // A) Vytvoření PINu v TTLock
+        // A) Vytvoření PINu v TTLock - PŮVODNÍ FUNKČNÍ LOGIKA
         const token = await getLockToken();
         const params = new URLSearchParams();
         params.append('clientId', TTLOCK_CLIENT_ID);
@@ -226,11 +203,12 @@ app.post("/reserve-range", async (req, res) => {
         params.append('startDate', startTs);
         params.append('endDate', endTs);
         params.append('keyboardPwdVersion', 2); 
-        params.append('keyboardPwdType', 3); // Periodický kód
+        params.append('keyboardPwdType', 3); // Typ 3 = Periodický (generovaný zámkem)
 
         const lockRes = await axios.post('https://euapi.ttlock.com/v3/keyboardPwd/add', params);
         
         if (lockRes.data.errcode !== 0) {
+            console.error("TTLock Error detail:", lockRes.data);
             throw new Error("Chyba zámku: " + lockRes.data.errmsg);
         }
 
@@ -268,20 +246,12 @@ app.post("/reserve-range", async (req, res) => {
                             <div style="font-size: 24px; font-weight: bold; letter-spacing: 2px;">${generatedPin} #</div>
                             <small>(Pro odemčení zadejte kód a potvrďte křížkem #)</small>
                         </div>
-
                         <p><strong>Termín:</strong> ${startDate} - ${endDate} (${time})</p>
                         <p>Fakturu naleznete v příloze.</p>
                     </div>
                 `,
-                attachments: [
-                    {
-                        filename: `Faktura_${reservationCode}.pdf`,
-                        content: pdfBuffer,
-                        contentType: 'application/pdf'
-                    }
-                ]
+                attachments: [ { filename: `Faktura_${reservationCode}.pdf`, content: pdfBuffer, contentType: 'application/pdf' } ]
             };
-
             transporter.sendMail(mailOptions, (error, info) => {
                 if (error) console.error("❌ Email chyba:", error);
                 else console.log("📧 Email odeslán:", info.response);
@@ -292,23 +262,18 @@ app.post("/reserve-range", async (req, res) => {
 
     } catch (e) {
         console.error("CHYBA REZERVACE:", e);
-        res.status(500).json({ success: false, error: e.message });
+        const msg = e.response ? `Chyba TTLock API: ${JSON.stringify(e.response.data)}` : e.message;
+        res.status(500).json({ success: false, error: msg });
     }
 });
 
-
 // --- ADMIN API ---
-
-// Admin: Získat seznam
 app.get("/admin/reservations", async (req, res) => {
     if (req.headers['x-admin-password'] !== ADMIN_PASSWORD) return res.status(403).json({error:"Neautorizováno"});
-    try {
-        const data = await Reservation.find({ archived: { $ne: true } }).sort({ createdAt: -1 });
-        res.json(data);
-    } catch (e) { res.status(500).json({error: "Chyba DB"}); }
+    try { const data = await Reservation.find({ archived: { $ne: true } }).sort({ createdAt: -1 }); res.json(data); } 
+    catch (e) { res.status(500).json({error: "Chyba DB"}); }
 });
 
-// Admin: Archivovat
 app.post("/admin/reservations/:id/archive", async (req, res) => {
     if (req.headers['x-admin-password'] !== ADMIN_PASSWORD) return res.status(403).json({error:"Neautorizováno"});
     try {
@@ -322,7 +287,6 @@ app.post("/admin/reservations/:id/archive", async (req, res) => {
     } catch (e) { res.status(500).json({ error: "Chyba" }); }
 });
 
-// Admin: Smazat úplně
 app.delete("/admin/reservations/:id", async (req, res) => {
     if (req.headers['x-admin-password'] !== ADMIN_PASSWORD) return res.status(403).json({error:"Neautorizováno"});
     try {
@@ -333,17 +297,10 @@ app.delete("/admin/reservations/:id", async (req, res) => {
     } catch (e) { res.status(500).json({ error: "Chyba" }); }
 });
 
-// Admin: Hromadné smazání
 app.delete("/admin/reservations/bulk", async (req, res) => {
     if (req.headers['x-admin-password'] !== ADMIN_PASSWORD) return res.status(403).json({error:"Neautorizováno"});
-    try {
-        const { ids } = req.body;
-        await Reservation.deleteMany({ _id: { $in: ids } });
-        res.json({ success: true });
-    } catch (e) { res.status(500).json({ error: "Chyba" }); }
+    try { await Reservation.deleteMany({ _id: { $in: req.body.ids } }); res.json({ success: true }); } 
+    catch (e) { res.status(500).json({ error: "Chyba" }); }
 });
 
-// Start serveru
-app.listen(PORT, () => {
-    console.log(`🚀 Server běží na portu ${PORT}`);
-});
+app.listen(PORT, () => { console.log(`🚀 Server běží na portu ${PORT}`); });
