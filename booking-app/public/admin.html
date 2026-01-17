@@ -164,20 +164,25 @@
         }
 
         async function bulkDelete() {
-            const ids = Array.from(document.querySelectorAll('.row-chk:checked')).map(c => c.dataset.id);
-            if (!ids.length) return alert("Nic není vybráno.");
-            if (!confirm(`Opravdu smazat ${ids.length} rezervací?`)) return;
+            // Získáme pole ID z označených řádků
+            const selected = document.querySelectorAll('.row-chk:checked');
+            const idsArray = Array.from(selected).map(c => c.dataset.id);
+
+            if (idsArray.length === 0) return alert("Nic není vybráno.");
+            if (!confirm(`Opravdu smazat ${idsArray.length} rezervací?`)) return;
             
             try {
+                const password = localStorage.getItem("adminPass");
                 const res = await fetch(`${API_BASE}/admin/reservations/bulk`, {
                     method: "DELETE",
                     headers: { 
-                        "x-admin-password": localStorage.getItem("adminPass"), 
+                        "x-admin-password": password, 
                         "Content-Type": "application/json" 
                     },
-                    // OPRAVA: Explicitní odeslání objektu s klíčem "ids"
-                    body: JSON.stringify({ "ids": ids }) 
+                    // POSÍLÁME OBJEKT S KLÍČEM "ids"
+                    body: JSON.stringify({ "ids": idsArray }) 
                 });
+                
                 if (res.ok) {
                     loadReservations();
                 } else {
