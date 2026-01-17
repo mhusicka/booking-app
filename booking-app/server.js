@@ -93,7 +93,7 @@ function createInvoicePdf(data) {
             const topDetails = 130;
             doc.fontSize(10).fillColor('#888888').text('DODAVATEL', 50, topDetails);
             doc.moveDown(0.5);
-            doc.fontSize(12).fillColor('#bfa37c').text('Vozík 24/7 Mohelnice', {width: 200}); 
+            doc.fontSize(12).fillColor('#bfa37c').text('Vozík 24/7', {width: 200}); 
             doc.fontSize(10).fillColor('#333333').text('789 85 Mohelnice').text('Česká republika').text('Email: info@vozik247.cz');
 
             doc.fontSize(10).fillColor('#888888').text('ODBĚRATEL', 300, topDetails);
@@ -115,7 +115,7 @@ function createInvoicePdf(data) {
             const itemY = tableTop + 35;
             const displayStart = formatToInvoiceDate(data.startDate);
             const displayEnd = formatToInvoiceDate(data.endDate);
-            doc.fontSize(10).text(`Krátkodobý pronájem přívěsného vozíku`, 60, itemY);
+            doc.fontSize(10).text(`Pronájem přívěsného vozíku`, 60, itemY);
             doc.fontSize(8).fillColor('#666666').text(`Termín: ${displayStart} - ${displayEnd}`, 60, itemY + 12);
             
             let finalPrice = parseFloat(data.price) || 0;
@@ -125,7 +125,6 @@ function createInvoicePdf(data) {
             const totalY = itemY + 45;
             doc.fontSize(12).text('Celkem k úhradě:', 300, totalY, { align: 'right', width: 130 });
             doc.fontSize(14).fillColor('#bfa37c').text(priceStr, 450, totalY - 2, { align: 'right', width: 80, bold: true });
-            doc.fontSize(9).fillColor('#666666').text('Nejsme plátci DPH.', 50, totalY).text('Způsob úhrady: Online platba', 50, totalY + 12);
             doc.end();
         } catch (e) { reject(e); }
     });
@@ -274,3 +273,4 @@ setInterval(async () => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, "0.0.0.0", () => console.log(`🚀 Port ${PORT}`));
+
