@@ -124,22 +124,18 @@ async function submitReservation() {
     }
 }
 
-// === KALENDÁŘ - INTELIGENTNÍ POZADÍ ===
+// === KALENDÁŘ - OPRAVENÁ LOGIKA S PRIORITOU ===
 
-/**
- * Generuje pozadí pro den.
- * @param {string} dateStr - Datum YYYY-MM-DD
- * @param {boolean} isSelected - Zda je tento den vybrán uživatelem (start/end/range)
- */
 function getDayBackgroundStyle(dateStr, isSelected) {
-    if (!cachedReservations) return isSelected ? "#bfa37c" : null;
+    if (!cachedReservations) return null;
 
     let overlaps = [];
+    let hasInteraction = false; // Příznak, zda pro tento den existuje nějaká rezervace
 
-    // Najdeme rezervace zasahující do tohoto dne
     cachedReservations.forEach(res => {
         if (!res.startDate || !res.endDate) return;
         if (dateStr >= res.startDate && dateStr <= res.endDate) {
+            hasInteraction = true;
             let startPct = 0;   
             let endPct = 100;   
             
@@ -156,41 +152,37 @@ function getDayBackgroundStyle(dateStr, isSelected) {
         }
     });
 
+    // Pokud den nemá žádné rezervace, vrátíme null (necháme CSS řešit standardní barvy)
+    // ALE pokud je to vybraný den, který je úplně volný, necháme CSS.
+    if (!hasInteraction) return null;
+
     // BARVY
     const cBooked = "#e0e0e0"; // Šedá (cizí rezervace)
-    
-    // TADY JE TA MAGIE:
-    // Pokud je den vybraný uživatelem, "volné místo" je ZLATÉ.
-    // Pokud není vybraný, "volné místo" je BÍLÉ.
-    const cFree = isSelected ? "#bfa37c" : "#ffffff"; 
-
-    // Pokud nejsou žádné rezervace, vrátíme jen barvu pozadí
-    if (overlaps.length === 0) {
-        return isSelected ? cFree : null; 
-    }
+    const cFree = isSelected ? "#bfa37c" : "#ffffff"; // Volno: Pokud vybráno -> ZLATÁ, jinak BÍLÁ
 
     overlaps.sort((a,b) => a.start - b.start);
 
     let gradientParts = [];
     let currentPos = 0;
 
-    // Začátek dne (volno/výběr)
+    // 1. Začátek dne (pokud je volno)
     gradientParts.push(`${cFree} 0%`);
 
     overlaps.forEach(o => {
-        // Mezera před rezervací (volno/výběr)
+        // Pokud je mezera před rezervací -> VOLNO (zlatá nebo bílá)
         if (o.start > currentPos) {
             gradientParts.push(`${cFree} ${o.start}%`);
         }
         
-        // Rezervace (VŽDY šedá, i když je den vybraný)
+        // Začátek rezervace -> ŠEDÁ
         gradientParts.push(`${cBooked} ${o.start}%`);
+        // Konec rezervace -> ŠEDÁ
         gradientParts.push(`${cBooked} ${o.end}%`);
         
         currentPos = o.end;
     });
 
-    // Zbytek dne (volno/výběr)
+    // 2. Zbytek dne (pokud je volno)
     if (currentPos < 100) {
         gradientParts.push(`${cFree} ${currentPos}%`);
         gradientParts.push(`${cFree} 100%`);
@@ -241,30 +233,32 @@ function renderSingleCalendar() {
         if (dateStr < todayStr) {
             dayEl.classList.add("past");
         } else {
-            // Generujeme pozadí s ohledem na výběr
+            // Generujeme speciální pozadí (šedá vs zlatá/bílá)
             const bgStyle = getDayBackgroundStyle(dateStr, isSelected);
             
             if (bgStyle) {
-                dayEl.style.background = bgStyle;
+                // !!! TOTO JE TA OPRAVA: POUŽIJEME 'important' ABY TO PŘEBILO CSS !!!
+                dayEl.style.setProperty("background", bgStyle, "important");
                 
-                // Pokud je den vybraný, nastavíme barvu textu
-                // Pokud je to čistá zlatá, text bílý. Pokud gradient, raději černý (aby byl vidět na šedé i zlaté)
-                if (isSelected) {
-                     if (!bgStyle.includes("gradient")) {
-                         dayEl.style.color = "white"; // Plně volný vybraný den
-                     } else {
-                         dayEl.style.color = "#333"; // Gradientní den (část šedá) - text tmavý pro čitelnost
-                         dayEl.style.fontWeight = "bold";
-                     }
+                // Pokud je den vybraný a je tam gradient, nastavíme text na černo (aby byl vidět na šedé i zlaté)
+                if (isSelected && bgStyle.includes("gradient")) {
+                     dayEl.style.color = "#333"; 
+                     dayEl.style.fontWeight = "bold";
                 }
-            } 
+            } else if (isSelected) {
+                // Pokud není gradient (celý den volný), ale je vybraný, necháme CSS udělat svou práci (range-start/end)
+                // nebo to můžeme vynutit také:
+                // dayEl.style.background = "#bfa37c";
+                // dayEl.style.color = "white";
+            }
             
-            // Logika klikání zůstává
+            // Logika klikání
+            // Povolíme kliknutí vždy, pokud to není minulost (checkAndSetTimeFromReservation se postará o detaily)
             dayEl.onclick = () => handleDayClick(dateStr); 
             dayEl.onmouseenter = () => handleHoverLogic(dateStr);
         }
         
-        // Přidáme třídy pro styly (kulaté rohy atd.), ale BARVU řídí style.background výše
+        // Třídy pro tvar (zakulacení rohů) přidáme vždy
         if (startDate === dateStr) dayEl.classList.add("range-start");
         if (endDate === dateStr) dayEl.classList.add("range-end");
         if (startDate && endDate && dateStr > startDate && dateStr < endDate) dayEl.classList.add("range");
