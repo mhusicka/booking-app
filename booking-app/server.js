@@ -1,243 +1,362 @@
-<!DOCTYPE html>
-<html lang="cs">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin - Vozík 24/7</title>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        body { font-family: 'Montserrat', sans-serif; background: #f0f2f5; margin: 0; padding: 20px; color: #333; }
-        
-        .admin-box { max-width: 1400px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); margin-bottom: 30px; }
-        .login-screen { max-width: 400px; margin-top: 100px; text-align: center; }
-        
-        h1, h2, h3 { color: #333; margin-top: 0; }
-        h1 { color: #bfa37c; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 30px; }
-        
-        .form-group { margin-bottom: 15px; text-align: left; }
-        label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 0.9rem; }
-        input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 1rem; }
-        input:focus, select:focus { border-color: #bfa37c; outline: none; }
+require("dotenv").config();
+const express = require("express");
+const cors = require("cors");
+const bodyParser = require("body-parser");
+const mongoose = require("mongoose");
+const axios = require("axios"); 
+const crypto = require("crypto");
+const { URLSearchParams } = require("url");
+const path = require("path");
+const PDFDocument = require('pdfkit'); 
+const fs = require('fs');
 
-        .manual-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; align-items: end; }
+const app = express();
+app.use(cors());
+app.use(bodyParser.json());
 
-        .btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: 700; transition: 0.2s; font-size: 0.9rem; }
-        .btn-primary { background: #333; color: white; width: 100%; }
-        .btn-primary:hover { background: #bfa37c; }
-        .btn-small { padding: 5px 10px; font-size: 0.8rem; background: #eee; color: #333; }
-        .btn-delete { background: #ffebee; color: #c62828; }
-        
-        /* Filtry */
-        .filters-row { display: flex; gap: 15px; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #eee; align-items: center; }
-        .filter-group { display: flex; align-items: center; gap: 10px; }
-        .filter-select { padding: 8px; border: 1px solid #ddd; border-radius: 5px; }
+// Statické soubory
+app.use(express.static(path.join(__dirname, 'public')));
+app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 
-        /* Tabulka */
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { text-align: left; padding: 15px; border-bottom: 1px solid #eee; vertical-align: middle; }
-        th { background: #f9f9f9; color: #666; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; }
-        tr:hover { background: #fafafa; }
-        
-        .pin-cell { font-family: monospace; font-size: 1.1rem; font-weight: bold; color: #28a745; background: #e8f5e9; padding: 4px 8px; border-radius: 4px; display: inline-block; }
-        .badge-pay { padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; display: inline-block; margin-top: 4px;}
-        .pay-ok { background: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; }
-        
-        .btn-invoice { display: inline-flex; align-items: center; gap: 5px; background: #333; color: white; text-decoration: none; padding: 5px 10px; border-radius: 4px; font-size: 0.8rem; margin-top: 5px; }
-        .btn-invoice:hover { background: #bfa37c; }
+// KONFIGURACE
+const MONGO_URI = process.env.MONGO_URI;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+const BREVO_API_KEY = process.env.BREVO_API_KEY;
+const SENDER_EMAIL = process.env.SENDER_EMAIL || "info@vozik247.cz";
 
-        @media screen and (max-width: 768px) {
-            .filters-row { flex-direction: column; align-items: flex-start; }
-            table, thead, tbody, th, td, tr { display: block; }
-            thead tr { position: absolute; top: -9999px; left: -9999px; } 
-            tr { border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); padding: 5px; }
-            td { border: none; padding: 10px !important; text-align: left; border-bottom: 1px solid #f8f8f8; }
-        }
-    </style>
-</head>
-<body>
+const TTLOCK_CLIENT_ID = process.env.TTLOCK_CLIENT_ID;
+const TTLOCK_CLIENT_SECRET = process.env.TTLOCK_CLIENT_SECRET;
+const TTLOCK_USERNAME = process.env.TTLOCK_USERNAME;
+const TTLOCK_PASSWORD = process.env.TTLOCK_PASSWORD;
+const MY_LOCK_ID = parseInt(process.env.MY_LOCK_ID);
 
-    <div id="login-section" class="admin-box login-screen">
-        <h1><i class="fa-solid fa-lock"></i> Admin</h1>
-        <div class="form-group"><input type="password" id="admin-pass" placeholder="Zadejte heslo..."></div>
-        <button onclick="login()" class="btn btn-primary">VSTOUPIT</button>
-    </div>
+// DB PŘIPOJENÍ
+mongoose.connect(MONGO_URI).then(async () => {
+    console.log("✅ DB připojena");
+    try {
+        const collections = await mongoose.connection.db.listCollections({name: 'reservations'}).toArray();
+        if (collections.length > 0) await mongoose.connection.db.collection("reservations").dropIndexes();
+    } catch (e) {}
+}).catch(err => console.error("❌ Chyba DB:", err));
 
-    <div id="data-section" style="display:none;">
-        <div class="admin-box">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-                <h2 style="margin:0;">Přehled rezervací</h2>
-                <button onclick="logout()" class="btn btn-small">Odhlásit</button>
-            </div>
+// SCHÉMA
+const ReservationSchema = new mongoose.Schema({
+    reservationCode: String,
+    startDate: String,
+    endDate: String,
+    time: String,
+    name: String,
+    email: String,
+    phone: String,
+    passcode: String,
+    keyboardPwdId: Number,
+    price: { type: Number, default: 0 },
+    paymentStatus: { type: String, default: 'PAID' }, 
+    created: { type: Date, default: Date.now }
+});
+const Reservation = mongoose.model("Reservation", ReservationSchema);
 
-            <div class="filters-row">
-                <div class="filter-group">
-                    <strong><i class="fa-solid fa-filter"></i> Filtrovat:</strong>
-                    <select id="filter-month" class="filter-select" onchange="applyFilters()">
-                        <option value="all">Všechny měsíce</option>
-                        <option value="0">Leden</option><option value="1">Únor</option><option value="2">Březen</option>
-                        <option value="3">Duben</option><option value="4">Květen</option><option value="5">Červen</option>
-                        <option value="6">Červenec</option><option value="7">Srpen</option><option value="8">Září</option>
-                        <option value="9">Říjen</option><option value="10">Listopad</option><option value="11">Prosinec</option>
-                    </select>
-                    <select id="filter-year" class="filter-select" onchange="applyFilters()">
-                        <option value="all">Všechny roky</option>
-                        <option value="2025">2025</option>
-                        <option value="2026">2026</option>
-                        <option value="2027">2027</option>
-                    </select>
-                </div>
-                <div style="flex-grow:1; text-align:right;">
-                     <input type="text" id="search-input" onkeyup="applyFilters()" placeholder="Hledat jméno..." style="max-width:200px; padding:8px;">
-                </div>
-            </div>
+// POMOCNÉ FUNKCE
+function formatDateCz(dateStr) { 
+    const d = new Date(dateStr);
+    return `${d.getDate()}.${d.getMonth() + 1}.${d.getFullYear()}`;
+}
+function generateResCode() { return Math.random().toString(36).substring(2, 8).toUpperCase(); }
+function generatePin() { return Array.from({ length: 6 }, () => Math.floor(Math.random() * 10)).join(""); }
+function hashPassword(password) { return crypto.createHash("md5").update(password).digest("hex"); }
 
-            <table id="main-table">
-                <thead>
-                    <tr>
-                        <th width="40"></th>
-                        <th>Vytvořeno</th>
-                        <th>Zákazník</th>
-                        <th>Termín</th>
-                        <th>Platba</th>
-                        <th>PIN</th>
-                        <th>Akce / Faktura</th>
-                    </tr>
-                </thead>
-                <tbody id="table-body"></tbody>
-            </table>
-        </div>
-        
-        <div class="admin-box">
-             <h3>Ruční vytvoření</h3>
-             <div class="manual-form-grid">
-                <div class="form-group"><label>Od:</label><input type="date" id="admin-start"></div>
-                <div class="form-group"><label>Do:</label><input type="date" id="admin-end"></div>
-                <div class="form-group"><label>Čas:</label><input type="time" id="admin-time" value="12:00"></div>
-                <div class="form-group"><label>Jméno:</label><input type="text" id="admin-name"></div>
-                <div class="form-group"><label>Email:</label><input type="email" id="admin-email"></div>
-                <div class="form-group"><label>Tel:</label><input type="text" id="admin-phone"></div>
-                <div class="form-group"><label>Cena:</label><input type="number" id="admin-price"></div>
-                <button onclick="manualReserve()" class="btn btn-primary" style="height:46px;">VYTVOŘIT</button>
-             </div>
-        </div>
-    </div>
-
-    <script>
-        const API_BASE = ""; 
-        let allReservations = []; 
-        
-        function login() { const p = document.getElementById("admin-pass").value; loadReservations(p); }
-        function logout() { localStorage.removeItem("adminPass"); location.reload(); }
-
-        async function loadReservations(pwd = null) {
-            const password = pwd || localStorage.getItem("adminPass");
-            try {
-                const res = await fetch(`${API_BASE}/admin/reservations`, { headers: { "x-admin-password": password } });
-                if (res.status === 403) { alert("Špatné heslo!"); return; }
-                const data = await res.json();
-                
-                allReservations = data;
-                applyFilters(); // Aplikovat filtry hned po načtení
-                
-                document.getElementById("login-section").style.display = "none";
-                document.getElementById("data-section").style.display = "block";
-                localStorage.setItem("adminPass", password);
-                
-                // Nastavit aktuální rok do filtru
-                document.getElementById("filter-year").value = new Date().getFullYear().toString();
-                document.getElementById("filter-month").value = new Date().getMonth().toString();
-                applyFilters(); // Znovu přefiltrovat pro aktuální měsíc
-
-            } catch (e) { alert("Chyba spojení."); }
-        }
-
-        function applyFilters() {
-            const month = document.getElementById('filter-month').value;
-            const year = document.getElementById('filter-year').value;
-            const term = document.getElementById('search-input').value.toLowerCase();
-
-            const filtered = allReservations.filter(r => {
-                const date = new Date(r.created || r.createdAt); // Datum vytvoření
-                
-                // Filtr Měsíc
-                if (month !== 'all' && date.getMonth().toString() !== month) return false;
-                // Filtr Rok
-                if (year !== 'all' && date.getFullYear().toString() !== year) return false;
-                // Hledání
-                if (term && !r.name.toLowerCase().includes(term) && !r.reservationCode.toLowerCase().includes(term)) return false;
-
-                return true;
-            });
-
-            renderTable(filtered);
-        }
-
-        function renderTable(data) {
-            const tbody = document.getElementById("table-body");
-            tbody.innerHTML = "";
+// --- FUNKCE PRO PDF (OPRAVENO DATUM A CENA) ---
+function createInvoicePdf(data) {
+    return new Promise((resolve, reject) => {
+        try {
+            const doc = new PDFDocument({ margin: 50, size: 'A4' });
+            let buffers = [];
             
-            if (data.length === 0) {
-                tbody.innerHTML = "<tr><td colspan='7' style='text-align:center; padding:20px; color:#999;'>Žádné záznamy pro tento měsíc/rok.</td></tr>";
-                return;
+            const fontPath = path.join(__dirname, 'Roboto-Regular.ttf');
+            if (fs.existsSync(fontPath)) doc.font(fontPath);
+            
+            doc.on('data', buffers.push.bind(buffers));
+            doc.on('end', () => resolve(Buffer.concat(buffers)));
+
+            // Zlatá linka
+            doc.strokeColor('#bfa37c').lineWidth(4).moveTo(50, 40).lineTo(545, 40).stroke();
+
+            // Nadpis
+            doc.fillColor('#333333').fontSize(24).text('FAKTURA', 50, 60);
+            doc.fontSize(10).fillColor('#666666').text('DAŇOVÝ DOKLAD', 50, 85);
+            
+            doc.fontSize(10).fillColor('#333333').text('Číslo dokladu:', 400, 65, { width: 145, align: 'right' });
+            doc.fontSize(12).text(data.reservationCode, 400, 80, { width: 145, align: 'right' });
+
+            doc.moveDown(2);
+
+            // Dodavatel / Odběratel
+            const topDetails = 130;
+            
+            doc.fontSize(10).fillColor('#888888').text('DODAVATEL', 50, topDetails);
+            doc.moveDown(0.5);
+            doc.fontSize(11).fillColor('#333333').text('Vozík 24/7 Mohelnice', {width: 200});
+            doc.fontSize(10).text('Mohelnice, Česká republika');
+            doc.text('Email: info@vozik247.cz');
+
+            doc.fontSize(10).fillColor('#888888').text('ODBĚRATEL', 300, topDetails);
+            doc.moveDown(0.5);
+            doc.fontSize(11).fillColor('#333333').text(data.name, 300);
+            doc.fontSize(10).text(data.email, 300);
+            doc.text(data.phone, 300);
+
+            doc.moveDown(3);
+
+            // Datumy (Manuální formátování pro jistotu)
+            const topDates = 230;
+            const now = new Date();
+            const dateStr = `${now.getDate()}.${now.getMonth() + 1}.${now.getFullYear()}`; // Formát D.M.RRRR
+            
+            doc.fillColor('#888888').text('Datum vystavení:', 50, topDates);
+            doc.fillColor('#333333').text(dateStr, 150, topDates);
+
+            doc.fillColor('#888888').text('DUZP:', 300, topDates);
+            doc.fillColor('#333333').text(dateStr, 350, topDates);
+
+            // Tabulka
+            const tableTop = 280;
+            doc.fillColor('#f4f4f4').rect(50, tableTop, 495, 25).fill();
+            doc.fillColor('#333333').fontSize(10);
+            if(fs.existsSync(fontPath)) doc.font(fontPath);
+            doc.text('Položka', 60, tableTop + 7);
+            doc.text('Cena', 450, tableTop + 7, { align: 'right', width: 80 });
+
+            // Položka - zajištění že cena je číslo
+            const itemY = tableTop + 35;
+            doc.fontSize(10).text(`Pronájem vozíku (${data.startDate} - ${data.endDate})`, 60, itemY);
+            
+            // Fix ceny: převedeme na číslo, pak na fixed(2)
+            let finalPrice = parseFloat(data.price);
+            if (isNaN(finalPrice)) finalPrice = 0;
+            const priceStr = finalPrice.toFixed(2).replace('.', ',') + ' Kč';
+
+            doc.text(priceStr, 450, itemY, { align: 'right', width: 80 });
+
+            doc.strokeColor('#eeeeee').lineWidth(1).moveTo(50, itemY + 20).lineTo(545, itemY + 20).stroke();
+
+            // Celkem
+            const totalY = itemY + 40;
+            doc.fontSize(12).fillColor('#333333').text('Celkem k úhradě:', 300, totalY, { align: 'right', width: 130 });
+            doc.fontSize(14).fillColor('#bfa37c').text(priceStr, 450, totalY - 2, { align: 'right', width: 80, bold: true });
+
+            doc.fontSize(10).fillColor('#666666').text('Způsob úhrady: Online platba (GoPay)', 50, totalY + 5);
+
+            // Patička
+            const bottomY = 750;
+            doc.fontSize(8).fillColor('#aaaaaa').text('Děkujeme za využití našich služeb.', 50, bottomY, { align: 'center', width: 500 });
+
+            doc.end();
+        } catch (e) {
+            reject(e);
+        }
+    });
+}
+
+// EMAILING
+async function sendReservationEmail(data, pdfBuffer) { 
+    if (!BREVO_API_KEY) return;
+    const startF = formatDateCz(data.startDate);
+    const endF = formatDateCz(data.endDate);
+
+    const htmlContent = `
+    <!DOCTYPE html><html><body style="font-family:Arial,sans-serif;">
+    <div style="max-width:600px;margin:0 auto;border:1px solid #eee;padding:20px;">
+    <h2 style="color:#bfa37c;">Rezervace potvrzena</h2>
+    <p>Dobrý den, <strong>${data.name}</strong>,</p>
+    <div style="background:#f9f9f9;padding:15px;border-left:5px solid #28a745;margin:20px 0;">
+    <h3 style="margin:0;">PIN K ZÁMKU:</h3>
+    <div style="font-size:24px;font-weight:bold;">${data.passcode}</div>
+    </div>
+    <p>Termín: ${startF} - ${endF} (${data.time})</p>
+    <p>Fakturu naleznete v příloze.</p>
+    </div></body></html>`;
+
+    let attachment = [];
+    if (pdfBuffer) {
+        attachment.push({
+            content: pdfBuffer.toString('base64'),
+            name: `faktura_${data.reservationCode}.pdf`
+        });
+    }
+
+    try {
+        await axios.post("https://api.brevo.com/v3/smtp/email", {
+            sender: { name: "Vozík 24/7", email: SENDER_EMAIL },
+            to: [{ email: data.email, name: data.name }],
+            subject: `Rezervace ${data.reservationCode}`,
+            htmlContent: htmlContent,
+            attachment: attachment 
+        }, { headers: { "api-key": BREVO_API_KEY, "Content-Type": "application/json" } });
+    } catch (e) { console.error("❌ Email error:", e.message); }
+}
+
+// TTLOCK LOGIKA
+async function getTTLockToken() {
+    const params = new URLSearchParams({ client_id: TTLOCK_CLIENT_ID, client_secret: TTLOCK_CLIENT_SECRET, username: TTLOCK_USERNAME, password: hashPassword(TTLOCK_PASSWORD), grant_type: "password", redirect_uri: "https://www.vozik247.cz" });
+    const res = await axios.post("https://euapi.ttlock.com/oauth2/token", params.toString());
+    return res.data.access_token;
+}
+
+async function addPinToLock(startStr, endStr, timeStr) {
+    try {
+        const token = await getTTLockToken();
+        const startMs = new Date(`${startStr}T${timeStr}:00`).getTime();
+        const endMs = new Date(`${endStr}T${timeStr}:00`).getTime() + 60000;
+        const pin = generatePin();
+        const params = { clientId: TTLOCK_CLIENT_ID, accessToken: token, lockId: MY_LOCK_ID, keyboardPwd: pin, startDate: startMs, endDate: endMs, date: Date.now(), addType: 2, keyboardPwdName: `Rez ${startStr}` };
+        const sign = crypto.createHash("md5").update(Object.keys(params).sort().map(k => `${k}=${params[k]}`).join("&") + TTLOCK_CLIENT_SECRET).digest("hex").toUpperCase();
+        const res = await axios.post("https://euapi.ttlock.com/v3/keyboardPwd/add", new URLSearchParams({ ...params, sign }).toString());
+        return { pin, keyboardPwdId: res.data.keyboardPwdId };
+    } catch (err) { console.error("⚠️ Lock Error"); return null; }
+}
+
+async function deletePinFromLock(keyboardPwdId) {
+    try {
+        const token = await getTTLockToken();
+        const params = { clientId: TTLOCK_CLIENT_ID, accessToken: token, lockId: MY_LOCK_ID, keyboardPwdId, date: Date.now() };
+        const sign = crypto.createHash("md5").update(Object.keys(params).sort().map(k => `${k}=${params[k]}`).join("&") + TTLOCK_CLIENT_SECRET).digest("hex").toUpperCase();
+        await axios.post("https://euapi.ttlock.com/v3/keyboardPwd/delete", new URLSearchParams({ ...params, sign }).toString());
+    } catch (e) {}
+}
+
+// ENDPOINTY
+app.get("/availability", async (req, res) => {
+    try { res.json(await Reservation.find({}, "startDate endDate time")); } catch (e) { res.status(500).send("Chyba"); }
+});
+
+app.post("/reserve-range", async (req, res) => {
+    const { startDate, endDate, time, name, email, phone, price } = req.body;
+    try {
+        const recent = await Reservation.findOne({ email, startDate, time, created: { $gt: new Date(Date.now() - 15000) } });
+        if (recent) return res.status(409).json({ error: "Rezervace již byla vytvořena." });
+
+        const nS = new Date(`${startDate}T${time}:00`).getTime();
+        const nE = new Date(`${endDate}T${time}:00`).getTime();
+        const exist = await Reservation.find();
+        for (let r of exist) {
+            if (nS < new Date(`${r.endDate}T${r.time}:00`).getTime() && nE > new Date(`${r.startDate}T${r.time}:00`).getTime()) {
+                return res.status(409).json({ error: "Obsazeno." });
             }
-
-            data.forEach(r => {
-                const created = new Date(r.created || r.createdAt);
-                const createdStr = `${created.getDate()}.${created.getMonth()+1}.${created.getFullYear()} <small>${created.getHours()}:${String(created.getMinutes()).padStart(2,'0')}</small>`;
-                
-                const start = new Date(r.startDate).toLocaleDateString("cs-CZ");
-                const end = new Date(r.endDate).toLocaleDateString("cs-CZ");
-                const price = r.price ? `${r.price} Kč` : "0 Kč";
-
-                // Odkaz na stažení faktury (přidáme heslo do URL, aby to prošlo přes checkAdmin middleware)
-                const pwd = localStorage.getItem("adminPass");
-                const invoiceUrl = `${API_BASE}/admin/reservations/${r._id}/invoice?pwd=${pwd}`;
-
-                const tr = document.createElement("tr");
-                tr.innerHTML = `
-                    <td><button onclick="deleteRes('${r._id}')" style="color:red; border:none; background:none; cursor:pointer;" title="Smazat">✖</button></td>
-                    <td>${createdStr}</td>
-                    <td><strong>${r.name}</strong><br><small>${r.email}</small></td>
-                    <td>${start} - ${end}<br><small>${r.time}</small></td>
-                    <td><div style="font-weight:bold;">${price}</div><span class="badge-pay pay-ok">ZAPLACENO</span></td>
-                    <td><span class="pin-cell">${r.passcode}</span></td>
-                    <td>
-                        <a href="${invoiceUrl}" target="_blank" class="btn-invoice"><i class="fa-solid fa-file-pdf"></i> Faktura</a>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            });
-        }
-
-        async function manualReserve() {
-            // ... (stejné jako předtím)
-            const startDate = document.getElementById("admin-start").value;
-            const endDate = document.getElementById("admin-end").value;
-            const time = document.getElementById("admin-time").value;
-            const name = document.getElementById("admin-name").value;
-            const email = document.getElementById("admin-email").value;
-            const phone = document.getElementById("admin-phone").value;
-            const price = document.getElementById("admin-price").value;
-
-            if(!startDate || !name) return alert("Vyplňte data");
-
-            await fetch(`${API_BASE}/reserve-range`, {
-                method: "POST", headers:{"Content-Type":"application/json"},
-                body: JSON.stringify({ startDate, endDate, time, name, email, phone, price })
-            });
-            loadReservations();
-        }
-
-        async function deleteRes(id) {
-            if(!confirm("Smazat?")) return;
-            await fetch(`${API_BASE}/admin/reservations/${id}`, { 
-                method: "DELETE", headers: { "x-admin-password": localStorage.getItem("adminPass") } 
-            });
-            loadReservations();
         }
         
-        window.onload = () => { if(localStorage.getItem("adminPass")) loadReservations(); };
-    </script>
-</body>
-</html>
+        let pin = "123456"; let lId = null;
+        const lock = await addPinToLock(startDate, endDate, time);
+        if (lock) { pin = lock.pin; lId = lock.keyboardPwdId; }
+        else pin = generatePin(); 
+
+        const rCode = generateResCode();
+        const reservation = new Reservation({ 
+            reservationCode: rCode, startDate, endDate, time, name, email, phone, passcode: pin, keyboardPwdId: lId, 
+            price: price || 0, paymentStatus: 'PAID' 
+        });
+        await reservation.save();
+        
+        let pdfBuffer = null;
+        try {
+            pdfBuffer = await createInvoicePdf({ reservationCode: rCode, startDate, endDate, name, email, phone, price: price || 0 });
+        } catch(e) { console.error("PDF Fail", e); }
+
+        sendReservationEmail({ reservationCode: rCode, startDate, endDate, time, name, email, passcode: pin, phone }, pdfBuffer);
+        
+        res.json({ success: true, pin, reservationCode: rCode });
+    } catch (e) { res.status(500).json({ error: "Chyba" }); }
+});
+
+// ADMIN API & PDF DOWNLOAD
+const checkAdmin = (req, res, next) => { 
+    if (req.headers["x-admin-password"] !== ADMIN_PASSWORD && req.query.pwd !== ADMIN_PASSWORD) return res.status(403).send("Forbidden"); 
+    next(); 
+};
+
+app.get("/admin/reservations", checkAdmin, async (req, res) => { res.json(await Reservation.find().sort({ created: -1 })); });
+
+// Endpoint pro stažení faktury zpětně (vygeneruje se na počkání)
+app.get("/admin/reservations/:id/invoice", checkAdmin, async (req, res) => {
+    try {
+        const r = await Reservation.findById(req.params.id);
+        if (!r) return res.status(404).send("Nenalezeno");
+        
+        const pdfBuffer = await createInvoicePdf({
+            reservationCode: r.reservationCode,
+            startDate: r.startDate,
+            endDate: r.endDate,
+            name: r.name,
+            email: r.email,
+            phone: r.phone,
+            price: r.price
+        });
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename=faktura_${r.reservationCode}.pdf`);
+        res.send(pdfBuffer);
+    } catch (e) {
+        res.status(500).send("Chyba při generování PDF");
+    }
+});
+
+app.delete("/admin/reservations/bulk", checkAdmin, async (req, res) => {
+    try { 
+        for (let id of req.body.ids) { 
+            const r = await Reservation.findById(id); 
+            if (r && r.keyboardPwdId) await deletePinFromLock(r.keyboardPwdId); 
+            await Reservation.findByIdAndDelete(id); 
+        } 
+        res.json({ success: true }); 
+    } catch (e) { res.status(500).json({ error: "Chyba" }); }
+});
+
+app.delete("/admin/reservations/:id", checkAdmin, async (req, res) => {
+    try { 
+        const r = await Reservation.findById(req.params.id); 
+        if (r && r.keyboardPwdId) await deletePinFromLock(r.keyboardPwdId); 
+        await Reservation.findByIdAndDelete(req.params.id); 
+        res.json({ success: true }); 
+    } catch (e) { res.status(500).json({ error: "Chyba" }); }
+});
+
+app.post("/admin/reservations/:id/archive", checkAdmin, async (req, res) => {
+    try { 
+        const r = await Reservation.findById(req.params.id); 
+        if (r) { 
+            if (r.keyboardPwdId) await deletePinFromLock(r.keyboardPwdId); 
+            r.keyboardPwdId = null; 
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            r.endDate = yesterday.toISOString().split('T')[0];
+            await r.save(); 
+        } 
+        res.json({ success: true }); 
+    } catch (e) { res.status(500).json({ error: "Chyba" }); }
+});
+
+// Zbytek serveru...
+app.post("/retrieve-booking", async (req, res) => {
+    const { code } = req.body;
+    try {
+        const r = await Reservation.findOne({ reservationCode: code.toUpperCase() });
+        if (r) {
+            const diff = Math.max(1, Math.ceil(Math.abs(new Date(r.endDate) - new Date(r.startDate)) / 86400000));
+            res.json({ success: true, pin: r.passcode, start: formatDateCz(r.startDate) + " " + r.time, end: formatDateCz(r.endDate) + " " + r.time, car: "Vozík č. 1", price: diff * 230 + " Kč", status: "AKTIVNÍ", orderId: r.reservationCode });
+        } else res.json({ success: false });
+    } catch (e) { res.status(500).json({ success: false }); }
+});
+
+setInterval(async () => {
+    const now = Date.now();
+    const active = await Reservation.find({ keyboardPwdId: { $ne: null } });
+    for (let r of active) {
+        if (new Date(`${r.endDate}T${r.time}:00`).getTime() < now) { 
+            await deletePinFromLock(r.keyboardPwdId); 
+            r.keyboardPwdId = null; 
+            await r.save(); 
+        }
+    }
+}, 3600000);
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, "0.0.0.0", () => console.log(`🚀 Port ${PORT}`));
