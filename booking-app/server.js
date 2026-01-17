@@ -8,7 +8,7 @@ const crypto = require("crypto");
 const { URLSearchParams } = require("url");
 const path = require("path");
 const PDFDocument = require('pdfkit'); 
-const fs = require('fs'); // Přidáno pro kontrolu souboru
+const fs = require('fs');
 
 const app = express();
 app.use(cors());
@@ -62,56 +62,100 @@ function generateResCode() { return Math.random().toString(36).substring(2, 8).t
 function generatePin() { return Array.from({ length: 6 }, () => Math.floor(Math.random() * 10)).join(""); }
 function hashPassword(password) { return crypto.createHash("md5").update(password).digest("hex"); }
 
-// --- FUNKCE PRO PDF (S ČESKÝM FONTEM) ---
+// --- FUNKCE PRO PDF (PROFESIONÁLNÍ VZHLED) ---
 function createInvoicePdf(data) {
     return new Promise((resolve, reject) => {
         try {
-            const doc = new PDFDocument({ margin: 50 });
+            const doc = new PDFDocument({ margin: 50, size: 'A4' });
             let buffers = [];
             
-            // 1. Zkusíme načíst font Roboto (pro češtinu)
+            // Načtení fontu pro češtinu
             const fontPath = path.join(__dirname, 'Roboto-Regular.ttf');
             if (fs.existsSync(fontPath)) {
-                doc.font(fontPath); // Použijeme vlastní font
+                doc.font(fontPath);
             } else {
-                console.warn("⚠️ Font Roboto-Regular.ttf nenalezen, čeština v PDF může být rozbitá!");
-                // Fallback na standardní font (nebude umět háčky)
+                console.warn("⚠️ Font Roboto-Regular.ttf nenalezen!");
             }
 
             doc.on('data', buffers.push.bind(buffers));
             doc.on('end', () => resolve(Buffer.concat(buffers)));
 
-            // Hlavička
-            doc.fontSize(20).text('Faktura - Daňový doklad', { align: 'center' });
-            doc.moveDown();
-            
-            // Dodavatel
-            doc.fontSize(10).text('Dodavatel:', { underline: true });
-            doc.text('Vozík 24/7 Mohelnice');
-            // doc.text('IČO: ...'); 
-            doc.moveDown();
+            // --- HLAVIČKA ---
+            // Zlatá linka nahoře (branding)
+            doc.strokeColor('#bfa37c').lineWidth(4).moveTo(50, 40).lineTo(545, 40).stroke();
 
-            // Odběratel
-            doc.text('Odběratel:', { underline: true });
-            doc.text(data.name);
-            doc.text(data.email);
-            doc.text(data.phone);
-            doc.moveDown();
-
-            // Detaily
-            doc.text(`Číslo rezervace: ${data.reservationCode}`);
-            doc.text(`Datum vystavení: ${new Date().toLocaleDateString('cs-CZ')}`);
-            doc.moveDown();
-
-            // Položky
-            // U ceny použijeme .toFixed(2) pro formát, nebo jen string
-            const cena = data.price ? data.price : 0;
+            // Nadpis
+            doc.fillColor('#333333').fontSize(24).text('FAKTURA', 50, 60);
+            doc.fontSize(10).fillColor('#666666').text('DAŇOVÝ DOKLAD', 50, 85);
             
-            doc.text(`Pronájem vozíku (${data.startDate} - ${data.endDate})`, { continued: true });
-            doc.text(`${cena} Kč`, { align: 'right' });
+            // Číslo faktury vpravo
+            doc.fontSize(10).fillColor('#333333').text('Číslo dokladu:', 400, 65, { width: 145, align: 'right' });
+            doc.fontSize(12).text(data.reservationCode, 400, 80, { width: 145, align: 'right' });
+
+            doc.moveDown(2);
+
+            // --- SEKCE DODAVATEL / ODBĚRATEL ---
+            const topDetails = 130;
             
-            doc.moveDown();
-            doc.fontSize(12).text(`Celkem zaplaceno: ${cena} Kč`, { align: 'right', bold: true });
+            // Levý sloupec - DODAVATEL
+            doc.fontSize(10).fillColor('#888888').text('DODAVATEL', 50, topDetails);
+            doc.moveDown(0.5);
+            doc.fontSize(11).fillColor('#333333').text('Vozík 24/7 Mohelnice', {width: 200});
+            doc.fontSize(10).text('Mohelnice, Česká republika');
+            doc.text('Email: info@vozik247.cz');
+            // Zde si můžeš doplnit IČO/DIČ
+            // doc.text('IČO: 12345678'); 
+
+            // Pravý sloupec - ODBĚRATEL
+            doc.fontSize(10).fillColor('#888888').text('ODBĚRATEL', 300, topDetails);
+            doc.moveDown(0.5);
+            doc.fontSize(11).fillColor('#333333').text(data.name, 300);
+            doc.fontSize(10).text(data.email, 300);
+            doc.text(data.phone, 300);
+
+            doc.moveDown(3);
+
+            // --- DATA ---
+            const topDates = 230;
+            
+            // Datum vystavení
+            doc.fillColor('#888888').text('Datum vystavení:', 50, topDates);
+            doc.fillColor('#333333').text(new Date().toLocaleDateString('cs-CZ'), 150, topDates);
+
+            // Datum zdan. plnění (stejné jako vystavení)
+            doc.fillColor('#888888').text('DUZP:', 300, topDates);
+            doc.fillColor('#333333').text(new Date().toLocaleDateString('cs-CZ'), 350, topDates);
+
+            // --- TABULKA POLOŽEK ---
+            const tableTop = 280;
+            
+            // Záhlaví tabulky (šedý pruh)
+            doc.fillColor('#f4f4f4').rect(50, tableTop, 495, 25).fill();
+            doc.fillColor('#333333').fontSize(10).font(fontPath).text('Položka', 60, tableTop + 7);
+            doc.text('Cena', 450, tableTop + 7, { align: 'right', width: 80 });
+
+            // Položka 1
+            const itemY = tableTop + 35;
+            doc.fontSize(10).text(`Pronájem vozíku (${data.startDate} - ${data.endDate})`, 60, itemY);
+            
+            const cena = data.price ? parseFloat(data.price).toFixed(2) : "0.00";
+            doc.text(`${cena} Kč`, 450, itemY, { align: 'right', width: 80 });
+
+            // Linka pod položkou
+            doc.strokeColor('#eeeeee').lineWidth(1).moveTo(50, itemY + 20).lineTo(545, itemY + 20).stroke();
+
+            // --- CELKEM ---
+            const totalY = itemY + 40;
+            doc.fontSize(12).fillColor('#333333').text('Celkem k úhradě:', 300, totalY, { align: 'right', width: 130 });
+            doc.fontSize(14).fillColor('#bfa37c').text(`${cena} Kč`, 450, totalY - 2, { align: 'right', width: 80, bold: true });
+
+            // Způsob úhrady
+            doc.fontSize(10).fillColor('#666666').text('Způsob úhrady: Online platba (GoPay)', 50, totalY + 5);
+
+            // Patička
+            const bottomY = 750;
+            doc.fontSize(8).fillColor('#aaaaaa').text('Děkujeme za využití našich služeb.', 50, bottomY, { align: 'center', width: 500 });
+            doc.text('Vygenerováno automaticky systémem Vozík 24/7.', 50, bottomY + 15, { align: 'center', width: 500 });
 
             doc.end();
         } catch (e) {
