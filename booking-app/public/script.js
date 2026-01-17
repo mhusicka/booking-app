@@ -84,7 +84,7 @@ function clearAllErrors() {
 }
 
 
-// === HLAVNÍ FUNKCE ODESLÁNÍ (BEZ ALERTŮ) ===
+// === HLAVNÍ FUNKCE ODESLÁNÍ ===
 async function submitReservation() {
     if (isSubmitting) return; 
 
@@ -138,7 +138,7 @@ async function submitReservation() {
             const params = new URLSearchParams({ pin: result.pin, start: startDate, end: endDate, time: time, orderId: result.reservationCode });
             window.location.href = `success.html?${params.toString()}`;
         } else {
-            alert("Chyba rezervace: " + (result.error || "Termín je již obsazen.")); // Zde alert necháme pro server chyby
+            alert("Chyba rezervace: " + (result.error || "Termín je již obsazen."));
             btn.innerText = "REZERVOVAT A ZAPLATIT"; 
             btn.disabled = false;
             btn.style.opacity = "1";
@@ -154,7 +154,7 @@ async function submitReservation() {
 }
 
 
-// === POMOCNÉ FUNKCE (ZBYTEK KÓDU) ===
+// === POMOCNÉ FUNKCE ===
 window.closeModal = function() {
     const modals = document.querySelectorAll('.modal-overlay');
     modals.forEach(m => m.style.display = 'none');
@@ -197,7 +197,7 @@ function setNow() {
     
     updateSummaryUI();
     renderSingleCalendar();
-    // Vyčistit chybu kalendáře pokud byla zobrazena
+    
     const errCal = document.getElementById("error-calendar");
     if(errCal) errCal.innerText = "";
 }
@@ -336,8 +336,14 @@ function handleHoverLogic(hoverDate) {
 
 function handleDayClick(dateStr) {
     if (startDate === dateStr && !endDate) { startDate = null; renderSingleCalendar(); updateSummaryUI(); return; }
+    
     if (!startDate || (startDate && endDate)) { 
-        startDate = dateStr; endDate = null; checkAvailabilityTime(dateStr);
+        startDate = dateStr; 
+        endDate = null; 
+        
+        // ZDE VOLÁME KONTROLU ČASU, KTERÁ AUTOMATICKY NASTAVÍ ČAS
+        checkAndSetTimeFromReservation(dateStr);
+        
         const hintEl = document.getElementById("time-hint");
         if (hintEl) { hintEl.innerText = "Vyberte datum vrácení..."; hintEl.style.display = "block"; hintEl.style.color = "#bfa37c"; }
     } else {
@@ -349,26 +355,44 @@ function handleDayClick(dateStr) {
     document.querySelectorAll('.day.hover-range').forEach(d => d.classList.remove('hover-range'));
     updateSummaryUI(); renderSingleCalendar();
     
-    // Nové: Vyčistit chybu kalendáře pokud uživatel klikne
     const errCal = document.getElementById("error-calendar");
     if(errCal) errCal.innerText = "";
 }
 
-function checkAvailabilityTime(dateStr) {
+// === TOTO JE TA FUNKCE, CO AUTOMATICKY MĚNÍ ČAS ===
+function checkAndSetTimeFromReservation(dateStr) {
     const hintEl = document.getElementById("time-hint");
     const timeInp = document.getElementById("inp-time");
+    
     if (hintEl) hintEl.style.display = "none";
     if (!Array.isArray(cachedReservations)) return;
+
+    // 1. Podíváme se, jestli v tento den NĚCO KONČÍ
     const blockingRes = cachedReservations.find(r => r.endDate === dateStr);
+    
     if (blockingRes) {
+        // Pokud ano, vezmeme čas konce a nastavíme ho do formuláře
         const freeFromTime = blockingRes.time || "12:00";
-        if (timeInp) { timeInp.value = freeFromTime; timeInp.style.backgroundColor = "#fff3cd"; setTimeout(() => timeInp.style.backgroundColor = "white", 500); }
-        if (hintEl) { hintEl.innerText = `⚠️ Uvolní se až v ${freeFromTime}`; hintEl.style.color = "#d9534f"; hintEl.style.display = "block"; }
+        
+        if (timeInp) { 
+            timeInp.value = freeFromTime; 
+            // Bliknutí pro upozornění
+            timeInp.style.backgroundColor = "#fff3cd"; 
+            setTimeout(() => timeInp.style.backgroundColor = "white", 1000); 
+        }
+        
+        if (hintEl) { 
+            hintEl.innerText = `⚠️ Uvolní se až v ${freeFromTime}`; 
+            hintEl.style.color = "#d9534f"; 
+            hintEl.style.display = "block"; 
+        }
     } else {
+        // 2. Podíváme se, jestli v tento den NĚCO ZAČÍNÁ (pro informaci)
         const startingRes = cachedReservations.find(r => r.startDate === dateStr);
         if (startingRes && hintEl) {
             hintEl.innerText = `⚠️ Rezervováno od ${startingRes.time || "12:00"}`;
-            hintEl.style.color = "#e67e22"; hintEl.style.display = "block";
+            hintEl.style.color = "#e67e22"; 
+            hintEl.style.display = "block";
         }
     }
 }
@@ -408,7 +432,6 @@ function quickCheckRedirect() {
     const code = input.value.trim().toUpperCase();
     
     if (code.length < 3) {
-        // Zde můžeme také zvýraznit input místo alertu
         input.style.border = "1px solid red";
         setTimeout(() => input.style.border = "none", 1000);
         input.focus();
@@ -423,7 +446,6 @@ function handleEnter(e) {
     }
 }
 
-// === FUNKCE PRO POSUN Z PATIČKY K VYHLEDÁVÁNÍ ===
 function scrollToCheck() {
     const searchBox = document.querySelector('.mini-search-box');
     const input = document.getElementById('quick-check-input');
@@ -436,30 +458,3 @@ function scrollToCheck() {
 }
 
 document.addEventListener("DOMContentLoaded", init);
-
-// --- NOVÁ FUNKCE: Automatické nastavení času podle obsazenosti ---
-function autoSetAvailableTime(selectedDateStr) {
-    // selectedDateStr musí být ve formátu YYYY-MM-DD
-    
-    // 1. Najdeme rezervaci, která v tento den KONČÍ
-    // (cachedReservations je proměnná, kterou už ve scriptu máš z načtení kalendáře)
-    const blockingReservation = cachedReservations.find(res => res.endDate === selectedDateStr);
-
-    const timeInput = document.getElementById("inp-time");
-
-    if (blockingReservation) {
-        console.log("Na tento den končí rezervace v:", blockingReservation.time);
-        
-        // Nastavíme čas formuláře na čas konce té rezervace
-        // Můžeme přidat logiku "plus hodina", ale pro jednoduchost dáme stejný čas
-        // (Vozík je k dispozici od okamžiku vrácení)
-        timeInput.value = blockingReservation.time;
-        
-        // Volitelně: Upozorníme uživatele bliknutím nebo změnou barvy
-        timeInput.style.backgroundColor = "#fff3cd"; // Žlutá pro upozornění
-        setTimeout(() => timeInput.style.backgroundColor = "", 1000);
-    } else {
-        // Pokud žádná rezervace nekončí, nastavíme default (např. 08:00 nebo aktuální čas)
-        // timeInput.value = "08:00"; // Odkomentuj, pokud chceš vracet default
-    }
-}
