@@ -9,43 +9,62 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
-        /* OPRAVA ZAROVNÁNÍ TLAČÍTEK V POTVRZENÍ */
+        /* DEFINITIVNÍ OPRAVA TLAČÍTEK V POTVRZENÍ */
         .success-buttons {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            margin-top: 25px;
-            width: 100%;
-            align-items: center;
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 10px !important;
+            margin-top: 25px !important;
+            width: 100% !important;
+            align-items: center !important;
         }
 
+        /* Společné vlastnosti pro obě tlačítka (vynucení stejného vzhledu) */
         .success-buttons .btn-pay, 
         .success-buttons .btn-problem {
+            display: flex !important;
+            justify-content: center !important;
+            align-items: center !important;
             width: 100% !important;
-            max-width: 300px;
-            margin: 0 !important;
-            text-align: center;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            box-sizing: border-box;
+            max-width: 300px !important; /* Fixní šířka pro obě */
+            height: 50px !important;     /* Fixní výška pro obě */
+            margin: 0 !important;        /* Zrušení všech vnějších okrajů */
+            padding: 0 !important;
+            border-radius: 8px !important;
+            font-family: 'Montserrat', sans-serif !important;
+            font-size: 16px !important;
+            font-weight: 800 !important;
+            text-decoration: none !important;
+            box-sizing: border-box !important;
+            cursor: pointer !important;
+            transition: 0.3s !important;
         }
 
+        /* Červené tlačítko s telefonem */
         .btn-problem {
-            background-color: transparent !important;
-            border: 2px solid #d9534f !important;
-            color: #d9534f !important;
-            padding: 12px 20px;
-            border-radius: 8px;
-            text-decoration: none;
-            font-size: 0.9rem;
-            font-weight: 800;
-            transition: 0.3s;
+            background-color: #d9534f !important;
+            color: white !important;
+            border: none !important;
         }
 
         .btn-problem:hover {
-            background-color: #d9534f !important;
-            color: white !important;
+            background-color: #b52b27 !important;
+        }
+
+        /* Bílé tlačítko zpět */
+        .success-buttons .btn-pay {
+            background-color: white !important;
+            color: #333 !important;
+            border: 2px solid #ddd !important;
+        }
+
+        .success-buttons .btn-pay:hover {
+            background-color: #f5f5f5 !important;
+            border-color: #bbb !important;
+        }
+        
+        .success-buttons i {
+            margin-right: 10px; /* Mezera pro ikonu telefonu */
         }
     </style>
 </head>
@@ -210,8 +229,8 @@
     <div id="modal-success" class="modal-overlay" style="display: none;">
         <div class="modal-content" style="text-align: center; border-top: 5px solid #28a745;">
             <div style="font-size: 50px; color: #28a745; margin-bottom: 10px;"><i class="fa-solid fa-circle-check"></i></div>
-            <h2 style="color: #333; margin-bottom: 10px;">Platba proběhla úspěšně!</h2>
-            <p>Děkujeme za vaši rezervaci. PIN kód k zámku byl odeslán na váš email.</p>
+            <h2 style="color: #333; margin-bottom: 10px;">Rezervace úspěšná!</h2>
+            <p>Potvrzení bylo odesláno na email.</p>
             
             <div style="background: #f9f9f9; padding: 20px; border-radius: 10px; margin: 20px 0; border: 2px dashed #bfa37c;">
                 <span style="font-size: 0.8rem; color: #888; text-transform: uppercase;">Váš PIN k zámku:</span><br>
@@ -219,8 +238,12 @@
             </div>
 
             <div class="success-buttons">
-                <button class="btn-pay" onclick="location.href='/'">ZPĚT NA ÚVOD</button>
-                <a href="tel:+420777123456" class="btn-problem">MÁM PROBLÉM (VOLAT)</a>
+                <a href="tel:+420777123456" class="btn-problem">
+                    <i class="fa-solid fa-phone"></i> Mám problém (Volat)
+                </a>
+                <button class="btn-pay" onclick="location.href='/'">
+                    Zpět na úvod
+                </button>
             </div>
         </div>
     </div>
@@ -255,7 +278,7 @@
         <h2>Kde nás najdete?</h2>
         <p><strong>Dubová 1490/2, Mohelnice</strong></p>
         <div class="map-container">
-            <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2572.646545722421!2d16.92348547683935!3d49.77391913583279!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x4712079075e7a935%3A0xc3f2c5e533c39371!2zRHVib3bDoSAxNDkwLzIsIDc4OSA4NSBNb2hlbG5pY2U!5e0!3m2!1scs!2scz!4v1700000000000!5m2!1scs!2scz" 
+            <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2572.50284568461!2d16.9209581!3d49.7760667!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x471206f47053e1f3%3A0xc330e70a359223e7!2sDubov%C3%A1%201490%2F2%2C%20789%2085%20Mohelnice!5e0!3m2!1scs!2scz!4v1715600000000!5m2!1scs!2scz" 
             width="100%" height="350" style="border:0;" allowfullscreen="" loading="lazy"></iframe>
         </div>
     </div>
