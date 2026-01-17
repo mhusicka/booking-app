@@ -7,7 +7,8 @@ const axios = require("axios");
 const crypto = require("crypto");
 const { URLSearchParams } = require("url");
 const path = require("path");
-const PDFDocument = require('pdfkit'); // 1. PŘIDÁNO: Knihovna pro PDF
+const PDFDocument = require('pdfkit'); 
+const fs = require('fs'); // Přidáno pro kontrolu souboru
 
 const app = express();
 app.use(cors());
@@ -38,7 +39,7 @@ mongoose.connect(MONGO_URI).then(async () => {
     } catch (e) {}
 }).catch(err => console.error("❌ Chyba DB:", err));
 
-// SCHÉMA - 2. PŘIDÁNO: cena a paymentStatus pro Admina
+// SCHÉMA
 const ReservationSchema = new mongoose.Schema({
     reservationCode: String,
     startDate: String,
@@ -49,8 +50,8 @@ const ReservationSchema = new mongoose.Schema({
     phone: String,
     passcode: String,
     keyboardPwdId: Number,
-    price: { type: Number, default: 0 },         // Nové
-    paymentStatus: { type: String, default: 'PAID' }, // Nové
+    price: { type: Number, default: 0 },
+    paymentStatus: { type: String, default: 'PAID' }, 
     created: { type: Date, default: Date.now }
 });
 const Reservation = mongoose.model("Reservation", ReservationSchema);
@@ -61,12 +62,22 @@ function generateResCode() { return Math.random().toString(36).substring(2, 8).t
 function generatePin() { return Array.from({ length: 6 }, () => Math.floor(Math.random() * 10)).join(""); }
 function hashPassword(password) { return crypto.createHash("md5").update(password).digest("hex"); }
 
-// 3. PŘIDÁNO: Funkce pro generování PDF Faktury
+// --- FUNKCE PRO PDF (S ČESKÝM FONTEM) ---
 function createInvoicePdf(data) {
     return new Promise((resolve, reject) => {
         try {
             const doc = new PDFDocument({ margin: 50 });
             let buffers = [];
+            
+            // 1. Zkusíme načíst font Roboto (pro češtinu)
+            const fontPath = path.join(__dirname, 'Roboto-Regular.ttf');
+            if (fs.existsSync(fontPath)) {
+                doc.font(fontPath); // Použijeme vlastní font
+            } else {
+                console.warn("⚠️ Font Roboto-Regular.ttf nenalezen, čeština v PDF může být rozbitá!");
+                // Fallback na standardní font (nebude umět háčky)
+            }
+
             doc.on('data', buffers.push.bind(buffers));
             doc.on('end', () => resolve(Buffer.concat(buffers)));
 
@@ -77,7 +88,7 @@ function createInvoicePdf(data) {
             // Dodavatel
             doc.fontSize(10).text('Dodavatel:', { underline: true });
             doc.text('Vozík 24/7 Mohelnice');
-            // doc.text('IČO: doplnit'); // Doplnit dle potřeby
+            // doc.text('IČO: ...'); 
             doc.moveDown();
 
             // Odběratel
@@ -93,11 +104,14 @@ function createInvoicePdf(data) {
             doc.moveDown();
 
             // Položky
+            // U ceny použijeme .toFixed(2) pro formát, nebo jen string
+            const cena = data.price ? data.price : 0;
+            
             doc.text(`Pronájem vozíku (${data.startDate} - ${data.endDate})`, { continued: true });
-            doc.text(`${data.price || 0} Kč`, { align: 'right' });
+            doc.text(`${cena} Kč`, { align: 'right' });
             
             doc.moveDown();
-            doc.fontSize(12).text(`Celkem zaplaceno: ${data.price || 0} Kč`, { align: 'right', bold: true });
+            doc.fontSize(12).text(`Celkem zaplaceno: ${cena} Kč`, { align: 'right', bold: true });
 
             doc.end();
         } catch (e) {
@@ -106,7 +120,7 @@ function createInvoicePdf(data) {
     });
 }
 
-// EMAILING - 4. UPRAVENO: Přijímá PDF buffer a posílá ho jako přílohu
+// EMAILING
 async function sendReservationEmail(data, pdfBuffer) { 
     if (!BREVO_API_KEY) return;
     const startF = formatDateCz(data.startDate);
@@ -128,7 +142,6 @@ async function sendReservationEmail(data, pdfBuffer) {
     <tr><td align="center" style="background:#333;padding:30px;color:#fff;border-radius:0 0 12px 12px;"><p style="font-weight:bold;margin:0;">Přívěsný vozík 24/7 Mohelnice</p><p style="font-size:11px;color:#aaa;margin-top:10px;">Automatická zpráva. info@vozik247.cz</p></td></tr>
     </table></td></tr></table></body></html>`;
 
-    // Příprava přílohy pro Brevo (pokud existuje PDF)
     let attachment = [];
     if (pdfBuffer) {
         attachment.push({
@@ -143,7 +156,7 @@ async function sendReservationEmail(data, pdfBuffer) {
             to: [{ email: data.email, name: data.name }],
             subject: `Potvrzení rezervace - ${data.reservationCode}`,
             htmlContent: htmlContent,
-            attachment: attachment // Přidání přílohy
+            attachment: attachment 
         }, { headers: { "api-key": BREVO_API_KEY, "Content-Type": "application/json" } });
     } catch (e) { console.error("❌ Email error:", e.message); }
 }
@@ -183,7 +196,7 @@ app.get("/availability", async (req, res) => {
 });
 
 app.post("/reserve-range", async (req, res) => {
-    const { startDate, endDate, time, name, email, phone, price } = req.body; // 5. UPRAVENO: Čteme i "price"
+    const { startDate, endDate, time, name, email, phone, price } = req.body;
     try {
         const recent = await Reservation.findOne({ email, startDate, time, created: { $gt: new Date(Date.now() - 15000) } });
         if (recent) return res.status(409).json({ error: "Rezervace již byla vytvořena." });
@@ -203,14 +216,13 @@ app.post("/reserve-range", async (req, res) => {
         else pin = generatePin(); 
 
         const rCode = generateResCode();
-        // 6. UPRAVENO: Ukládáme i price a paymentStatus
         const reservation = new Reservation({ 
             reservationCode: rCode, startDate, endDate, time, name, email, phone, passcode: pin, keyboardPwdId: lId, 
             price: price || 0, paymentStatus: 'PAID' 
         });
         await reservation.save();
         
-        // 7. UPRAVENO: Generování PDF a odeslání emailu
+        // Generování PDF
         let pdfBuffer = null;
         try {
             pdfBuffer = await createInvoicePdf({ reservationCode: rCode, startDate, endDate, name, email, phone, price: price || 0 });
@@ -233,12 +245,11 @@ app.post("/retrieve-booking", async (req, res) => {
     } catch (e) { res.status(500).json({ success: false }); }
 });
 
-// ADMIN API (Automaticky vrací nové pole díky Reservation.find())
+// ADMIN API
 const checkAdmin = (req, res, next) => { if (req.headers["x-admin-password"] !== ADMIN_PASSWORD) return res.status(403).send("Forbidden"); next(); };
 
 app.get("/admin/reservations", checkAdmin, async (req, res) => { res.json(await Reservation.find().sort({ created: -1 })); });
 
-// Smazání hromadné (i z TTLocku)
 app.delete("/admin/reservations/bulk", checkAdmin, async (req, res) => {
     try { 
         for (let id of req.body.ids) { 
@@ -250,7 +261,6 @@ app.delete("/admin/reservations/bulk", checkAdmin, async (req, res) => {
     } catch (e) { res.status(500).json({ error: "Chyba" }); }
 });
 
-// Smazání jedné (i z TTLocku)
 app.delete("/admin/reservations/:id", checkAdmin, async (req, res) => {
     try { 
         const r = await Reservation.findById(req.params.id); 
@@ -260,27 +270,21 @@ app.delete("/admin/reservations/:id", checkAdmin, async (req, res) => {
     } catch (e) { res.status(500).json({ error: "Chyba" }); }
 });
 
-// Archivace / Ukončení (i z TTLocku + změna data pro UI)
 app.post("/admin/reservations/:id/archive", checkAdmin, async (req, res) => {
     try { 
         const r = await Reservation.findById(req.params.id); 
         if (r) { 
-            // 1. Smazat PIN z TTLocku
             if (r.keyboardPwdId) await deletePinFromLock(r.keyboardPwdId); 
             r.keyboardPwdId = null; 
-
-            // 2. Nastavit datum na včerejšek (pro vizuální přesun do archivu)
             const yesterday = new Date();
             yesterday.setDate(yesterday.getDate() - 1);
             r.endDate = yesterday.toISOString().split('T')[0];
-
             await r.save(); 
         } 
         res.json({ success: true }); 
     } catch (e) { res.status(500).json({ error: "Chyba" }); }
 });
 
-// Automatický úklid po expiraci (každou hodinu)
 setInterval(async () => {
     const now = Date.now();
     const active = await Reservation.find({ keyboardPwdId: { $ne: null } });
