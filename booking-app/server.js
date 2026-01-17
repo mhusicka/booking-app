@@ -61,6 +61,15 @@ function formatDateCz(dateStr) {
     const d = new Date(dateStr);
     return `${d.getDate()}.${d.getMonth() + 1}.${d.getFullYear()}`;
 }
+
+// Pomocná funkce pro PDF (vždy DD.MM.RRRR z YYYY-MM-DD)
+function formatToInvoiceDate(isoDateStr) {
+    if (!isoDateStr) return "";
+    const parts = isoDateStr.split('-');
+    if (parts.length !== 3) return isoDateStr;
+    return `${parseInt(parts[2])}.${parseInt(parts[1])}.${parts[0]}`;
+}
+
 function generateResCode() { return Math.random().toString(36).substring(2, 8).toUpperCase(); }
 function generatePin() { return Array.from({ length: 6 }, () => Math.floor(Math.random() * 10)).join(""); }
 function hashPassword(password) { return crypto.createHash("md5").update(password).digest("hex"); }
@@ -110,13 +119,13 @@ function createInvoicePdf(data) {
             // Datumy (D.M.RRRR)
             const topDates = 230;
             const now = new Date();
-            const dateStr = `${now.getDate()}.${now.getMonth() + 1}.${now.getFullYear()}`; 
+            const todayStr = `${now.getDate()}.${now.getMonth() + 1}.${now.getFullYear()}`; 
             
             doc.fillColor('#888888').text('Datum vystavení:', 50, topDates);
-            doc.fillColor('#333333').text(dateStr, 150, topDates);
+            doc.fillColor('#333333').text(todayStr, 150, topDates);
 
             doc.fillColor('#888888').text('DUZP:', 300, topDates);
-            doc.fillColor('#333333').text(dateStr, 350, topDates);
+            doc.fillColor('#333333').text(todayStr, 350, topDates);
 
             // Tabulka
             const tableTop = 280;
@@ -126,9 +135,11 @@ function createInvoicePdf(data) {
             doc.text('Položka', 60, tableTop + 7);
             doc.text('Cena', 450, tableTop + 7, { align: 'right', width: 80 });
 
-            // Položka 
+            // Položka s opraveným formátem data
             const itemY = tableTop + 35;
-            doc.fontSize(10).text(`Pronájem vozíku (${data.startDate} - ${data.endDate})`, 60, itemY);
+            const displayStart = formatToInvoiceDate(data.startDate);
+            const displayEnd = formatToInvoiceDate(data.endDate);
+            doc.fontSize(10).text(`Pronájem vozíku (${displayStart} - ${displayEnd})`, 60, itemY);
             
             // Fix ceny: zajistíme formát
             let finalPrice = parseFloat(data.price);
@@ -144,7 +155,7 @@ function createInvoicePdf(data) {
             doc.fontSize(12).fillColor('#333333').text('Celkem k úhradě:', 300, totalY, { align: 'right', width: 130 });
             doc.fontSize(14).fillColor('#bfa37c').text(priceStr, 450, totalY - 2, { align: 'right', width: 80, bold: true });
 
-            doc.fontSize(10).fillColor('#666666').text('Způsob úhrady: Online platba (GoPay)', 50, totalY + 5);
+            doc.fontSize(10).fillColor('#666666').text('Způsob úhrady: Online platba', 50, totalY + 5);
 
             // Patička
             const bottomY = 750;
@@ -233,8 +244,6 @@ app.get("/availability", async (req, res) => {
 });
 
 app.post("/reserve-range", async (req, res) => {
-    // 1. ZDE JE OPRAVA CENY
-    // Čteme cenu z body, ale pokud tam není, dopočítáme ji
     const { startDate, endDate, time, name, email, phone, price } = req.body;
     
     try {
@@ -257,7 +266,6 @@ app.post("/reserve-range", async (req, res) => {
 
         const rCode = generateResCode();
         
-        // VÝPOČET CENY NA SERVERU (pokud ji klient nepošle)
         let finalPrice = price;
         if (!finalPrice || finalPrice == 0) {
             const diffTime = Math.abs(new Date(endDate) - new Date(startDate));
@@ -290,7 +298,6 @@ const checkAdmin = (req, res, next) => {
 
 app.get("/admin/reservations", checkAdmin, async (req, res) => { res.json(await Reservation.find().sort({ created: -1 })); });
 
-// Endpoint pro stažení faktury zpětně (vygeneruje se na počkání)
 app.get("/admin/reservations/:id/invoice", checkAdmin, async (req, res) => {
     try {
         const r = await Reservation.findById(req.params.id);
@@ -349,7 +356,6 @@ app.post("/admin/reservations/:id/archive", checkAdmin, async (req, res) => {
     } catch (e) { res.status(500).json({ error: "Chyba" }); }
 });
 
-// Zbytek serveru...
 app.post("/retrieve-booking", async (req, res) => {
     const { code } = req.body;
     try {
