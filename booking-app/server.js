@@ -5,9 +5,9 @@ const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
 const axios = require("axios"); 
 const path = require("path");
-const PDFDocument = require('pdfkit'); // Pro faktury
-const nodemailer = require('nodemailer'); // Pro emaily s přílohou
-const crypto = require('crypto'); // Pro hashování hesla TTLock
+const PDFDocument = require('pdfkit'); 
+const nodemailer = require('nodemailer'); 
+const crypto = require('crypto'); 
 
 const app = express();
 app.use(cors());
@@ -89,8 +89,7 @@ function createInvoice(reservation, callback) {
 
     // Dodavatel
     doc.fontSize(10).text('Dodavatel:', { underline: true });
-    doc.text('Vozík 24/7 Mohelnice');  // UPRAV SI DLE REALITY
-    // doc.text('IČO: 12345678');      // DOPLŇ SI
+    doc.text('Vozík 24/7 Mohelnice');  
     doc.text('Mohelnice');   
     doc.moveDown();
 
@@ -173,8 +172,9 @@ async function deletePinFromLock(keyboardPwdId) {
 
 // --- VEŘEJNÉ API (Front-End) ---
 
-// 1. Kalendář - Získání obsazených termínů (TOHLE CHYBĚLO)
-app.get('/reservations', async (req, res) => {
+// 1. Kalendář - Získání obsazených termínů
+// !!! TADY BYLA CHYBA: ZMĚNA Z '/reservations' NA '/availability' !!!
+app.get('/availability', async (req, res) => {
     try {
         const data = await Reservation.find({ archived: { $ne: true } });
         // Frontend potřebuje pole objektů { startDate, endDate, time }
