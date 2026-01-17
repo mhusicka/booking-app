@@ -20,13 +20,14 @@
         .btn-primary:hover { background: #bfa37c; }
         .btn-small { padding: 5px 10px; font-size: 0.8rem; background: #eee; color: #333; }
         .btn-delete { background: #ffebee; color: #c62828; border: 1px solid #ffcdd2; }
-        .btn-delete:hover { background: #ffcdd2; }
+        .btn-delete:hover { background: #ffcdd2 !important; }
         .btn-archive { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
         .btn-invoice { display: inline-flex; align-items: center; gap: 5px; background: #333; color: white; text-decoration: none; padding: 6px 12px; border-radius: 4px; font-size: 0.85rem; }
+        .btn-invoice:hover { background: #bfa37c; }
         .action-buttons { display: flex; gap: 5px; flex-wrap: wrap; }
         .filters-row { display: flex; gap: 15px; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #eee; align-items: center; justify-content: space-between; flex-wrap: wrap; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { text-align: left; padding: 15px; border-bottom: 1px solid #eee; }
+        th, td { text-align: left; padding: 15px; border-bottom: 1px solid #eee; vertical-align: middle; }
         th { background: #f9f9f9; color: #666; font-size: 0.8rem; text-transform: uppercase; }
         .pin-cell { font-family: monospace; font-size: 1.1rem; font-weight: bold; color: #28a745; background: #e8f5e9; padding: 4px 8px; border-radius: 4px; }
         .badge-pay { padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; background: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; }
@@ -42,25 +43,26 @@
 
     <div id="data-section" style="display:none;">
         <div class="admin-box">
-            <div style="display:flex; justify-content:space-between; margin-bottom:20px;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:20px; align-items: center;">
                 <h2 style="margin:0;">Přehled rezervací</h2>
                 <div>
-                    <button onclick="loadReservations()" class="btn btn-small">Obnovit</button>
+                    <button onclick="loadReservations()" class="btn btn-small"><i class="fa-solid fa-rotate"></i> Obnovit</button>
                     <button onclick="logout()" class="btn btn-small">Odhlásit</button>
                 </div>
             </div>
 
             <div class="filters-row">
-                <button class="btn btn-small btn-delete" onclick="bulkDelete()">Smazat označené</button>
-                <div style="display:flex; gap:10px;">
-                    <select id="filter-month" onchange="applyFilters()">
+                <button class="btn btn-small btn-delete" onclick="bulkDelete()"><i class="fa-solid fa-trash-can"></i> Smazat označené</button>
+                <div style="display:flex; gap:10px; align-items: center;">
+                    <i class="fa-solid fa-filter"></i>
+                    <select id="filter-month" onchange="applyFilters()" style="width: auto;">
                         <option value="all">Všechny měsíce</option>
                         <option value="0">Leden</option><option value="1">Únor</option><option value="2">Březen</option>
                         <option value="3">Duben</option><option value="4">Květen</option><option value="5">Červen</option>
                         <option value="6">Červenec</option><option value="7">Srpen</option><option value="8">Září</option>
                         <option value="9">Říjen</option><option value="10">Listopad</option><option value="11">Prosinec</option>
                     </select>
-                    <input type="text" id="search-input" onkeyup="applyFilters()" placeholder="Hledat (Jméno, ID)...">
+                    <input type="text" id="search-input" onkeyup="applyFilters()" placeholder="Hledat (Jméno, ID)..." style="width: auto;">
                 </div>
             </div>
 
@@ -103,13 +105,17 @@
 
         async function loadReservations(pwd = null) {
             const password = pwd || localStorage.getItem("adminPass");
-            const res = await fetch(`${API_BASE}/admin/reservations`, { headers: { "x-admin-password": password } });
-            if (res.status === 403) return alert("Špatné heslo!");
-            allReservations = await res.json();
-            document.getElementById("login-section").style.display = "none";
-            document.getElementById("data-section").style.display = "block";
-            localStorage.setItem("adminPass", password);
-            applyFilters();
+            try {
+                const res = await fetch(`${API_BASE}/admin/reservations`, { 
+                    headers: { "x-admin-password": password } 
+                });
+                if (res.status === 403) return alert("Špatné heslo!");
+                allReservations = await res.json();
+                document.getElementById("login-section").style.display = "none";
+                document.getElementById("data-section").style.display = "block";
+                localStorage.setItem("adminPass", password);
+                applyFilters();
+            } catch (e) { alert("Chyba při načítání dat."); }
         }
 
         function applyFilters() {
@@ -127,18 +133,26 @@
         function renderTable(data) {
             const tbody = document.getElementById("table-body");
             tbody.innerHTML = "";
+            const now = new Date();
+            const pwd = localStorage.getItem("adminPass");
+
             data.forEach(r => {
+                const endDateObj = new Date(r.endDate);
+                endDateObj.setHours(23, 59, 59);
+                const isActive = endDateObj > now;
+                const createdDate = new Date(r.created).toLocaleDateString("cs-CZ");
+
                 const tr = document.createElement("tr");
-                const pwd = localStorage.getItem("adminPass");
                 tr.innerHTML = `
                     <td><input type="checkbox" class="row-chk" data-id="${r._id}"></td>
-                    <td>${new Date(r.created).toLocaleDateString("cs-CZ")}</td>
-                    <td><strong>${r.name}</strong><br><small style="color:#bfa37c">ID: ${r.reservationCode}</small></td>
-                    <td>${r.startDate} - ${r.endDate}</td>
-                    <td><span class="badge-pay">ZAPLACENO</span></td>
+                    <td>${createdDate}</td>
+                    <td><strong>${r.name}</strong><br><small style="color:#bfa37c; font-weight:800;">ID: ${r.reservationCode}</small></td>
+                    <td>${r.startDate} - ${r.endDate}<br><small>${r.time}</small></td>
+                    <td><span class="badge-pay">ZAPLACENO</span><br><small>${r.price || 0} Kč</small></td>
                     <td><span class="pin-cell">${r.passcode}</span></td>
                     <td class="action-buttons">
-                        <a href="/admin/reservations/${r._id}/invoice?pwd=${pwd}" target="_blank" class="btn-invoice">PDF</a>
+                        <a href="/admin/reservations/${r._id}/invoice?pwd=${pwd}" target="_blank" class="btn-invoice"><i class="fa-solid fa-file-pdf"></i> PDF</a>
+                        ${isActive ? `<button onclick="archiveRes('${r._id}')" class="btn btn-small btn-archive" title="Ukončit předčasně">Ukončit</button>` : ''}
                         <button onclick="deleteRes('${r._id}')" class="btn btn-small btn-delete">Smazat</button>
                     </td>`;
                 tbody.appendChild(tr);
@@ -163,17 +177,37 @@
                     },
                     body: JSON.stringify({ ids })
                 });
+                if (res.ok) {
+                    loadReservations();
+                } else {
+                    const err = await res.json();
+                    alert("Chyba: " + (err.error || "Nepodařilo se smazat."));
+                }
+            } catch (e) { alert("Chyba spojení se serverem."); }
+        }
+
+        async function deleteRes(id) {
+            if(!confirm("Opravdu smazat tuto rezervaci?")) return;
+            try {
+                const res = await fetch(`${API_BASE}/admin/reservations/${id}`, { 
+                    method: "DELETE", 
+                    headers: { "x-admin-password": localStorage.getItem("adminPass") } 
+                });
                 if (res.ok) loadReservations();
                 else alert("Chyba při mazání.");
             } catch (e) { alert("Chyba spojení."); }
         }
 
-        async function deleteRes(id) {
-            if(!confirm("Smazat?")) return;
-            await fetch(`${API_BASE}/admin/reservations/${id}`, { 
-                method: "DELETE", headers: { "x-admin-password": localStorage.getItem("adminPass") } 
-            });
-            loadReservations();
+        async function archiveRes(id) {
+            if(!confirm("Ukončit rezervaci a smazat PIN ze zámku?")) return;
+            try {
+                const res = await fetch(`${API_BASE}/admin/reservations/${id}/archive`, { 
+                    method: "POST", 
+                    headers: { "x-admin-password": localStorage.getItem("adminPass") } 
+                });
+                if (res.ok) loadReservations();
+                else alert("Chyba při ukončování.");
+            } catch (e) { alert("Chyba spojení."); }
         }
 
         async function manualReserve() {
@@ -185,12 +219,18 @@
                 email: document.getElementById("admin-email").value,
                 phone: document.getElementById("admin-phone").value
             };
-            await fetch(`${API_BASE}/reserve-range`, {
-                method: "POST", headers:{"Content-Type":"application/json"},
-                body: JSON.stringify(data)
-            });
-            loadReservations();
-            alert("Hotovo.");
+            if(!data.startDate || !data.name) return alert("Vyplňte aspoň datum a jméno.");
+            try {
+                const res = await fetch(`${API_BASE}/reserve-range`, {
+                    method: "POST", 
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(data)
+                });
+                if (res.ok) {
+                    alert("Rezervace vytvořena.");
+                    loadReservations();
+                } else alert("Chyba při vytváření (možná obsazeno).");
+            } catch (e) { alert("Chyba spojení."); }
         }
 
         window.onload = () => { if(localStorage.getItem("adminPass")) loadReservations(); };
