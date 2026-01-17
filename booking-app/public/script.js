@@ -81,7 +81,12 @@ async function submitReservation() {
         if(calErr) calErr.innerText = "⚠️ Prosím vyberte termín v kalendáři.";
         hasError = true;
     }
-    if (!endDate && startDate) endDate = getNextDay(startDate);
+
+    // --- OPRAVA: VYNUCENÍ MINIMÁLNĚ 24 HODIN ---
+    // Pokud není konec vybrán, nebo je stejný jako start, nastavíme ho na zítra
+    if (startDate && (!endDate || endDate === startDate)) {
+        endDate = getNextDay(startDate);
+    }
     
     const time = document.getElementById("inp-time").value;
     const name = document.getElementById("inp-name").value.trim();
@@ -96,6 +101,10 @@ async function submitReservation() {
 
     if (hasError) return;
 
+    // Přepočítáme cenu i zde pro jistotu
+    const diffDays = calculateDiffDays(startDate, endDate);
+    const finalPrice = diffDays * PRICE_PER_DAY;
+
     isSubmitting = true;
     btn.innerText = "Zpracovávám...";
     btn.disabled = true;
@@ -105,7 +114,7 @@ async function submitReservation() {
         const res = await fetch(`${API_BASE}/reserve-range`, {
             method: "POST", 
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ startDate, endDate, time, name, email, phone })
+            body: JSON.stringify({ startDate, endDate, time, name, email, phone, price: finalPrice })
         });
         const result = await res.json();
         
@@ -124,70 +133,49 @@ async function submitReservation() {
     }
 }
 
-// === KALENDÁŘ - OPRAVENÁ LOGIKA S PRIORITOU ===
+// === KALENDÁŘ A UI ===
 
 function getDayBackgroundStyle(dateStr, isSelected) {
     if (!cachedReservations) return null;
-
     let overlaps = [];
-    let hasInteraction = false; // Příznak, zda pro tento den existuje nějaká rezervace
+    let hasInteraction = false;
 
     cachedReservations.forEach(res => {
         if (!res.startDate || !res.endDate) return;
         if (dateStr >= res.startDate && dateStr <= res.endDate) {
             hasInteraction = true;
-            let startPct = 0;   
-            let endPct = 100;   
-            
+            let startPct = 0; let endPct = 100;
             let resTimeVal = 12.0; 
             if (res.time) {
                 const parts = res.time.split(':');
                 if (parts.length === 2) resTimeVal = parseInt(parts[0]) + (parseInt(parts[1]) / 60);
             }
-
             if (res.startDate === dateStr) startPct = (resTimeVal / 24) * 100;
             if (res.endDate === dateStr) endPct = (resTimeVal / 24) * 100;
-
             overlaps.push({ start: startPct, end: endPct });
         }
     });
 
-    // Pokud den nemá žádné rezervace, vrátíme null (necháme CSS řešit standardní barvy)
-    // ALE pokud je to vybraný den, který je úplně volný, necháme CSS.
     if (!hasInteraction) return null;
 
-    // BARVY
-    const cBooked = "#e0e0e0"; // Šedá (cizí rezervace)
-    const cFree = isSelected ? "#bfa37c" : "#ffffff"; // Volno: Pokud vybráno -> ZLATÁ, jinak BÍLÁ
+    const cBooked = "#e0e0e0"; 
+    const cFree = isSelected ? "#bfa37c" : "#ffffff"; 
 
     overlaps.sort((a,b) => a.start - b.start);
-
     let gradientParts = [];
     let currentPos = 0;
 
-    // 1. Začátek dne (pokud je volno)
     gradientParts.push(`${cFree} 0%`);
-
     overlaps.forEach(o => {
-        // Pokud je mezera před rezervací -> VOLNO (zlatá nebo bílá)
-        if (o.start > currentPos) {
-            gradientParts.push(`${cFree} ${o.start}%`);
-        }
-        
-        // Začátek rezervace -> ŠEDÁ
+        if (o.start > currentPos) gradientParts.push(`${cFree} ${o.start}%`);
         gradientParts.push(`${cBooked} ${o.start}%`);
-        // Konec rezervace -> ŠEDÁ
         gradientParts.push(`${cBooked} ${o.end}%`);
-        
         currentPos = o.end;
     });
-
-    // 2. Zbytek dne (pokud je volno)
     if (currentPos < 100) {
         gradientParts.push(`${cFree} ${currentPos}%`);
         gradientParts.push(`${cFree} 100%`);
     }
-
     return `linear-gradient(90deg, ${gradientParts.join(", ")})`;
 }
 
@@ -227,38 +215,23 @@ function renderSingleCalendar() {
         const dayEl = document.createElement("div");
         dayEl.className = "day"; dayEl.innerText = d; dayEl.dataset.date = dateStr;
         
-        // Zjistíme, jestli je den vybraný uživatelem
         const isSelected = (startDate === dateStr) || (endDate === dateStr) || (startDate && endDate && dateStr > startDate && dateStr < endDate);
 
         if (dateStr < todayStr) {
             dayEl.classList.add("past");
         } else {
-            // Generujeme speciální pozadí (šedá vs zlatá/bílá)
             const bgStyle = getDayBackgroundStyle(dateStr, isSelected);
-            
             if (bgStyle) {
-                // !!! TOTO JE TA OPRAVA: POUŽIJEME 'important' ABY TO PŘEBILO CSS !!!
                 dayEl.style.setProperty("background", bgStyle, "important");
-                
-                // Pokud je den vybraný a je tam gradient, nastavíme text na černo (aby byl vidět na šedé i zlaté)
                 if (isSelected && bgStyle.includes("gradient")) {
                      dayEl.style.color = "#333"; 
                      dayEl.style.fontWeight = "bold";
                 }
-            } else if (isSelected) {
-                // Pokud není gradient (celý den volný), ale je vybraný, necháme CSS udělat svou práci (range-start/end)
-                // nebo to můžeme vynutit také:
-                // dayEl.style.background = "#bfa37c";
-                // dayEl.style.color = "white";
-            }
-            
-            // Logika klikání
-            // Povolíme kliknutí vždy, pokud to není minulost (checkAndSetTimeFromReservation se postará o detaily)
+            } 
             dayEl.onclick = () => handleDayClick(dateStr); 
             dayEl.onmouseenter = () => handleHoverLogic(dateStr);
         }
         
-        // Třídy pro tvar (zakulacení rohů) přidáme vždy
         if (startDate === dateStr) dayEl.classList.add("range-start");
         if (endDate === dateStr) dayEl.classList.add("range-end");
         if (startDate && endDate && dateStr > startDate && dateStr < endDate) dayEl.classList.add("range");
@@ -299,7 +272,6 @@ function handleDayClick(dateStr) {
     }
     document.querySelectorAll('.day.hover-range').forEach(d => d.classList.remove('hover-range'));
     updateSummaryUI(); 
-    // Důležité: Překreslit kalendář, aby se aplikovaly nové gradienty pro výběr
     renderSingleCalendar();
     
     const errCal = document.getElementById("error-calendar");
@@ -313,7 +285,6 @@ function checkAndSetTimeFromReservation(dateStr) {
     if (hintEl) hintEl.style.display = "none";
     if (!Array.isArray(cachedReservations)) return;
 
-    // 1. Končí něco dnes?
     const blockingRes = cachedReservations.find(r => r.endDate === dateStr);
     
     if (blockingRes) {
@@ -329,7 +300,6 @@ function checkAndSetTimeFromReservation(dateStr) {
             hintEl.style.display = "block"; 
         }
     } else {
-        // 2. Začíná něco dnes?
         const startingRes = cachedReservations.find(r => r.startDate === dateStr);
         if (startingRes && hintEl) {
             hintEl.innerText = `⚠️ Rezervováno od ${startingRes.time || "12:00"}`;
@@ -339,11 +309,20 @@ function checkAndSetTimeFromReservation(dateStr) {
     }
 }
 
-// === OSTATNÍ POMOCNÉ FUNKCE ===
+// === POMOCNÉ FUNKCE ===
+
 function getNextDay(dateStr) {
     const date = new Date(dateStr);
     date.setDate(date.getDate() + 1);
     return date.toLocaleDateString('en-CA');
+}
+
+// Výpočet rozdílu dní (VŽDY MINIMÁLNĚ 1)
+function calculateDiffDays(start, end) {
+    // Pokud chybí konec, předpokládáme zítřek (1 den)
+    if (!end) return 1;
+    const diffTime = Math.abs(new Date(end) - new Date(start));
+    return Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
 }
 
 function setNow() {
@@ -391,19 +370,23 @@ function updateSummaryUI(previewEndDate = null) {
         if(priceEl) priceEl.innerText = "0 Kč"; 
         return; 
     }
+    
+    // ZDE JE OPRAVA V UI:
+    // Pokud není endDate, použijeme startDate + 1 den pro výpočet ceny
     let activeEnd = endDate || previewEndDate || getNextDay(startDate);
+    
     let s = startDate, e = activeEnd;
     if (e < s) [s, e] = [e, s];
 
     if(startText) startText.innerText = `${formatCzDate(s)} (${timeVal})`;
     if(endText) endText.innerText = `${formatCzDate(e)} (${timeVal})`;
-    const diffTime = Math.abs(new Date(e) - new Date(s));
-    const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+    
+    const diffDays = calculateDiffDays(s, e);
+    
     if(countEl) countEl.innerText = diffDays === 1 ? "1 (24 hod.)" : diffDays;
     if(priceEl) priceEl.innerText = (diffDays * PRICE_PER_DAY).toLocaleString("cs-CZ") + " Kč";
 }
 
-// Modaly
 window.closeModal = function() {
     document.querySelectorAll('.modal-overlay').forEach(m => m.style.display = 'none');
     document.body.style.overflow = 'auto'; 
@@ -416,7 +399,6 @@ window.onclick = function(event) {
     if (event.target.classList.contains('modal-overlay')) window.closeModal();
 }
 
-// Rychlé hledání
 function quickCheckRedirect() {
     const input = document.getElementById("quick-check-input");
     const code = input.value.trim().toUpperCase();
