@@ -60,13 +60,15 @@
 
         async function loadReservations(pwd = null) {
             const password = pwd || localStorage.getItem("adminPass");
-            const res = await fetch(`${API_BASE}/admin/reservations`, { headers: { "x-admin-password": password } });
-            if (res.status === 403) return alert("Špatné heslo!");
-            allReservations = await res.json();
-            document.getElementById("login-section").style.display = "none";
-            document.getElementById("data-section").style.display = "block";
-            localStorage.setItem("adminPass", password);
-            renderTable(allReservations);
+            try {
+                const res = await fetch(`${API_BASE}/admin/reservations`, { headers: { "x-admin-password": password } });
+                if (res.status === 403) return alert("Špatné heslo!");
+                allReservations = await res.json();
+                document.getElementById("login-section").style.display = "none";
+                document.getElementById("data-section").style.display = "block";
+                localStorage.setItem("adminPass", password);
+                renderTable(allReservations);
+            } catch(e) { alert("Chyba spojení"); }
         }
 
         function renderTable(data) {
@@ -88,10 +90,20 @@
 
         function toggleAll(source) { document.querySelectorAll('.row-chk').forEach(c => c.checked = source.checked); }
 
+        function applyFilters() {
+            const term = document.getElementById("search-input").value.toLowerCase();
+            const filtered = allReservations.filter(r => 
+                r.name.toLowerCase().includes(term) || 
+                r.reservationCode.toLowerCase().includes(term)
+            );
+            renderTable(filtered);
+        }
+
         async function bulkDelete() {
-            const ids = Array.from(document.querySelectorAll('.row-chk:checked')).map(c => c.dataset.id);
+            const selected = document.querySelectorAll('.row-chk:checked');
+            const ids = Array.from(selected).map(c => c.dataset.id);
             if (ids.length === 0) return alert("Vyberte rezervace.");
-            if (!confirm("Smazat označené?")) return;
+            if (!confirm(`Smazat ${ids.length} rezervací?`)) return;
 
             try {
                 const res = await fetch(`${API_BASE}/admin/reservations/bulk`, {
