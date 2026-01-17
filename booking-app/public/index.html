@@ -13,22 +13,23 @@
         .success-buttons {
             display: flex !important;
             flex-direction: column !important;
-            gap: 10px !important;
+            gap: 12px !important;
             margin-top: 25px !important;
             width: 100% !important;
             align-items: center !important;
+            justify-content: center !important;
         }
 
-        /* Společné vlastnosti pro obě tlačítka (vynucení stejného vzhledu) */
+        /* Společné vlastnosti pro obě tlačítka */
         .success-buttons .btn-pay, 
         .success-buttons .btn-problem {
             display: flex !important;
             justify-content: center !important;
             align-items: center !important;
             width: 100% !important;
-            max-width: 300px !important; /* Fixní šířka pro obě */
-            height: 50px !important;     /* Fixní výška pro obě */
-            margin: 0 !important;        /* Zrušení všech vnějších okrajů */
+            max-width: 280px !important; /* Šířka vhodná pro mobily i PC */
+            height: 50px !important;     /* Fixní výška zajistí stejný vzhled */
+            margin: 0 auto !important;    /* Zruší margin-left: 215px a vycentruje */
             padding: 0 !important;
             border-radius: 8px !important;
             font-family: 'Montserrat', sans-serif !important;
@@ -48,7 +49,7 @@
         }
 
         .btn-problem:hover {
-            background-color: #b52b27 !important;
+            background-color: #c9302c !important;
         }
 
         /* Bílé tlačítko zpět */
@@ -60,11 +61,10 @@
 
         .success-buttons .btn-pay:hover {
             background-color: #f5f5f5 !important;
-            border-color: #bbb !important;
         }
         
         .success-buttons i {
-            margin-right: 10px; /* Mezera pro ikonu telefonu */
+            margin-right: 10px;
         }
     </style>
 </head>
