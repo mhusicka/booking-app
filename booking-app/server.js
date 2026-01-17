@@ -28,7 +28,9 @@ const TTLOCK_USERNAME = process.env.TTLOCK_USERNAME;
 const TTLOCK_PASSWORD = process.env.TTLOCK_PASSWORD;
 const MY_LOCK_ID = parseInt(process.env.MY_LOCK_ID);
 
-mongoose.connect(MONGO_URI).then(() => console.log("✅ DB připojena")).catch(err => console.error("❌ Chyba DB:", err));
+mongoose.connect(MONGO_URI).then(() => {
+    console.log("✅ DB připojena");
+}).catch(err => console.error("❌ Chyba DB:", err));
 
 const ReservationSchema = new mongoose.Schema({
     reservationCode: String,
@@ -45,11 +47,6 @@ const ReservationSchema = new mongoose.Schema({
     created: { type: Date, default: Date.now }
 });
 const Reservation = mongoose.model("Reservation", ReservationSchema);
-
-function formatDateCz(dateStr) { 
-    const d = new Date(dateStr);
-    return `${d.getDate()}.${d.getMonth() + 1}.${d.getFullYear()}`;
-}
 
 const checkAdmin = (req, res, next) => { 
     if (req.headers["x-admin-password"] !== ADMIN_PASSWORD && req.query.pwd !== ADMIN_PASSWORD) return res.status(403).send("Forbidden"); 
@@ -69,7 +66,9 @@ app.delete("/admin/reservations/:id", checkAdmin, async (req, res) => {
 app.post("/reserve-range", async (req, res) => {
     const { startDate, endDate, time, name, email, phone, price } = req.body;
     const rCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-    const reservation = new Reservation({ reservationCode: rCode, startDate, endDate, time, name, email, phone, passcode: "1234", price });
+    const reservation = new Reservation({ 
+        reservationCode: rCode, startDate, endDate, time, name, email, phone, passcode: "1234", price 
+    });
     await reservation.save();
     res.json({ success: true, reservationCode: rCode });
 });
