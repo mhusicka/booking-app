@@ -7,12 +7,13 @@ const axios = require("axios");
 const path = require("path");
 const PDFDocument = require('pdfkit'); // Pro faktury
 const nodemailer = require('nodemailer'); // Pro emaily s přílohou
+const crypto = require('crypto'); // Pro hashování hesla TTLock
 
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
-// Statické soubory
+// Statické soubory (Frontend)
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 
@@ -21,14 +22,14 @@ const PORT = process.env.PORT || 3000;
 const MONGO_URI = process.env.MONGO_URI;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
 
-// Email konfigurace (Nodemailer je lepší pro přílohy)
+// Email konfigurace
 const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || "smtp-relay.brevo.com", // Default pro Brevo
+    host: process.env.SMTP_HOST || "smtp-relay.brevo.com", 
     port: process.env.SMTP_PORT || 587,
     secure: false, 
     auth: {
         user: process.env.SMTP_USER || process.env.SENDER_EMAIL,
-        pass: process.env.SMTP_PASS || process.env.BREVO_API_KEY // Často je API klíč zároveň heslem pro SMTP
+        pass: process.env.SMTP_PASS || process.env.BREVO_API_KEY 
     }
 });
 
@@ -46,9 +47,9 @@ mongoose.connect(MONGO_URI)
     .then(() => console.log("✅ MongoDB připojeno"))
     .catch(err => console.error("❌ Chyba MongoDB:", err));
 
-// --- SCHEMA DATABÁZE (Rozšířené o cenu a fakturaci) ---
+// --- SCHEMA DATABÁZE ---
 const reservationSchema = new mongoose.Schema({
-    reservationCode: String, // Např. RES-123456
+    reservationCode: String,
     startDate: String,
     endDate: String,
     time: String,
@@ -60,9 +61,9 @@ const reservationSchema = new mongoose.Schema({
     passcode: String,       
     keyboardPwdId: String,  
     
-    // Nové údaje pro admina a fakturu
+    // Admin a fakturace
     price: { type: Number, default: 0 },
-    paymentStatus: { type: String, default: 'PAID' }, // Předpokládáme zaplaceno
+    paymentStatus: { type: String, default: 'PAID' }, 
     createdAt: { type: Date, default: Date.now },
     archived: { type: Boolean, default: false }
 });
@@ -86,11 +87,11 @@ function createInvoice(reservation, callback) {
     doc.fontSize(20).text('Faktura - Daňový doklad', { align: 'center' });
     doc.moveDown();
 
-    // Dodavatel (TY) - UPRAV SI DLE REALITY
+    // Dodavatel
     doc.fontSize(10).text('Dodavatel:', { underline: true });
-    doc.text('Vozík 24/7 Mohelnice'); 
-    doc.text('IČO: 12345678');      
-    doc.text('Mohelnice, Česká republika');   
+    doc.text('Vozík 24/7 Mohelnice');  // UPRAV SI DLE REALITY
+    // doc.text('IČO: 12345678');      // DOPLŇ SI
+    doc.text('Mohelnice');   
     doc.moveDown();
 
     // Odběratel
@@ -121,7 +122,7 @@ function createInvoice(reservation, callback) {
     doc.end();
 }
 
-// 2. TTLock Login (Získání tokenu)
+// 2. TTLock Login
 let ttLockToken = null;
 let tokenExpiresAt = 0;
 
@@ -131,10 +132,7 @@ async function getLockToken() {
 
     console.log("🔄 Obnovuji TTLock token...");
     try {
-        // Heslo musí být MD5 hash (dle dokumentace TTLock API)
-        const crypto = require('crypto');
         const passwordHash = crypto.createHash('md5').update(TTLOCK_PASSWORD).digest('hex');
-
         const params = new URLSearchParams();
         params.append('client_id', TTLOCK_CLIENT_ID);
         params.append('client_secret', TTLOCK_CLIENT_SECRET);
@@ -146,7 +144,7 @@ async function getLockToken() {
         const res = await axios.post('https://euapi.ttlock.com/oauth2/token', params);
         
         ttLockToken = res.data.access_token;
-        tokenExpiresAt = now + (res.data.expires_in * 1000) - 60000; // rezerva 1 min
+        tokenExpiresAt = now + (res.data.expires_in * 1000) - 60000; 
         console.log("✅ Token obnoven.");
         return ttLockToken;
     } catch (e) {
@@ -155,7 +153,7 @@ async function getLockToken() {
     }
 }
 
-// 3. Smazání PINu z TTLock (pro Admina)
+// 3. Smazání PINu (Admin)
 async function deletePinFromLock(keyboardPwdId) {
     try {
         const token = await getLockToken();
@@ -164,22 +162,35 @@ async function deletePinFromLock(keyboardPwdId) {
         params.append('accessToken', token);
         params.append('lockId', MY_LOCK_ID);
         params.append('keyboardPwdId', keyboardPwdId);
-        params.append('deleteType', 2); // 2 = smazat jen z paměti zámku? Nebo 1? Dle API. Zkusme standard delete.
+        params.append('deleteType', 2); 
         
-        // TTLock delete endpoint je trochu jiný, často stačí jen nastavit platnost na minulost,
-        // ale zkusíme oficiální delete endpoint, pokud existuje v tvé verzi API.
-        // Pro jistotu použijeme delete:
         await axios.post('https://euapi.ttlock.com/v3/keyboardPwd/delete', params);
-        console.log(`🗑 PIN ${keyboardPwdId} smazán z cloudu.`);
+        console.log(`🗑 PIN ${keyboardPwdId} smazán.`);
     } catch (e) {
-        console.error("⚠️ Nepodařilo se smazat PIN z TTLock (možná už neexistuje):", e.message);
+        console.error("⚠️ Nepodařilo se smazat PIN (možná už neexistuje).");
     }
 }
 
+// --- VEŘEJNÉ API (Front-End) ---
 
-// --- ENDPOINTY ---
+// 1. Kalendář - Získání obsazených termínů (TOHLE CHYBĚLO)
+app.get('/reservations', async (req, res) => {
+    try {
+        const data = await Reservation.find({ archived: { $ne: true } });
+        // Frontend potřebuje pole objektů { startDate, endDate, time }
+        const publicData = data.map(r => ({
+            startDate: r.startDate,
+            endDate: r.endDate,
+            time: r.time
+        }));
+        res.json(publicData);
+    } catch (e) {
+        console.error("Chyba kalendáře:", e);
+        res.status(500).json({ error: "Chyba serveru" });
+    }
+});
 
-// 1. Kontrola dostupnosti
+// 2. Kontrola dostupnosti konkrétního termínu
 app.post("/check-availability", async (req, res) => {
     const { startDate, endDate } = req.body;
     try {
@@ -196,23 +207,17 @@ app.post("/check-availability", async (req, res) => {
     }
 });
 
-// 2. HLAVNÍ REZERVACE (Vytvoření PINu + PDF + Email)
+// 3. HLAVNÍ REZERVACE (Vytvoření PINu + PDF + Email)
 app.post("/reserve-range", async (req, res) => {
     const { startDate, endDate, time, name, email, phone, price } = req.body;
 
-    // Generování vlastních kódů
     const reservationCode = 'RES-' + Date.now().toString().slice(-6);
-    // PIN pro uživatele (náhodný 6místný, pokud by selhal TTLock, ať máme aspoň něco)
-    // Ale TTLock vygeneruje vlastní, takže tento použijeme jen jako zálohu nebo název.
-    
-    // Převod času na UNIX timestamp (ms)
     const startTs = new Date(`${startDate}T${time || "12:00"}:00`).getTime();
     const endTs = new Date(`${endDate}T${time || "12:00"}:00`).getTime();
 
     try {
-        // A) Získání tokenu a vytvoření PINu v TTLock
+        // A) Vytvoření PINu v TTLock
         const token = await getLockToken();
-        
         const params = new URLSearchParams();
         params.append('clientId', TTLOCK_CLIENT_ID);
         params.append('accessToken', token);
@@ -220,26 +225,12 @@ app.post("/reserve-range", async (req, res) => {
         params.append('keyboardPwdName', `${name} (${reservationCode})`);
         params.append('startDate', startTs);
         params.append('endDate', endTs);
-        params.append('addType', 2); // 2 = Periodický/Časový PIN? Zkontroluj dokumentaci. Obvykle 2 = One-time nebo Period? 
-                                     // Pro Custom range (Date to Date) je u TTLock často potřeba 'keyboardPwdType' = 3 (Period) 
-                                     // nebo specifický typ. 
-                                     // Ale v tvém původním kódu chyběl typ. 
-                                     // Dle dokumentace v3/keyboardPwd/add: addType není parametr, ale keyboardPwdVersion ano.
-                                     // Necháme to co nejjednodušší. Pokud tvůj starý kód fungoval, použijeme standard.
-                                     
-        // POZOR: TTLock API v3/keyboardPwd/get vyžaduje určité parametry.
-        // Zkusíme nejběžnější volání pro "Custom Passcode" (typ 3 neexistuje, je to Custom=2?)
-        // Pro jistotu necháme generovat náhodný PIN zámkem.
-        
-        // Oprava parametrů dle standardní TTLock dokumentace pro "Custom 4-9 digits":
-        // Pokud chceme nechat zámek vygenerovat:
         params.append('keyboardPwdVersion', 2); 
-        params.append('keyboardPwdType', 3); // 3 = Period (od-do)
+        params.append('keyboardPwdType', 3); // Periodický kód
 
         const lockRes = await axios.post('https://euapi.ttlock.com/v3/keyboardPwd/add', params);
         
         if (lockRes.data.errcode !== 0) {
-            console.error("TTLock Error:", lockRes.data);
             throw new Error("Chyba zámku: " + lockRes.data.errmsg);
         }
 
@@ -254,13 +245,13 @@ app.post("/reserve-range", async (req, res) => {
             passcode: generatedPin,
             keyboardPwdId: keyboardPwdId.toString(),
             price: price || 0,
-            paymentStatus: 'PAID', // Předpoklad
+            paymentStatus: 'PAID',
             createdAt: new Date(),
             archived: false
         });
         await newRes.save();
 
-        // C) Generování PDF a odeslání emailu
+        // C) Generování PDF a Email
         createInvoice(newRes, (pdfBuffer) => {
             const mailOptions = {
                 from: `"${process.env.SENDER_NAME || 'Vozík 24/7'}" <${SENDER_EMAIL}>`,
@@ -270,7 +261,7 @@ app.post("/reserve-range", async (req, res) => {
                     <div style="font-family: Arial, sans-serif; color: #333;">
                         <h2 style="color: #bfa37c;">Rezervace potvrzena</h2>
                         <p>Dobrý den, <strong>${name}</strong>,</p>
-                        <p>Děkujeme za vaši platbu. Vozík je pro vás rezervován.</p>
+                        <p>Děkujeme za vaši platbu. Vozík je rezervován.</p>
                         
                         <div style="background: #f9f9f9; padding: 15px; border-left: 5px solid #28a745; margin: 20px 0;">
                             <h3 style="margin-top:0;">VÁŠ PŘÍSTUPOVÝ KÓD:</h3>
@@ -279,10 +270,7 @@ app.post("/reserve-range", async (req, res) => {
                         </div>
 
                         <p><strong>Termín:</strong> ${startDate} - ${endDate} (${time})</p>
-                        
-                        <p>Fakturu naleznete v příloze tohoto emailu.</p>
-                        <hr>
-                        <p><small>Návod k použití a podmínky najdete na našem webu.</small></p>
+                        <p>Fakturu naleznete v příloze.</p>
                     </div>
                 `,
                 attachments: [
@@ -295,20 +283,15 @@ app.post("/reserve-range", async (req, res) => {
             };
 
             transporter.sendMail(mailOptions, (error, info) => {
-                if (error) {
-                    console.error("❌ Chyba při odesílání emailu:", error);
-                    // I když se email nepošle, rezervace je v DB a PIN existuje, takže nevracíme 500 uživateli.
-                } else {
-                    console.log("📧 Email odeslán:", info.response);
-                }
+                if (error) console.error("❌ Email chyba:", error);
+                else console.log("📧 Email odeslán:", info.response);
             });
         });
 
-        // Odpověď pro frontend
         res.json({ success: true, pin: generatedPin, orderId: reservationCode });
 
     } catch (e) {
-        console.error("CRITICAL ERROR:", e);
+        console.error("CHYBA REZERVACE:", e);
         res.status(500).json({ success: false, error: e.message });
     }
 });
@@ -325,19 +308,14 @@ app.get("/admin/reservations", async (req, res) => {
     } catch (e) { res.status(500).json({error: "Chyba DB"}); }
 });
 
-// Admin: Archivovat (Ukončit)
+// Admin: Archivovat
 app.post("/admin/reservations/:id/archive", async (req, res) => {
     if (req.headers['x-admin-password'] !== ADMIN_PASSWORD) return res.status(403).json({error:"Neautorizováno"});
     try {
         const r = await Reservation.findById(req.params.id);
         if (r) {
-            if (r.keyboardPwdId) await deletePinFromLock(r.keyboardPwdId); // Smazat z TTLock
-            
-            // Nastavit jako archivované
+            if (r.keyboardPwdId) await deletePinFromLock(r.keyboardPwdId);
             r.archived = true; 
-            // Posunout datum vizuálně do minulosti, aby v kalendáři už neblokoval místo (volitelné)
-            // r.endDate = "2020-01-01"; 
-            
             await r.save();
         }
         res.json({ success: true });
@@ -349,7 +327,7 @@ app.delete("/admin/reservations/:id", async (req, res) => {
     if (req.headers['x-admin-password'] !== ADMIN_PASSWORD) return res.status(403).json({error:"Neautorizováno"});
     try {
         const r = await Reservation.findById(req.params.id);
-        if(r && r.keyboardPwdId) await deletePinFromLock(r.keyboardPwdId); // Jistota
+        if(r && r.keyboardPwdId) await deletePinFromLock(r.keyboardPwdId);
         await Reservation.findByIdAndDelete(req.params.id);
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: "Chyba" }); }
@@ -360,12 +338,10 @@ app.delete("/admin/reservations/bulk", async (req, res) => {
     if (req.headers['x-admin-password'] !== ADMIN_PASSWORD) return res.status(403).json({error:"Neautorizováno"});
     try {
         const { ids } = req.body;
-        // Ideálně projít a smazat PINy, ale pro rychlost jen DB:
         await Reservation.deleteMany({ _id: { $in: ids } });
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: "Chyba" }); }
 });
-
 
 // Start serveru
 app.listen(PORT, () => {
