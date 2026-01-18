@@ -59,13 +59,13 @@ const Reservation = mongoose.model("Reservation", ReservationSchema);
 // POMOCNÉ FUNKCE
 function formatDateCz(dateStr) { 
     const d = new Date(dateStr);
-    return `${d.getDate()}.${d.getMonth() + 1}.${d.getFullYear()}`;
+    return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`;
 }
 function generateResCode() { return Math.random().toString(36).substring(2, 8).toUpperCase(); }
 function generatePin() { return Array.from({ length: 6 }, () => Math.floor(Math.random() * 10)).join(""); }
 function hashPassword(password) { return crypto.createHash("md5").update(password).digest("hex"); }
 
-// --- FUNKCE PRO PDF (S ČESKÝM FONTEM A SPRÁVNOU CENOU) ---
+// --- FUNKCE PRO PDF ---
 function createInvoicePdf(data) {
     return new Promise((resolve, reject) => {
         try {
@@ -85,8 +85,8 @@ function createInvoicePdf(data) {
             doc.fillColor('#333333').fontSize(24).text('FAKTURA', 50, 60);
             doc.fontSize(10).fillColor('#666666').text('DAŇOVÝ DOKLAD', 50, 85);
             
-            doc.fontSize(10).fillColor('#333333').text('Číslo dokladu:', 400, 65, { width: 145, align: 'right' });
-            doc.fontSize(12).text(data.reservationCode, 400, 80, { width: 145, align: 'right' });
+            doc.fontSize(10).fillColor('#333333').text('ID rezervace / Číslo dokladu:', 350, 65, { width: 195, align: 'right' });
+            doc.fontSize(12).text(data.reservationCode, 350, 80, { width: 195, align: 'right' });
 
             doc.moveDown(2);
 
@@ -95,8 +95,10 @@ function createInvoicePdf(data) {
             
             doc.fontSize(10).fillColor('#888888').text('DODAVATEL', 50, topDetails);
             doc.moveDown(0.5);
-            doc.fontSize(11).fillColor('#333333').text('Vozík 24/7 Mohelnice', {width: 200});
-            doc.fontSize(10).text('Mohelnice, Česká republika');
+            doc.fontSize(11).fillColor('#333333').text('Vozík 24/7', {width: 200});
+            doc.fontSize(10).text('Dubová 1490/2');
+            doc.text('789 85 Mohelnice');
+            doc.text('IČO: 76534898');
             doc.text('Email: info@vozik247.cz');
 
             doc.fontSize(10).fillColor('#888888').text('ODBĚRATEL', 300, topDetails);
@@ -107,10 +109,10 @@ function createInvoicePdf(data) {
 
             doc.moveDown(3);
 
-            // Datumy (D.M.RRRR)
-            const topDates = 230;
+            // Datumy (DD.MM.RRRR)
+            const topDates = 240;
             const now = new Date();
-            const dateStr = `${now.getDate()}.${now.getMonth() + 1}.${now.getFullYear()}`; 
+            const dateStr = `${String(now.getDate()).padStart(2, '0')}.${String(now.getMonth() + 1).padStart(2, '0')}.${now.getFullYear()}`; 
             
             doc.fillColor('#888888').text('Datum vystavení:', 50, topDates);
             doc.fillColor('#333333').text(dateStr, 150, topDates);
@@ -119,7 +121,7 @@ function createInvoicePdf(data) {
             doc.fillColor('#333333').text(dateStr, 350, topDates);
 
             // Tabulka
-            const tableTop = 280;
+            const tableTop = 290;
             doc.fillColor('#f4f4f4').rect(50, tableTop, 495, 25).fill();
             doc.fillColor('#333333').fontSize(10);
             if(fs.existsSync(fontPath)) doc.font(fontPath);
@@ -128,9 +130,10 @@ function createInvoicePdf(data) {
 
             // Položka 
             const itemY = tableTop + 35;
-            doc.fontSize(10).text(`Pronájem vozíku (${data.startDate} - ${data.endDate})`, 60, itemY);
+            const sF = formatDateCz(data.startDate);
+            const eF = formatDateCz(data.endDate);
+            doc.fontSize(10).text(`Pronájem přívěsného vozíku (${sF} - ${eF})`, 60, itemY);
             
-            // Fix ceny: zajistíme formát
             let finalPrice = parseFloat(data.price);
             if (isNaN(finalPrice)) finalPrice = 0;
             const priceStr = finalPrice.toFixed(2).replace('.', ',') + ' Kč';
@@ -148,7 +151,7 @@ function createInvoicePdf(data) {
 
             // Patička
             const bottomY = 750;
-            doc.fontSize(8).fillColor('#aaaaaa').text('Děkujeme za využití našich služeb.', 50, bottomY, { align: 'center', width: 500 });
+            doc.fontSize(8).fillColor('#aaaaaa').text('Děkujeme za využití našich služeb. Vozík 24/7 Mohelnice.', 50, bottomY, { align: 'center', width: 500 });
 
             doc.end();
         } catch (e) {
@@ -157,7 +160,7 @@ function createInvoicePdf(data) {
     });
 }
 
-// EMAILING - NÁVRAT PŮVODNÍHO HEZKÉHO DESIGNU
+// EMAILING
 async function sendReservationEmail(data, pdfBuffer) { 
     if (!BREVO_API_KEY) return;
     const startF = formatDateCz(data.startDate);
@@ -233,8 +236,6 @@ app.get("/availability", async (req, res) => {
 });
 
 app.post("/reserve-range", async (req, res) => {
-    // 1. ZDE JE OPRAVA CENY
-    // Čteme cenu z body, ale pokud tam není, dopočítáme ji
     const { startDate, endDate, time, name, email, phone, price } = req.body;
     
     try {
@@ -257,7 +258,6 @@ app.post("/reserve-range", async (req, res) => {
 
         const rCode = generateResCode();
         
-        // VÝPOČET CENY NA SERVERU (pokud ji klient nepošle)
         let finalPrice = price;
         if (!finalPrice || finalPrice == 0) {
             const diffTime = Math.abs(new Date(endDate) - new Date(startDate));
@@ -290,7 +290,6 @@ const checkAdmin = (req, res, next) => {
 
 app.get("/admin/reservations", checkAdmin, async (req, res) => { res.json(await Reservation.find().sort({ created: -1 })); });
 
-// Endpoint pro stažení faktury zpětně (vygeneruje se na počkání)
 app.get("/admin/reservations/:id/invoice", checkAdmin, async (req, res) => {
     try {
         const r = await Reservation.findById(req.params.id);
@@ -349,7 +348,6 @@ app.post("/admin/reservations/:id/archive", checkAdmin, async (req, res) => {
     } catch (e) { res.status(500).json({ error: "Chyba" }); }
 });
 
-// Zbytek serveru...
 app.post("/retrieve-booking", async (req, res) => {
     const { code } = req.body;
     try {
