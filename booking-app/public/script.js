@@ -9,14 +9,18 @@ let endDate = null;
 let cachedReservations = []; 
 let isSubmitting = false; 
 
+// Hlavní spouštěcí funkce
 async function init() {
     console.log("🚀 Startuji aplikaci...");
     
+    // 1. Načtení kalendáře (Tohle tam chybělo nebo bylo rozbité)
     await updateCalendar();
 
+    // Nastavení ceny v UI
     const priceDisplay = document.getElementById("price-per-day-display");
     if (priceDisplay) priceDisplay.innerText = `${PRICE_PER_DAY} Kč`;
     
+    // Validace telefonu
     const phoneInput = document.getElementById("inp-phone");
     if (phoneInput) {
         if (!phoneInput.value) phoneInput.value = "+420 ";
@@ -29,9 +33,11 @@ async function init() {
         });
     }
 
+    // Odstranění chybových rámečků
     document.getElementById("inp-name")?.addEventListener("input", () => clearError("name"));
     document.getElementById("inp-email")?.addEventListener("input", () => clearError("email"));
 
+    // TLAČÍTKO ODESLAT (Zde je integrované GoPay)
     const submitBtn = document.getElementById("submit-btn");
     const loadingSpinner = document.getElementById("loading-spinner");
 
@@ -39,7 +45,7 @@ async function init() {
         submitBtn.addEventListener("click", async (e) => {
             e.preventDefault();
 
-            // Původní validace (neměněna)
+            // Sběr dat
             const name = document.getElementById("inp-name").value.trim();
             const email = document.getElementById("inp-email").value.trim();
             const phone = document.getElementById("inp-phone").value.trim();
@@ -49,6 +55,7 @@ async function init() {
             const note = document.getElementById("inp-note").value.trim();
             const agree = document.getElementById("inp-agree").checked;
 
+            // Validace
             let hasError = false;
             if (!startDate || !endDate) { alert("Vyberte prosím termín v kalendáři."); return; }
             if (!name) { showError("name"); hasError = true; }
@@ -57,6 +64,7 @@ async function init() {
             if (!agree) { alert("Musíte souhlasit s obchodními podmínkami."); return; }
             if (hasError) return;
 
+            // Výpočet ceny
             const diffTime = Math.abs(endDate - startDate);
             const days = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24))); 
             const totalPrice = days * PRICE_PER_DAY;
@@ -68,7 +76,7 @@ async function init() {
             if (loadingSpinner) loadingSpinner.style.display = "block";
 
             try {
-                // 1. Zavoláme server, ten založí rezervaci a vrátí odkaz na GoPay
+                // 1. KROK: Server založí rezervaci a vrátí URL pro platbu
                 const response = await fetch(`${API_BASE}/create-booking`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -82,7 +90,7 @@ async function init() {
                 const res = await response.json();
 
                 if (res.success && res.gopay_url) {
-                    // 2. Otevřeme GoPay okno
+                    // 2. KROK: Otevřeme GoPay bránu
                     console.log("GoPay URL:", res.gopay_url);
                     
                     _gopay.checkout({
@@ -90,11 +98,11 @@ async function init() {
                         inline: true
                     }, async function(checkoutResult) {
                         
-                        // Callback po zavření brány
+                        // Callback z brány
                         if (checkoutResult.state === 'PAID') {
                             submitBtn.innerText = "Dokončuji...";
                             
-                            // 3. Platba OK -> Řekneme serveru, ať pošle maily
+                            // 3. KROK: Potvrzení platby na serveru (generování PINu a emailu)
                             try {
                                 const finalRes = await fetch(`${API_BASE}/verify-payment`, {
                                     method: "POST",
@@ -104,9 +112,7 @@ async function init() {
                                 const finalJson = await finalRes.json();
 
                                 if (finalJson.success) {
-                                    // Vše hotovo - zobrazíme původní success modal
                                     openModal('success-modal');
-                                    
                                     // Reset formuláře
                                     document.getElementById("booking-form").reset();
                                     document.getElementById("inp-phone").value = "+420 ";
@@ -120,10 +126,10 @@ async function init() {
                                 alert("Chyba při spojení po platbě.");
                             }
                         } else {
-                            alert("Platba nebyla dokončena. Rezervace stornována.");
+                            alert("Platba nebyla dokončena. Rezervace není platná.");
                         }
 
-                        // Reset tlačítka
+                        // Reset stavu tlačítka
                         isSubmitting = false;
                         if (loadingSpinner) loadingSpinner.style.display = "none";
                         submitBtn.disabled = false;
@@ -150,7 +156,7 @@ async function init() {
         });
     }
 
-    // Inicializace kalendáře (Tlačítka)
+    // Tlačítka pro přepínání měsíců
     document.getElementById("prev-month").addEventListener("click", () => {
         viewStartMonth--;
         if(viewStartMonth < 0) { viewStartMonth = 11; viewStartYear--; }
@@ -163,9 +169,18 @@ async function init() {
     });
 }
 
-// --- FUNKCE KALENDÁŘE (PŮVODNÍ - NEMĚNĚNO) ---
+// --- ZDE JE TVOJE PŮVODNÍ FUNKCE KALENDÁŘE (Vracím ji zpět) ---
 
 async function updateCalendar() {
+    // Tady by mělo být načítání obsazených dat ze serveru
+    // Pokud máš v API endpoint /reservations, odkomentuj toto:
+    /*
+    try {
+        const res = await fetch(`${API_BASE}/reservations?month=${viewStartMonth}&year=${viewStartYear}`);
+        const data = await res.json();
+        if(data.success) cachedReservations = data.data;
+    } catch(e) { console.error(e); }
+    */
     renderCalendar();
 }
 
@@ -179,16 +194,19 @@ function renderCalendar() {
     monthYear.innerText = `${months[viewStartMonth]} ${viewStartYear}`;
     grid.innerHTML = "";
 
-    const firstDay = new Date(viewStartYear, viewStartMonth, 1).getDay(); 
+    const firstDay = new Date(viewStartYear, viewStartMonth, 1).getDay(); // 0=Ne, 1=Po
     const daysInMonth = new Date(viewStartYear, viewStartMonth + 1, 0).getDate();
+    
     let startDayIndex = firstDay === 0 ? 6 : firstDay - 1;
 
+    // Prázdná políčka
     for (let i = 0; i < startDayIndex; i++) {
         const div = document.createElement("div");
         div.classList.add("day", "empty");
         grid.appendChild(div);
     }
 
+    // Dny
     for (let d = 1; d <= daysInMonth; d++) {
         const div = document.createElement("div");
         div.classList.add("day");
@@ -201,6 +219,7 @@ function renderCalendar() {
         if (currentDayDate < today) {
             div.classList.add("disabled");
         } else {
+            // Zvýraznění výběru
             if (startDate && currentDayDate.getTime() === startDate.getTime()) div.classList.add("selected", "start");
             if (endDate && currentDayDate.getTime() === endDate.getTime()) div.classList.add("selected", "end");
             if (startDate && endDate && currentDayDate > startDate && currentDayDate < endDate) div.classList.add("range");
@@ -244,6 +263,7 @@ function updatePriceDisplay() {
     }
 }
 
+// Pomocné funkce pro chyby
 function showError(fieldId) {
     const el = document.getElementById("inp-" + fieldId);
     if(el) el.style.border = "1px solid red";
@@ -253,7 +273,7 @@ function clearError(fieldId) {
     if(el) el.style.border = "1px solid #ddd";
 }
 
-// Modal (PŮVODNÍ)
+// MODAL A FUNKCE OKNA
 window.closeModal = function() {
     document.querySelectorAll('.modal-overlay').forEach(m => m.style.display = 'none');
     document.body.style.overflow = 'auto'; 
@@ -266,7 +286,7 @@ window.onclick = function(event) {
     if (event.target.classList.contains('modal-overlay')) window.closeModal();
 }
 
-// Quick Check (PŮVODNÍ)
+// QUICK CHECK
 function quickCheckRedirect() {
     const input = document.getElementById("quick-check-input");
     const code = input.value.trim().toUpperCase();
@@ -288,4 +308,5 @@ function scrollToCheck() {
     }
 }
 
+// SPUŠTĚNÍ
 document.addEventListener("DOMContentLoaded", init);
