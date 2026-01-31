@@ -9,27 +9,26 @@ let endDate = null;
 let cachedReservations = []; 
 let isSubmitting = false; 
 
-// SPUŠTĚNÍ APLIKACE
+// SPUŠTĚNÍ
 async function init() {
-    console.log("🚀 Startuji aplikaci...");
+    console.log("🚀 Aplikace startuje...");
     
-    // TOTO ZDE BYLO KLÍČOVÉ - vykreslení kalendáře
+    // Tady voláme kalendář
     await updateCalendar();
 
     const priceDisplay = document.getElementById("price-per-day-display");
     if (priceDisplay) priceDisplay.innerText = `${PRICE_PER_DAY} Kč`;
     
-    // Validace telefonu (tvůj původní kód)
+    // Validace
     const phoneInput = document.getElementById("inp-phone");
     if (phoneInput) {
-        if (!phoneInput.value) phoneInput.value = "+420 \u00A0"; // nbsp
+        if (!phoneInput.value) phoneInput.value = "+420 ";
         phoneInput.addEventListener("input", function() { 
             this.value = this.value.replace(/[^0-9+\s]/g, ''); 
             clearError("phone");
         });
     }
 
-    // Tlačítko Odeslat
     const submitBtn = document.getElementById("submit-btn");
     if (submitBtn) {
         submitBtn.addEventListener("click", handleBooking);
@@ -48,11 +47,21 @@ async function init() {
     });
 }
 
-// --- FUNKCE KALENDÁŘE (TVOJE PŮVODNÍ) ---
+// --- FUNKCE KALENDÁŘE (S OCHRANOU PROTI PÁDU) ---
 
 async function updateCalendar() {
-    // Pokud máš API na rezervace, zde ho zavolej.
-    // Jinak jen vykresli:
+    try {
+        // Pokusíme se načíst data
+        const res = await fetch(`${API_BASE}/reservations`);
+        if (res.ok) {
+            const result = await res.json();
+            if(result.success) cachedReservations = result.data;
+        }
+    } catch(e) { 
+        console.warn("Nepodařilo se načíst rezervace, vykresluji prázdný kalendář.", e);
+        // I když to selže, pokračujeme dál!
+    }
+    
     renderCalendar();
 }
 
@@ -85,9 +94,16 @@ function renderCalendar() {
         const today = new Date();
         today.setHours(0,0,0,0);
 
+        // Kontrola minulosti
         if (currentDayDate < today) {
             div.classList.add("disabled");
-        } else {
+        }
+        // Kontrola obsazenosti
+        else if (isDateBooked(currentDayDate)) {
+             div.classList.add("disabled", "booked");
+             div.style.background = "#ffcccc"; // Vizuální indikace obsazení
+        }
+        else {
             if (startDate && currentDayDate.getTime() === startDate.getTime()) div.classList.add("selected", "start");
             if (endDate && currentDayDate.getTime() === endDate.getTime()) div.classList.add("selected", "end");
             if (startDate && endDate && currentDayDate > startDate && currentDayDate < endDate) div.classList.add("range");
@@ -96,6 +112,16 @@ function renderCalendar() {
         }
         grid.appendChild(div);
     }
+}
+
+function isDateBooked(date) {
+    if (!cachedReservations || cachedReservations.length === 0) return false;
+    return cachedReservations.some(r => {
+        const start = new Date(r.startDate); 
+        const end = new Date(r.endDate);
+        start.setHours(0,0,0,0); end.setHours(0,0,0,0); date.setHours(0,0,0,0);
+        return date >= start && date <= end;
+    });
 }
 
 function handleDateClick(date) {
@@ -131,35 +157,23 @@ function updatePriceDisplay() {
     }
 }
 
-function showError(fieldId) {
-    const el = document.getElementById("inp-" + fieldId);
-    if(el) el.style.border = "1px solid red";
-}
-function clearError(fieldId) {
-    const el = document.getElementById("inp-" + fieldId);
-    if(el) el.style.border = "1px solid #ddd";
-}
-
-// --- NOVÁ FUNKCE ODESLÁNÍ S GOPAY ---
+// --- FUNKCE PRO GOPAY ODESLÁNÍ ---
 async function handleBooking(e) {
     e.preventDefault();
     const submitBtn = document.getElementById("submit-btn");
     const loadingSpinner = document.getElementById("loading-spinner");
 
-    // Validace (zkráceno, použij svou z minula)
     const name = document.getElementById("inp-name").value.trim();
     const email = document.getElementById("inp-email").value.trim();
     const phone = document.getElementById("inp-phone").value.trim();
-    const agree = document.getElementById("inp-agree").checked;
-    
-    // ... další proměnné address, ico atd ...
     const address = document.getElementById("inp-address").value.trim();
     const idNumber = document.getElementById("inp-ico").value.trim();
     const vatNumber = document.getElementById("inp-dic").value.trim();
     const note = document.getElementById("inp-note").value.trim();
+    const agree = document.getElementById("inp-agree").checked;
 
     if (!startDate || !endDate) { alert("Vyberte termín."); return; }
-    if (!name || !email || !phone) { alert("Vyplňte údaje."); return; }
+    if (!name || !email || !phone) { alert("Vyplňte povinné údaje."); return; }
     if (!agree) { alert("Souhlas s podmínkami je nutný."); return; }
 
     const days = Math.max(1, Math.ceil(Math.abs(endDate - startDate) / (1000 * 60 * 60 * 24))); 
@@ -172,7 +186,7 @@ async function handleBooking(e) {
     if(loadingSpinner) loadingSpinner.style.display = "block";
 
     try {
-        // 1. Založit na serveru
+        // 1. Založit
         const res = await fetch(`${API_BASE}/create-booking`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -195,14 +209,11 @@ async function handleBooking(e) {
                     });
                     const vData = await verify.json();
                     if(vData.success) {
-                        if(window.openModal) window.openModal('success-modal');
-                        else alert("Hotovo! Zkontrolujte email.");
+                        openModal('success-modal');
                         document.getElementById("booking-form").reset();
                         startDate = null; endDate = null;
                         updateCalendar();
-                    } else {
-                        alert("Platba OK, chyba generování kódu.");
-                    }
+                    } else alert("Chyba při generování kódu.");
                 } else {
                     alert("Platba neprošla.");
                 }
@@ -226,9 +237,11 @@ async function handleBooking(e) {
     }
 }
 
-// Inicializace
-document.addEventListener("DOMContentLoaded", init);
-
-// Modaly a helpery
-window.openModal = function(id) { const el = document.getElementById(id); if(el) el.style.display='flex'; }
+// Helpery
+function showError(fieldId) { document.getElementById("inp-" + fieldId).style.border = "1px solid red"; }
+function clearError(fieldId) { document.getElementById("inp-" + fieldId).style.border = "1px solid #ddd"; }
+function openModal(id) { document.getElementById(id).style.display = 'flex'; }
 window.onclick = function(e) { if(e.target.className==='modal-overlay') e.target.style.display='none'; }
+
+// Start
+document.addEventListener("DOMContentLoaded", init);
