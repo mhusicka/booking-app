@@ -9,6 +9,7 @@ const { URLSearchParams } = require("url");
 const path = require("path");
 const PDFDocument = require('pdfkit'); 
 const fs = require('fs');
+const nodemailer = require("nodemailer");
 
 const app = express();
 app.use(cors());
@@ -30,346 +31,304 @@ const TTLOCK_USERNAME = process.env.TTLOCK_USERNAME;
 const TTLOCK_PASSWORD = process.env.TTLOCK_PASSWORD;
 const MY_LOCK_ID = parseInt(process.env.MY_LOCK_ID);
 
-// DB PŘIPOJENÍ
-mongoose.connect(MONGO_URI).then(async () => {
-    console.log("✅ DB připojena");
-    try {
-        const collections = await mongoose.connection.db.listCollections({name: 'reservations'}).toArray();
-        if (collections.length > 0) await mongoose.connection.db.collection("reservations").dropIndexes();
-    } catch (e) {}
-}).catch(err => console.error("❌ Chyba DB:", err));
+// --- GOPAY KONFIGURACE (DOPLŇTE SI ZDE ÚDAJE) ---
+const GOPAY_CONFIG = {
+    goid: process.env.GOPAY_GOID || "VASE_GOID",
+    clientId: process.env.GOPAY_CLIENT_ID || "VASE_CLIENT_ID",
+    clientSecret: process.env.GOPAY_CLIENT_SECRET || "VASE_CLIENT_SECRET",
+    isProduction: false // Pro ostrý provoz změňte na true
+};
+const GOPAY_API_URL = GOPAY_CONFIG.isProduction 
+    ? 'https://gate.gopay.cz/api' 
+    : 'https://gw.sandbox.gopay.com/api';
 
-// SCHÉMA
+
+mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+    .then(() => console.log("MongoDB připojeno"))
+    .catch(err => console.log(err));
+
 const ReservationSchema = new mongoose.Schema({
     reservationCode: String,
-    startDate: String,
-    endDate: String,
-    time: String,
+    passcode: String,
+    startDate: Date,
+    endDate: Date,
     name: String,
     email: String,
     phone: String,
-    passcode: String,
-    keyboardPwdId: Number,
-    price: { type: Number, default: 0 },
-    paymentStatus: { type: String, default: 'PAID' }, 
-    created: { type: Date, default: Date.now }
+    address: String,
+    idNumber: String,
+    vatNumber: String,
+    note: String,
+    price: Number,
+    status: { type: String, default: "ČEKÁ_NA_PLATBU" }, // Změna výchozího stavu
+    paymentId: String, // ID platby GoPay
+    keyboardPwdId: String,
+    createdAt: { type: Date, default: Date.now }
 });
+
 const Reservation = mongoose.model("Reservation", ReservationSchema);
 
-// POMOCNÉ FUNKCE
-function formatDateCz(dateStr) { 
-    const d = new Date(dateStr);
-    return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`;
-}
-function generateResCode() { return Math.random().toString(36).substring(2, 8).toUpperCase(); }
-function generatePin() { return Array.from({ length: 6 }, () => Math.floor(Math.random() * 10)).join(""); }
-function hashPassword(password) { return crypto.createHash("md5").update(password).digest("hex"); }
-
-// --- FUNKCE PRO PDF ---
-function createInvoicePdf(data) {
-    return new Promise((resolve, reject) => {
-        try {
-            const doc = new PDFDocument({ margin: 50, size: 'A4' });
-            let buffers = [];
-            
-            const fontPath = path.join(__dirname, 'Roboto-Regular.ttf');
-            if (fs.existsSync(fontPath)) doc.font(fontPath);
-            
-            doc.on('data', buffers.push.bind(buffers));
-            doc.on('end', () => resolve(Buffer.concat(buffers)));
-
-            // Zlatá linka
-            doc.strokeColor('#bfa37c').lineWidth(4).moveTo(50, 40).lineTo(545, 40).stroke();
-
-            // Nadpis
-            doc.fillColor('#333333').fontSize(24).text('FAKTURA', 50, 60);
-            doc.fontSize(10).fillColor('#666666').text('DAŇOVÝ DOKLAD', 50, 85);
-            
-            doc.fontSize(10).fillColor('#333333').text('ID rezervace / Číslo dokladu:', 350, 65, { width: 195, align: 'right' });
-            doc.fontSize(12).text(data.reservationCode, 350, 80, { width: 195, align: 'right' });
-
-            doc.moveDown(2);
-
-            // Dodavatel / Odběratel
-            const topDetails = 130;
-            
-            doc.fontSize(10).fillColor('#888888').text('DODAVATEL', 50, topDetails);
-            doc.moveDown(0.5);
-            doc.fontSize(11).fillColor('#333333').text('Vozík 24/7', {width: 200});
-            doc.fontSize(10).text('Dubová 1490/2');
-            doc.text('789 85 Mohelnice');
-            doc.text('IČO: 76534898');
-            doc.text('Email: info@vozik247.cz');
-
-            doc.fontSize(10).fillColor('#888888').text('ODBĚRATEL', 300, topDetails);
-            doc.moveDown(0.5);
-            doc.fontSize(11).fillColor('#333333').text(data.name, 300);
-            doc.fontSize(10).text(data.email, 300);
-            doc.text(data.phone, 300);
-
-            doc.moveDown(3);
-
-            // Datumy (DD.MM.RRRR)
-            const topDates = 240;
-            const now = new Date();
-            const dateStr = `${String(now.getDate()).padStart(2, '0')}.${String(now.getMonth() + 1).padStart(2, '0')}.${now.getFullYear()}`; 
-            
-            doc.fillColor('#888888').text('Datum vystavení:', 50, topDates);
-            doc.fillColor('#333333').text(dateStr, 150, topDates);
-
-            doc.fillColor('#888888').text('DUZP:', 300, topDates);
-            doc.fillColor('#333333').text(dateStr, 350, topDates);
-
-            // Tabulka
-            const tableTop = 290;
-            doc.fillColor('#f4f4f4').rect(50, tableTop, 495, 25).fill();
-            doc.fillColor('#333333').fontSize(10);
-            if(fs.existsSync(fontPath)) doc.font(fontPath);
-            doc.text('Položka', 60, tableTop + 7);
-            doc.text('Cena', 450, tableTop + 7, { align: 'right', width: 80 });
-
-            // Položka 
-            const itemY = tableTop + 35;
-            const sF = formatDateCz(data.startDate);
-            const eF = formatDateCz(data.endDate);
-            doc.fontSize(10).text(`Pronájem přívěsného vozíku (${sF} - ${eF})`, 60, itemY);
-            
-            let finalPrice = parseFloat(data.price);
-            if (isNaN(finalPrice)) finalPrice = 0;
-            const priceStr = finalPrice.toFixed(2).replace('.', ',') + ' Kč';
-
-            doc.text(priceStr, 450, itemY, { align: 'right', width: 80 });
-
-            doc.strokeColor('#eeeeee').lineWidth(1).moveTo(50, itemY + 20).lineTo(545, itemY + 20).stroke();
-
-            // Celkem
-            const totalY = itemY + 40;
-            doc.fontSize(12).fillColor('#333333').text('Celkem k úhradě:', 300, totalY, { align: 'right', width: 130 });
-            doc.fontSize(14).fillColor('#bfa37c').text(priceStr, 450, totalY - 2, { align: 'right', width: 80, bold: true });
-
-            doc.fontSize(10).fillColor('#666666').text('Způsob úhrady: Online platba (GoPay)', 50, totalY + 5);
-
-            // Patička
-            const bottomY = 750;
-            doc.fontSize(8).fillColor('#aaaaaa').text('Děkujeme za využití našich služeb. Vozík 24/7 Mohelnice.', 50, bottomY, { align: 'center', width: 500 });
-
-            doc.end();
-        } catch (e) {
-            reject(e);
-        }
-    });
-}
-
-// EMAILING
-async function sendReservationEmail(data, pdfBuffer) { 
-    if (!BREVO_API_KEY) return;
-    const startF = formatDateCz(data.startDate);
-    const endF = formatDateCz(data.endDate);
-
-    const htmlContent = `
-    <!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;padding:0;background-color:#fff;font-family:Arial,sans-serif;">
-    <table width="100%" cellpadding="0" cellspacing="0" style="padding:20px;"><tr><td align="center">
-    <table width="100%" style="max-width:550px;">
-    <tr><td align="center" style="padding:20px 0;"><div style="width:80px;height:80px;border:3px solid #28a745;border-radius:50%;text-align:center;"><span style="color:#28a745;font-size:50px;line-height:80px;">✔</span></div></td></tr>
-    <tr><td align="center" style="padding:10px;"><h1 style="font-size:28px;color:#333;margin:0;text-transform:uppercase;">Rezervace úspěšná!</h1><p style="color:#666;margin-top:10px;">Děkujeme, <strong>${data.name}</strong>.<br>Váš přívěsný vozík je rezervován.</p></td></tr>
-    <tr><td align="center" style="padding:30px 20px;"><div style="border:2px dashed #bfa37c;border-radius:15px;padding:30px;"><span style="font-size:13px;color:#888;text-transform:uppercase;">VÁŠ KÓD K ZÁMKU</span><br><span style="font-size:56px;font-weight:bold;color:#333;letter-spacing:8px;">${data.passcode}</span></div></td></tr>
-    <tr><td align="center"><div style="background:#f8f9fa;border-radius:12px;padding:25px;text-align:left;">
-    <p><strong>Termín:</strong><br>${startF} ${data.time} — ${endF} ${data.time}</p>
-    <p><strong>Telefon:</strong><br>${data.phone}</p>
-    <p><strong>ID rezervace:</strong><br><b>${data.reservationCode}</b></p>
-    </div></td></tr>
-    <tr><td style="padding:30px;text-align:left;"><h3 style="margin:0 0 10px;">Jak odemknout?</h3><ol style="color:#555;padding-left:20px;line-height:1.8;"><li>Probuďte klávesnici dotykem.</li><li>Zadejte PIN: <strong>${data.passcode}</strong></li><li>Potvrďte tlačítkem 🔑 (vpravo dole).</li></ol></td></tr>
-    <tr><td align="center" style="background:#333;padding:30px;color:#fff;border-radius:0 0 12px 12px;"><p style="font-weight:bold;margin:0;">Přívěsný vozík 24/7 Mohelnice</p><p style="font-size:11px;color:#aaa;margin-top:10px;">Automatická zpráva. info@vozik247.cz</p></td></tr>
-    </table></td></tr></table></body></html>`;
-
-    let attachment = [];
-    if (pdfBuffer) {
-        attachment.push({
-            content: pdfBuffer.toString('base64'),
-            name: `faktura_${data.reservationCode}.pdf`
-        });
-    }
-
-    try {
-        await axios.post("https://api.brevo.com/v3/smtp/email", {
-            sender: { name: "Vozík 24/7", email: SENDER_EMAIL },
-            to: [{ email: data.email, name: data.name }],
-            subject: `Potvrzení rezervace - ${data.reservationCode}`,
-            htmlContent: htmlContent,
-            attachment: attachment 
-        }, { headers: { "api-key": BREVO_API_KEY, "Content-Type": "application/json" } });
-    } catch (e) { console.error("❌ Email error:", e.message); }
-}
-
-// TTLOCK LOGIKA
-async function getTTLockToken() {
-    const params = new URLSearchParams({ client_id: TTLOCK_CLIENT_ID, client_secret: TTLOCK_CLIENT_SECRET, username: TTLOCK_USERNAME, password: hashPassword(TTLOCK_PASSWORD), grant_type: "password", redirect_uri: "https://www.vozik247.cz" });
-    const res = await axios.post("https://euapi.ttlock.com/oauth2/token", params.toString());
-    return res.data.access_token;
-}
-
-async function addPinToLock(startStr, endStr, timeStr) {
-    try {
-        const token = await getTTLockToken();
-        const startMs = new Date(`${startStr}T${timeStr}:00`).getTime();
-        const endMs = new Date(`${endStr}T${timeStr}:00`).getTime() + 60000;
-        const pin = generatePin();
-        const params = { clientId: TTLOCK_CLIENT_ID, accessToken: token, lockId: MY_LOCK_ID, keyboardPwd: pin, startDate: startMs, endDate: endMs, date: Date.now(), addType: 2, keyboardPwdName: `Rez ${startStr}` };
-        const sign = crypto.createHash("md5").update(Object.keys(params).sort().map(k => `${k}=${params[k]}`).join("&") + TTLOCK_CLIENT_SECRET).digest("hex").toUpperCase();
-        const res = await axios.post("https://euapi.ttlock.com/v3/keyboardPwd/add", new URLSearchParams({ ...params, sign }).toString());
-        return { pin, keyboardPwdId: res.data.keyboardPwdId };
-    } catch (err) { console.error("⚠️ Lock Error"); return null; }
-}
-
-async function deletePinFromLock(keyboardPwdId) {
-    try {
-        const token = await getTTLockToken();
-        const params = { clientId: TTLOCK_CLIENT_ID, accessToken: token, lockId: MY_LOCK_ID, keyboardPwdId, date: Date.now() };
-        const sign = crypto.createHash("md5").update(Object.keys(params).sort().map(k => `${k}=${params[k]}`).join("&") + TTLOCK_CLIENT_SECRET).digest("hex").toUpperCase();
-        await axios.post("https://euapi.ttlock.com/v3/keyboardPwd/delete", new URLSearchParams({ ...params, sign }).toString());
-    } catch (e) {}
-}
-
-// ENDPOINTY
-app.get("/availability", async (req, res) => {
-    try { res.json(await Reservation.find({}, "startDate endDate time")); } catch (e) { res.status(500).send("Chyba"); }
+const transporter = nodemailer.createTransport({
+    host: "smtp-relay.brevo.com",
+    port: 587,
+    secure: false,
+    auth: { user: SENDER_EMAIL, pass: BREVO_API_KEY }
 });
 
-app.post("/reserve-range", async (req, res) => {
-    const { startDate, endDate, time, name, email, phone, price } = req.body;
-    
+// --- POMOCNÉ FUNKCE ---
+
+async function getTtlockToken() {
     try {
-        const recent = await Reservation.findOne({ email, startDate, time, created: { $gt: new Date(Date.now() - 15000) } });
-        if (recent) return res.status(409).json({ error: "Rezervace již byla vytvořena." });
-
-        const nS = new Date(`${startDate}T${time}:00`).getTime();
-        const nE = new Date(`${endDate}T${time}:00`).getTime();
-        const exist = await Reservation.find();
-        for (let r of exist) {
-            if (nS < new Date(`${r.endDate}T${r.time}:00`).getTime() && nE > new Date(`${r.startDate}T${r.time}:00`).getTime()) {
-                return res.status(409).json({ error: "Obsazeno." });
-            }
-        }
-        
-        let pin = "123456"; let lId = null;
-        const lock = await addPinToLock(startDate, endDate, time);
-        if (lock) { pin = lock.pin; lId = lock.keyboardPwdId; }
-        else pin = generatePin(); 
-
-        const rCode = generateResCode();
-        
-        let finalPrice = price;
-        if (!finalPrice || finalPrice == 0) {
-            const diffTime = Math.abs(new Date(endDate) - new Date(startDate));
-            const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
-            finalPrice = diffDays * 230;
-        }
-
-        const reservation = new Reservation({ 
-            reservationCode: rCode, startDate, endDate, time, name, email, phone, passcode: pin, keyboardPwdId: lId, 
-            price: finalPrice, paymentStatus: 'PAID' 
-        });
-        await reservation.save();
-        
-        let pdfBuffer = null;
-        try {
-            pdfBuffer = await createInvoicePdf({ reservationCode: rCode, startDate, endDate, name, email, phone, price: finalPrice });
-        } catch(e) { console.error("PDF Fail", e); }
-
-        sendReservationEmail({ reservationCode: rCode, startDate, endDate, time, name, email, passcode: pin, phone }, pdfBuffer);
-        
-        res.json({ success: true, pin, reservationCode: rCode });
-    } catch (e) { res.status(500).json({ error: "Chyba" }); }
-});
-
-// ADMIN API & PDF DOWNLOAD
-const checkAdmin = (req, res, next) => { 
-    if (req.headers["x-admin-password"] !== ADMIN_PASSWORD && req.query.pwd !== ADMIN_PASSWORD) return res.status(403).send("Forbidden"); 
-    next(); 
-};
-
-app.get("/admin/reservations", checkAdmin, async (req, res) => { res.json(await Reservation.find().sort({ created: -1 })); });
-
-app.get("/admin/reservations/:id/invoice", checkAdmin, async (req, res) => {
-    try {
-        const r = await Reservation.findById(req.params.id);
-        if (!r) return res.status(404).send("Nenalezeno");
-        
-        const pdfBuffer = await createInvoicePdf({
-            reservationCode: r.reservationCode,
-            startDate: r.startDate,
-            endDate: r.endDate,
-            name: r.name,
-            email: r.email,
-            phone: r.phone,
-            price: r.price
-        });
-
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename=faktura_${r.reservationCode}.pdf`);
-        res.send(pdfBuffer);
+        const params = new URLSearchParams();
+        params.append('client_id', TTLOCK_CLIENT_ID);
+        params.append('client_secret', TTLOCK_CLIENT_SECRET);
+        params.append('username', TTLOCK_USERNAME);
+        params.append('password', TTLOCK_PASSWORD);
+        params.append('redirect_uri', 'http://localhost');
+        const response = await axios.post("https://euapi.ttlock.com/oauth2/token", params);
+        return response.data.access_token;
     } catch (e) {
-        res.status(500).send("Chyba při generování PDF");
+        console.error("TTLock Token Error", e.message);
+        return null;
+    }
+}
+
+async function generateLockPasscode(reservationName, startTimestamp, endTimestamp) {
+    try {
+        const token = await getTtlockToken();
+        if(!token) return null;
+        
+        const params = new URLSearchParams();
+        params.append('clientId', TTLOCK_CLIENT_ID);
+        params.append('accessToken', token);
+        params.append('lockId', MY_LOCK_ID);
+        params.append('keyboardPwdType', 3); 
+        params.append('keyboardPwdName', reservationName);
+        params.append('startDate', startTimestamp);
+        params.append('endDate', endTimestamp);
+
+        const res = await axios.post("https://euapi.ttlock.com/v3/keyboardPwd/add", params);
+        if (res.data.errcode === 0) {
+            return { code: res.data.keyboardPwd, id: res.data.keyboardPwdId };
+        } else {
+            console.error("TTLock Error:", res.data);
+            return null;
+        }
+    } catch (e) {
+        console.error("TTLock Exception:", e.message);
+        return null;
+    }
+}
+
+// Získání tokenu pro GoPay
+async function getGoPayToken() {
+    try {
+        const params = new URLSearchParams();
+        params.append('grant_type', 'client_credentials');
+        params.append('scope', 'payment-all');
+        const authString = Buffer.from(`${GOPAY_CONFIG.clientId}:${GOPAY_CONFIG.clientSecret}`).toString('base64');
+        
+        const response = await axios.post(`${GOPAY_API_URL}/oauth2/token`, params, {
+            headers: { 'Authorization': `Basic ${authString}`, 'Content-Type': 'application/x-www-form-urlencoded' }
+        });
+        return response.data.access_token;
+    } catch (error) {
+        console.error("GoPay Token Error:", error.response ? error.response.data : error.message);
+        throw new Error("Chyba spojení s platební bránou");
+    }
+}
+
+// --- ENDPOINTY ---
+
+// 1. ZALOŽENÍ REZERVACE A PLATBY (Už neposílá email hned)
+app.post("/create-booking", async (req, res) => {
+    const { startDate, endDate, name, email, phone, address, idNumber, vatNumber, price, agree, note } = req.body;
+
+    if (!startDate || !endDate || !name || !email || !phone || !agree) {
+        return res.status(400).json({ error: "Vyplňte povinné údaje." });
+    }
+
+    try {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        
+        const collision = await Reservation.findOne({
+            status: { $in: ["AKTIVNÍ", "ZAPLACENO"] }, // Kontroluje jen zaplacené
+            $or: [
+                { startDate: { $lte: end }, endDate: { $gte: start } }
+            ]
+        });
+
+        if (collision) {
+            return res.json({ success: false, error: "Termín je již obsazen." });
+        }
+
+        let uniqueCode;
+        let isDuplicate = true;
+        while (isDuplicate) {
+            uniqueCode = crypto.randomBytes(3).toString('hex').toUpperCase();
+            const existing = await Reservation.findOne({ reservationCode: uniqueCode });
+            if (!existing) isDuplicate = false;
+        }
+
+        // Uložení s dočasným stavem
+        const newReservation = new Reservation({
+            reservationCode: uniqueCode,
+            startDate: start, endDate: end, name, email, phone, address, idNumber, vatNumber, note,
+            price: parseInt(price),
+            status: "ČEKÁ_NA_PLATBU" 
+        });
+        await newReservation.save();
+
+        // --- GOPAY VOLÁNÍ ---
+        const token = await getGoPayToken();
+        const returnUrl = req.headers.referer; 
+
+        const paymentData = {
+            payer: {
+                default_payment_instrument: "PAYMENT_CARD",
+                allowed_payment_instruments: ["PAYMENT_CARD", "BANK_ACCOUNT"],
+                contact: { first_name: name, email: email, phone_number: phone }
+            },
+            amount: parseInt(price) * 100, // Haléře
+            currency: "CZK",
+            order_number: uniqueCode,
+            order_description: "Pronájem vozíku",
+            callback: {
+                return_url: returnUrl,
+                notification_url: "http://vozik247.cz/api/gopay-notify" // Nastavte dle potřeby
+            },
+            lang: "CS"
+        };
+
+        const goPayResponse = await axios.post(`${GOPAY_API_URL}/payments/payment`, paymentData, {
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+        });
+
+        // Uložíme ID platby
+        newReservation.paymentId = goPayResponse.data.id;
+        await newReservation.save();
+
+        // Vrátíme URL brány na frontend
+        res.json({ success: true, gopay_url: goPayResponse.data.gw_url, reservationCode: uniqueCode });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Chyba serveru při zakládání." });
     }
 });
 
-app.delete("/admin/reservations/bulk", checkAdmin, async (req, res) => {
-    try { 
-        for (let id of req.body.ids) { 
-            const r = await Reservation.findById(id); 
-            if (r && r.keyboardPwdId) await deletePinFromLock(r.keyboardPwdId); 
-            await Reservation.findByIdAndDelete(id); 
-        } 
-        res.json({ success: true }); 
-    } catch (e) { res.status(500).json({ error: "Chyba" }); }
+// 2. NOVÝ ENDPOINT: DOKONČENÍ PO PLATBĚ (Generuje PDF a Email)
+app.post("/verify-payment", async (req, res) => {
+    const { reservationCode } = req.body;
+
+    try {
+        const r = await Reservation.findOne({ reservationCode });
+        if (!r) return res.status(404).json({ error: "Nenalezeno" });
+
+        // Pokud už je aktivní, nic neděláme (prevence duplicit)
+        if (r.status === "AKTIVNÍ") return res.json({ success: true });
+
+        // A) Generování PINu (původní logika)
+        const startTs = new Date(r.startDate).getTime();
+        const endTs = new Date(r.endDate).getTime();
+        const lockData = await generateLockPasscode(r.reservationCode, startTs, endTs);
+        
+        if (lockData) {
+            r.passcode = lockData.code;
+            r.keyboardPwdId = lockData.id;
+        } else {
+            r.passcode = "CHYBA-GEN"; // Fallback, kdyby selhal zámek
+        }
+        
+        r.status = "AKTIVNÍ";
+        await r.save();
+
+        // B) Generování PDF (původní logika)
+        const doc = new PDFDocument();
+        const pdfPath = path.join(__dirname, `faktura_${r.reservationCode}.pdf`);
+        const writeStream = fs.createWriteStream(pdfPath);
+        doc.pipe(writeStream);
+
+        doc.font('Helvetica-Bold').fontSize(20).text('FAKTURA - DAŇOVÝ DOKLAD', { align: 'center' });
+        doc.moveDown();
+        doc.fontSize(12).text(`Číslo objednávky: ${r.reservationCode}`);
+        doc.text(`Datum vystavení: ${new Date().toLocaleDateString('cs-CZ')}`);
+        doc.moveDown();
+        doc.text(`Dodavatel: Půjčovna vozíků Mohelnice...`); // Doplňte si údaje
+        doc.moveDown();
+        doc.text(`Odběratel: ${r.name}`);
+        doc.text(`Adresa: ${r.address}`);
+        if(r.idNumber) doc.text(`IČO: ${r.idNumber}`);
+        if(r.vatNumber) doc.text(`DIČ: ${r.vatNumber}`);
+        doc.moveDown();
+        doc.text(`Předmět: Pronájem přívěsného vozíku`);
+        doc.text(`Termín: ${new Date(r.startDate).toLocaleDateString('cs-CZ')} - ${new Date(r.endDate).toLocaleDateString('cs-CZ')}`);
+        doc.text(`Cena celkem: ${r.price} Kč`);
+        doc.end();
+
+        // C) Odeslání emailu
+        writeStream.on('finish', async () => {
+            const mailOptions = {
+                from: `"Vozík 24/7" <${SENDER_EMAIL}>`,
+                to: r.email,
+                subject: `Potvrzení rezervace ${r.reservationCode} - KÓD K ZÁMKU`,
+                html: `
+                    <h2>Děkujeme za vaši rezervaci!</h2>
+                    <p>Platba byla přijata.</p>
+                    <p>Vozík máte rezervovaný na termín: <strong>${new Date(r.startDate).toLocaleDateString()} - ${new Date(r.endDate).toLocaleDateString()}</strong>.</p>
+                    <hr>
+                    <h3>🔐 VÁŠ PŘÍSTUPOVÝ KÓD K ZÁMKU: <span style="font-size: 24px; color: #bfa37c;">${r.passcode} #</span></h3>
+                    <p>Pro odemčení zámku zadejte tento kód a potvrďte křížkem (#) nebo zámečkem.</p>
+                    <hr>
+                    <p>Fakturu naleznete v příloze.</p>
+                `,
+                attachments: [{ filename: `faktura_${r.reservationCode}.pdf`, path: pdfPath }]
+            };
+
+            try {
+                await transporter.sendMail(mailOptions);
+                fs.unlinkSync(pdfPath); 
+                res.json({ success: true });
+            } catch (mailErr) {
+                console.error("Mail Error:", mailErr);
+                res.status(500).json({ error: "Platba OK, chyba emailu." });
+            }
+        });
+
+    } catch (e) {
+        console.error("Verify Error:", e);
+        res.status(500).json({ error: "Chyba při dokončování." });
+    }
 });
 
-app.delete("/admin/reservations/:id", checkAdmin, async (req, res) => {
-    try { 
-        const r = await Reservation.findById(req.params.id); 
-        if (r && r.keyboardPwdId) await deletePinFromLock(r.keyboardPwdId); 
-        await Reservation.findByIdAndDelete(req.params.id); 
-        res.json({ success: true }); 
-    } catch (e) { res.status(500).json({ error: "Chyba" }); }
-});
 
-app.post("/admin/reservations/:id/archive", checkAdmin, async (req, res) => {
-    try { 
-        const r = await Reservation.findById(req.params.id); 
-        if (r) { 
-            if (r.keyboardPwdId) await deletePinFromLock(r.keyboardPwdId); 
-            r.keyboardPwdId = null; 
-            const yesterday = new Date();
-            yesterday.setDate(yesterday.getDate() - 1);
-            r.endDate = yesterday.toISOString().split('T')[0];
-            await r.save(); 
-        } 
-        res.json({ success: true }); 
-    } catch (e) { res.status(500).json({ error: "Chyba" }); }
-});
-
+// Endpoint pro kontrolu (Původní logika)
 app.post("/retrieve-booking", async (req, res) => {
     const { code } = req.body;
     try {
         const r = await Reservation.findOne({ reservationCode: code.toUpperCase() });
+        const formatDateCz = (date) => {
+            const d = new Date(date);
+            return `${d.getDate()}.${d.getMonth()+1}.${d.getFullYear()}`;
+        };
+
         if (r) {
             const diff = Math.max(1, Math.ceil(Math.abs(new Date(r.endDate) - new Date(r.startDate)) / 86400000));
-            res.json({ success: true, pin: r.passcode, start: formatDateCz(r.startDate) + " " + r.time, end: formatDateCz(r.endDate) + " " + r.time, car: "Vozík č. 1", price: diff * 230 + " Kč", status: "AKTIVNÍ", orderId: r.reservationCode });
-        } else res.json({ success: false });
+            res.json({ 
+                success: true, 
+                pin: r.passcode, 
+                start: formatDateCz(r.startDate), 
+                end: formatDateCz(r.endDate), 
+                car: "Vozík č. 1", 
+                price: r.price + " Kč", 
+                status: r.status, 
+                orderId: r.reservationCode 
+            });
+        } else {
+            res.json({ success: false });
+        }
     } catch (e) { res.status(500).json({ success: false }); }
 });
 
-setInterval(async () => {
-    const now = Date.now();
-    const active = await Reservation.find({ keyboardPwdId: { $ne: null } });
-    for (let r of active) {
-        if (new Date(`${r.endDate}T${r.time}:00`).getTime() < now) { 
-            await deletePinFromLock(r.keyboardPwdId); 
-            r.keyboardPwdId = null; 
-            await r.save(); 
-        }
-    }
-}, 3600000);
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, "0.0.0.0", () => console.log(`🚀 Port ${PORT}`));
+app.listen(3000, () => console.log("Server běží na portu 3000"));
