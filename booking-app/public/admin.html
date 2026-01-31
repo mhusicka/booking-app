@@ -12,20 +12,31 @@
         .login-screen { max-width: 400px; margin: 100px auto; text-align: center; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
         h1 { color: #bfa37c; text-transform: uppercase; letter-spacing: 2px; text-align: center; }
         
-        /* STATUS BADGES */
-        .badge { padding: 6px 12px; border-radius: 20px; font-weight: 800; font-size: 0.7rem; text-transform: uppercase; }
-        .bg-paid { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-        .bg-pending { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
-        .bg-canceled { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        /* STATS BOXES */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px; }
+        .stat-card { background: #f8f9fa; padding: 15px; border-radius: 10px; border-left: 4px solid #bfa37c; }
+        .stat-card small { color: #888; text-transform: uppercase; font-size: 0.7rem; }
+        .stat-card div { font-size: 1.4rem; font-weight: 800; color: #444; }
 
-        .search-bar { margin: 20px 0; padding: 12px 20px; width: 100%; max-width: 400px; border: 2px solid #bfa37c; border-radius: 25px; outline: none; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.85rem; }
+        .badge { padding: 6px 12px; border-radius: 20px; font-weight: 800; font-size: 0.7rem; text-transform: uppercase; border: 1px solid transparent; }
+        .bg-paid { background: #d4edda; color: #155724; border-color: #c3e6cb; }
+        .bg-pending { background: #fff3cd; color: #856404; border-color: #ffeeba; }
+        .bg-canceled { background: #f8d7da; color: #721c24; border-color: #f5c6cb; }
+
+        .search-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 20px; }
+        .search-bar { padding: 12px 20px; flex-grow: 1; border: 2px solid #bfa37c; border-radius: 25px; outline: none; }
+        select { padding: 10px; border-radius: 10px; border: 1px solid #ddd; }
+
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
         th, td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; }
-        th { background: #f8f9fa; color: #666; text-transform: uppercase; font-size: 0.7rem; }
+        th { background: #f8f9fa; color: #666; cursor: pointer; }
+        th:hover { color: #bfa37c; }
+        
         .manual-form { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 10px; }
-        .btn-primary { background: #bfa37c; color: white; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; }
-        .btn-danger { color: #ff4d4d; background: none; border: none; cursor: pointer; font-size: 1.1rem; }
-        .btn-archive { color: #666; background: none; border: 1px solid #ccc; border-radius: 4px; padding: 4px 8px; cursor: pointer; }
+        .btn-primary { background: #bfa37c; color: white; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .btn-action { background: none; border: none; cursor: pointer; font-size: 1.1rem; padding: 5px; }
+        .text-del { color: #ff4d4d; }
+        .text-mail { color: #2196F3; }
         code { background: #eee; padding: 2px 5px; border-radius: 4px; font-weight: bold; }
     </style>
 </head>
@@ -39,9 +50,24 @@
 
     <div id="admin-content" style="display: none;">
         <div class="admin-box">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h1>Půjčovna Vozíků - Správa</h1>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h1>Vozík 24/7 - Správa</h1>
                 <button onclick="logout()" style="background:none; border:none; color:#999; cursor:pointer;">Odhlásit</button>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <small>Tržby (Tento měsíc)</small>
+                    <div id="stat-month">0 Kč</div>
+                </div>
+                <div class="stat-card">
+                    <small>Tržby (Celkově)</small>
+                    <div id="stat-total">0 Kč</div>
+                </div>
+                <div class="stat-card">
+                    <small>Počet rezervací</small>
+                    <div id="stat-count">0</div>
+                </div>
             </div>
 
             <div class="manual-form">
@@ -51,20 +77,28 @@
                 <input type="text" id="admin-name" placeholder="Jméno">
                 <input type="email" id="admin-email" placeholder="Email">
                 <input type="text" id="admin-phone" placeholder="Telefon">
-                <input type="number" id="admin-price" value="230" style="width: 70px;">
+                <input type="number" id="admin-price" value="230" style="width: 80px;">
                 <button onclick="manualReserve()" class="btn-primary">Vytvořit manuálně</button>
             </div>
 
-            <input type="text" id="admin-search" class="search-bar" placeholder="Hledat (kód, jméno, email...)" oninput="filterReservations()">
+            <div class="search-row">
+                <input type="text" id="admin-search" class="search-bar" placeholder="Hledat (kód, jméno, email...)" oninput="filterAndRender()">
+                <select id="filter-status" onchange="filterAndRender()">
+                    <option value="ALL">Všechny stavy</option>
+                    <option value="PAID">Jen ZAPLACENÉ</option>
+                    <option value="PENDING">Jen ČEKAJÍCÍ</option>
+                    <option value="CANCELED">Jen ZRUŠENÉ</option>
+                </select>
+            </div>
 
             <table>
                 <thead>
                     <tr>
-                        <th>Vytvořeno</th>
+                        <th onclick="setSort('created')">Vytvořeno <i class="fas fa-sort"></i></th>
                         <th>Kód</th>
                         <th>Zákazník</th>
-                        <th>Termín</th>
-                        <th>Stav Platby</th>
+                        <th onclick="setSort('startDate')">Termín <i class="fas fa-sort"></i></th>
+                        <th>Stav</th>
                         <th>PIN</th>
                         <th>Cena</th>
                         <th>Akce</th>
@@ -76,17 +110,12 @@
     </div>
 
     <script>
-        let allReservations = [];
+        let allData = [];
+        let sortField = 'created';
+        let sortDir = 'desc';
 
-        function login() {
-            localStorage.setItem("adminPass", document.getElementById("admin-pass").value);
-            checkAuth();
-        }
-
-        function logout() {
-            localStorage.removeItem("adminPass");
-            location.reload();
-        }
+        function login() { localStorage.setItem("adminPass", document.getElementById("admin-pass").value); checkAuth(); }
+        function logout() { localStorage.removeItem("adminPass"); location.reload(); }
 
         function checkAuth() {
             const pass = localStorage.getItem("adminPass");
@@ -102,61 +131,99 @@
             try {
                 const res = await fetch("/admin/reservations", { headers: { "x-admin-password": pass } });
                 if (res.status === 403) return logout();
-                allReservations = await res.json();
-                renderTable(allReservations);
+                allData = await res.json();
+                calculateStats();
+                filterAndRender();
             } catch (e) { alert("Chyba serveru"); }
         }
 
-        function renderTable(data) {
-            const tbody = document.getElementById("res-table-body");
-            tbody.innerHTML = data.map(r => {
-                const createdDate = new Date(r.created).toLocaleString('cs-CZ', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-                const statusClass = r.paymentStatus === 'PAID' ? 'bg-paid' : (r.paymentStatus === 'PENDING' ? 'bg-pending' : 'bg-canceled');
-                
-                return `
-                    <tr>
-                        <td style="color:#999; font-size: 0.75rem;">${createdDate}</td>
-                        <td><strong>${r.reservationCode}</strong></td>
-                        <td>${r.name}<br><small>${r.email} | ${r.phone}</small></td>
-                        <td>${r.startDate} — ${r.endDate}<br><small>${r.time}</small></td>
-                        <td><span class="badge ${statusClass}">${r.paymentStatus}</span></td>
-                        <td><code>${r.passcode}</code></td>
-                        <td>${r.price} Kč</td>
-                        <td>
-                            <button onclick="archiveRes('${r._id}')" class="btn-archive" title="Ukončit">Archiv</button>
-                            <button onclick="deleteRes('${r._id}')" class="btn-danger"><i class="fa fa-trash"></i></button>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
+        function calculateStats() {
+            const now = new Date();
+            const thisMonth = now.getMonth();
+            const thisYear = now.getFullYear();
+
+            let total = 0;
+            let monthTotal = 0;
+            let count = 0;
+
+            allData.forEach(r => {
+                if (r.paymentStatus === 'PAID') {
+                    const price = parseFloat(r.price) || 0;
+                    total += price;
+                    count++;
+                    const d = new Date(r.created);
+                    if (d.getMonth() === thisMonth && d.getFullYear() === thisYear) {
+                        monthTotal += price;
+                    }
+                }
+            });
+
+            document.getElementById("stat-month").innerText = monthTotal.toLocaleString() + " Kč";
+            document.getElementById("stat-total").innerText = total.toLocaleString() + " Kč";
+            document.getElementById("stat-count").innerText = count;
         }
 
-        function filterReservations() {
-            const val = document.getElementById("admin-search").value.toLowerCase();
-            const filtered = allReservations.filter(r => 
-                (r.name && r.name.toLowerCase().includes(val)) || 
-                r.reservationCode.toLowerCase().includes(val) || 
-                (r.email && r.email.toLowerCase().includes(val))
-            );
-            renderTable(filtered);
+        function setSort(field) {
+            if (sortField === field) sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+            else { sortField = field; sortDir = 'asc'; }
+            filterAndRender();
+        }
+
+        function filterAndRender() {
+            const search = document.getElementById("admin-search").value.toLowerCase();
+            const status = document.getElementById("filter-status").value;
+
+            let filtered = allData.filter(r => {
+                const matchSearch = !search || (r.name && r.name.toLowerCase().includes(search)) || r.reservationCode.toLowerCase().includes(search) || (r.email && r.email.toLowerCase().includes(search));
+                const matchStatus = status === 'ALL' || r.paymentStatus === status;
+                return matchSearch && matchStatus;
+            });
+
+            filtered.sort((a, b) => {
+                let valA = a[sortField];
+                let valB = b[sortField];
+                if (sortField === 'created' || sortField === 'startDate') { valA = new Date(valA); valB = new Date(valB); }
+                return sortDir === 'asc' ? (valA > valB ? 1 : -1) : (valA < valB ? 1 : -1);
+            });
+
+            const tbody = document.getElementById("res-table-body");
+            tbody.innerHTML = filtered.map(r => `
+                <tr>
+                    <td style="color:#999; font-size: 0.75rem;">${new Date(r.created).toLocaleString('cs-CZ')}</td>
+                    <td><strong>${r.reservationCode}</strong></td>
+                    <td>${r.name}<br><small>${r.email} | ${r.phone}</small></td>
+                    <td>${new Date(r.startDate).toLocaleDateString('cs-CZ')} — ${new Date(r.endDate).toLocaleDateString('cs-CZ')}<br><small>${r.time}</small></td>
+                    <td><span class="badge bg-${r.paymentStatus.toLowerCase()}">${r.paymentStatus}</span></td>
+                    <td><code>${r.passcode}</code></td>
+                    <td>${r.price} Kč</td>
+                    <td style="white-space:nowrap;">
+                        <button onclick="resendEmail('${r._id}')" class="btn-action text-mail" title="Znovu poslat email"><i class="fas fa-envelope"></i></button>
+                        <button onclick="archiveRes('${r._id}')" class="btn-action" style="color:#666" title="Archivovat"><i class="fas fa-archive"></i></button>
+                        <button onclick="deleteRes('${r._id}')" class="btn-action text-del" title="Smazat"><i class="fa fa-trash"></i></button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function resendEmail(id) {
+            if(!confirm("Znovu odeslat email?")) return;
+            const res = await fetch(`/admin/reservations/${id}/resend-email`, { method: "POST", headers: { "x-admin-password": localStorage.getItem("adminPass") } });
+            if (res.ok) alert("Odesláno");
         }
 
         async function deleteRes(id) {
-            if(!confirm("Smazat rezervaci a PIN?")) return;
-            const pass = localStorage.getItem("adminPass");
-            await fetch(`/admin/reservations/${id}`, { method: "DELETE", headers: { "x-admin-password": pass } });
+            if(!confirm("Smazat?")) return;
+            await fetch(`/admin/reservations/${id}`, { method: "DELETE", headers: { "x-admin-password": localStorage.getItem("adminPass") } });
             loadReservations();
         }
 
         async function archiveRes(id) {
-            if(!confirm("Ukončit platnost PINu a archivovat?")) return;
-            const pass = localStorage.getItem("adminPass");
-            await fetch(`/admin/reservations/${id}/archive`, { method: "POST", headers: { "x-admin-password": pass } });
+            if(!confirm("Archivovat?")) return;
+            await fetch(`/admin/reservations/${id}/archive`, { method: "POST", headers: { "x-admin-password": localStorage.getItem("adminPass") } });
             loadReservations();
         }
 
         async function manualReserve() {
-            const pass = localStorage.getItem("adminPass");
             const body = {
                 startDate: document.getElementById("admin-start").value,
                 endDate: document.getElementById("admin-end").value,
@@ -166,11 +233,7 @@
                 phone: document.getElementById("admin-phone").value,
                 price: document.getElementById("admin-price").value
             };
-            await fetch("/reserve-range", {
-                method: "POST", 
-                headers: { "Content-Type": "application/json", "x-admin-password": pass },
-                body: JSON.stringify(body)
-            });
+            await fetch("/reserve-range", { method: "POST", headers: { "Content-Type": "application/json", "x-admin-password": localStorage.getItem("adminPass") }, body: JSON.stringify(body) });
             loadReservations();
         }
 
