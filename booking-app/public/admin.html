@@ -9,212 +9,185 @@
     <style>
         body { font-family: 'Montserrat', sans-serif; background: #f0f2f5; margin: 0; padding: 20px; color: #333; }
         .admin-box { max-width: 1400px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); margin-bottom: 30px; }
-        .login-screen { max-width: 400px; margin-top: 100px; text-align: center; }
+        .login-screen { max-width: 400px; margin: 100px auto; text-align: center; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
         h1, h2, h3 { color: #333; margin-top: 0; }
-        h1 { color: #bfa37c; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 30px; }
-        .form-group { margin-bottom: 15px; text-align: left; }
-        label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 0.9rem; }
-        input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 1rem; }
-        .manual-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; align-items: end; }
-        .btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: 700; transition: 0.2s; font-size: 0.9rem; }
-        .btn-primary { background: #333; color: white; width: 100%; }
-        .btn-primary:hover { background: #bfa37c; }
-        .btn-small { padding: 5px 10px; font-size: 0.8rem; background: #eee; color: #333; }
-        .btn-delete { background: #ffebee; color: #c62828; border: 1px solid #ffcdd2; }
-        .btn-delete:hover { background: #ffcdd2; }
-        .btn-archive { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
-        .btn-archive:hover { background: #ffe8a1; }
-        .btn-invoice { display: inline-flex; align-items: center; gap: 5px; background: #333; color: white; text-decoration: none; padding: 6px 12px; border-radius: 4px; font-size: 0.85rem; }
-        .btn-invoice:hover { background: #bfa37c; }
-        .action-buttons { display: flex; gap: 5px; flex-wrap: wrap; }
-        .filters-row { display: flex; gap: 15px; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #eee; align-items: center; justify-content: space-between; flex-wrap: wrap; }
-        .filter-group { display: flex; align-items: center; gap: 10px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { text-align: left; padding: 15px; border-bottom: 1px solid #eee; vertical-align: middle; }
-        th { background: #f9f9f9; color: #666; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; }
+        h1 { color: #bfa37c; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 30px; text-align: center; }
+        
+        input, select, button { padding: 12px; margin: 5px; border-radius: 6px; border: 1px solid #ddd; font-family: inherit; }
+        button { cursor: pointer; border: none; font-weight: 600; transition: opacity 0.2s; }
+        .btn-primary { background: #bfa37c; color: white; }
+        .btn-danger { background: #ff4d4d; color: white; }
+        .btn-outline { background: #f8f9fa; border: 1px solid #ddd; }
+        button:hover { opacity: 0.8; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.9rem; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; }
+        th { background: #f8f9fa; color: #666; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 1px; }
         tr:hover { background: #fafafa; }
-        .pin-cell { font-family: monospace; font-size: 1.1rem; font-weight: bold; color: #28a745; background: #e8f5e9; padding: 4px 8px; border-radius: 4px; display: inline-block; }
-        .id-cell { font-family: monospace; font-weight: bold; color: #bfa37c; }
-        .badge-pay { padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; display: inline-block; margin-top: 4px;}
-        .pay-ok { background: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; }
-        @media screen and (max-width: 768px) {
-            table, thead, tbody, th, td, tr { display: block; }
-            thead tr { position: absolute; top: -9999px; left: -9999px; } 
-            tr { border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 15px; padding: 5px; }
-            td { border: none; padding: 10px !important; text-align: left; border-bottom: 1px solid #f8f8f8; display: flex; flex-direction: column; }
-            td:before { content: attr(data-label); font-weight: bold; color: #999; font-size: 0.75rem; margin-bottom: 5px; }
-        }
+
+        .status-badge { padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; }
+        .status-paid { background: #e6ffed; color: #28a745; }
+        .status-pending { background: #fff8e6; color: #f39c12; }
+        .status-canceled { background: #ffeef0; color: #d73a49; }
+
+        .manual-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
     </style>
 </head>
 <body>
 
-    <div id="login-section" class="admin-box login-screen">
-        <h1><i class="fa-solid fa-lock"></i> Admin</h1>
-        <div class="form-group"><input type="password" id="admin-pass" placeholder="Zadejte heslo..."></div>
-        <button onclick="login()" class="btn btn-primary">VSTOUPIT</button>
+    <div id="login-container" class="login-screen">
+        <h1>Vozík 24/7 Admin</h1>
+        <p>Zadejte administrátorské heslo</p>
+        <input type="password" id="admin-pass" placeholder="Heslo..." style="width: 80%;"><br><br>
+        <button onclick="login()" class="btn-primary" style="width: 85%;">PŘIHLÁSIT SE</button>
     </div>
 
-    <div id="data-section" style="display:none;">
+    <div id="admin-content" style="display: none;">
         <div class="admin-box">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-                <h2 style="margin:0;">Přehled rezervací</h2>
-                <div style="display:flex; gap:10px;">
-                    <button onclick="loadReservations()" class="btn btn-small"><i class="fa-solid fa-rotate"></i> Obnovit</button>
-                    <button onclick="logout()" class="btn btn-small">Odhlásit</button>
-                </div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h1>Správa rezervací</h1>
+                <button onclick="logout()" class="btn-outline">Odhlásit</button>
             </div>
 
-            <div class="filters-row">
-                <div class="filter-group">
-                    <button class="btn btn-small btn-delete" onclick="bulkDelete()">Smazat označené</button>
-                </div>
-                <div class="filter-group">
-                    <select id="filter-month" onchange="applyFilters()">
-                        <option value="all">Všechny měsíce</option>
-                        <option value="0">Leden</option><option value="1">Únor</option><option value="2">Březen</option>
-                        <option value="3">Duben</option><option value="4">Květen</option><option value="5">Červen</option>
-                        <option value="6">Červenec</option><option value="7">Srpen</option><option value="8">Září</option>
-                        <option value="9">Říjen</option><option value="10">Listopad</option><option value="11">Prosinec</option>
-                    </select>
-                    <select id="filter-year" onchange="applyFilters()">
-                        <option value="all">Všechny roky</option>
-                        <option value="2025">2025</option>
-                        <option value="2026">2026</option>
-                    </select>
-                    <input type="text" id="search-input" onkeyup="applyFilters()" placeholder="Hledat..." style="width:200px;">
-                </div>
+            <h3>Ruční vytvoření rezervace (bez GoPay)</h3>
+            <div class="manual-form">
+                <input type="date" id="admin-start" placeholder="Od">
+                <input type="date" id="admin-end" placeholder="Do">
+                <input type="time" id="admin-time" value="12:00">
+                <input type="text" id="admin-name" placeholder="Jméno">
+                <input type="email" id="admin-email" placeholder="Email">
+                <input type="text" id="admin-phone" placeholder="Telefon">
+                <input type="number" id="admin-price" placeholder="Cena (Kč)" value="230">
+                <button onclick="manualReserve()" class="btn-primary">Vytvořit & PIN</button>
             </div>
 
-            <table id="main-table">
+            <div style="margin-bottom: 10px;">
+                <button onclick="loadReservations()" class="btn-outline"><i class="fas fa-sync"></i> Obnovit seznam</button>
+            </div>
+
+            <table>
                 <thead>
                     <tr>
-                        <th width="40"><input type="checkbox" onchange="toggleAll(this)"></th>
-                        <th>ID Rez.</th>
-                        <th>Vytvořeno</th>
-                        <th>Zákazník</th>
+                        <th>Kód / Vytvořeno</th>
                         <th>Termín</th>
-                        <th>Platba</th>
+                        <th>Zákazník</th>
+                        <th>Cena</th>
+                        <th>Status</th>
                         <th>PIN</th>
                         <th>Akce</th>
                     </tr>
                 </thead>
-                <tbody id="table-body"></tbody>
+                <tbody id="res-table-body">
+                    <tr><td colspan="7" style="text-align:center;">Načítám rezervace...</td></tr>
+                </tbody>
             </table>
-        </div>
-        
-        <div class="admin-box">
-             <h3>Ruční vytvoření</h3>
-             <div class="manual-form-grid">
-                <div class="form-group"><label>Od:</label><input type="date" id="admin-start"></div>
-                <div class="form-group"><label>Do:</label><input type="date" id="admin-end"></div>
-                <div class="form-group"><label>Čas:</label><input type="time" id="admin-time" value="12:00"></div>
-                <div class="form-group"><label>Jméno:</label><input type="text" id="admin-name"></div>
-                <div class="form-group"><label>Email:</label><input type="email" id="admin-email"></div>
-                <div class="form-group"><label>Tel:</label><input type="text" id="admin-phone"></div>
-                <div class="form-group"><label>Cena:</label><input type="number" id="admin-price"></div>
-                <button onclick="manualReserve()" class="btn btn-primary" style="height:46px;">VYTVOŘIT</button>
-             </div>
         </div>
     </div>
 
     <script>
-        const API_BASE = ""; 
-        let allReservations = []; 
-        
-        function login() { const p = document.getElementById("admin-pass").value; loadReservations(p); }
-        function logout() { localStorage.removeItem("adminPass"); location.reload(); }
+        const API_BASE = "";
 
-        async function loadReservations(pwd = null) {
-            const password = pwd || localStorage.getItem("adminPass");
-            try {
-                const res = await fetch(`${API_BASE}/admin/reservations`, { headers: { "x-admin-password": password } });
-                if (res.status === 403) { alert("Špatné heslo!"); return; }
-                const data = await res.json();
-                allReservations = data;
-                document.getElementById("login-section").style.display = "none";
-                document.getElementById("data-section").style.display = "block";
-                localStorage.setItem("adminPass", password);
-                applyFilters(); 
-            } catch (e) { alert("Chyba spojení."); }
+        function login() {
+            const pass = document.getElementById("admin-pass").value;
+            localStorage.setItem("adminPass", pass);
+            checkAuth();
         }
 
-        function applyFilters() {
-            const month = document.getElementById('filter-month').value;
-            const year = document.getElementById('filter-year').value;
-            const term = document.getElementById('search-input').value.toLowerCase();
-            const filtered = allReservations.filter(r => {
-                const date = new Date(r.created || r.createdAt); 
-                if (month !== 'all' && date.getMonth().toString() !== month) return false;
-                if (year !== 'all' && date.getFullYear().toString() !== year) return false;
-                if (term && !r.name.toLowerCase().includes(term) && !r.reservationCode.toLowerCase().includes(term)) return false;
-                return true;
-            });
-            renderTable(filtered);
+        function logout() {
+            localStorage.removeItem("adminPass");
+            location.reload();
+        }
+
+        function checkAuth() {
+            const pass = localStorage.getItem("adminPass");
+            if (pass) {
+                document.getElementById("login-container").style.display = "none";
+                document.getElementById("admin-content").style.display = "block";
+                loadReservations();
+            }
+        }
+
+        async function loadReservations() {
+            const pass = localStorage.getItem("adminPass");
+            try {
+                const res = await fetch(`${API_BASE}/admin/reservations`, {
+                    headers: { "x-admin-password": pass }
+                });
+                if (res.status === 403) {
+                    alert("Chybné heslo!");
+                    logout();
+                    return;
+                }
+                const data = await res.json();
+                renderTable(data);
+            } catch (e) {
+                document.getElementById("res-table-body").innerHTML = `<tr><td colspan="7" style="color:red; text-align:center;">Chyba spojení se serverem.</td></tr>`;
+            }
         }
 
         function renderTable(data) {
-            const tbody = document.getElementById("table-body");
+            const tbody = document.getElementById("res-table-body");
             tbody.innerHTML = "";
-            data.sort((a,b) => new Date(b.created || 0) - new Date(a.created || 0));
+            
             if (data.length === 0) {
-                tbody.innerHTML = "<tr><td colspan='8' style='text-align:center; padding:20px; color:#999;'>Žádné záznamy.</td></tr>";
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;">Žádné rezervace.</td></tr>`;
                 return;
             }
-            const now = new Date();
-            data.forEach(r => {
-                const created = new Date(r.created || r.createdAt);
-                const createdStr = `${created.getDate()}.${created.getMonth()+1}. <small>${created.getHours()}:${String(created.getMinutes()).padStart(2,'0')}</small>`;
-                const start = new Date(r.startDate).toLocaleDateString("cs-CZ");
-                const end = new Date(r.endDate).toLocaleDateString("cs-CZ");
-                const pwd = localStorage.getItem("adminPass");
-                const invoiceUrl = `${API_BASE}/admin/reservations/${r._id}/invoice?pwd=${pwd}`;
-                const endDateObj = new Date(r.endDate);
-                endDateObj.setHours(23,59,59);
-                const isActive = endDateObj > now;
 
-                const tr = document.createElement("tr");
-                tr.innerHTML = `
-                    <td data-label="Výběr"><input type="checkbox" class="row-chk" data-id="${r._id}"></td>
-                    <td data-label="ID Rez."><span class="id-cell">${r.reservationCode}</span></td>
-                    <td data-label="Vytvořeno">${createdStr}</td>
-                    <td data-label="Zákazník"><strong>${r.name}</strong><br><small>${r.email}</small></td>
-                    <td data-label="Termín">${start} - ${end}<br><small>${r.time}</small></td>
-                    <td data-label="Platba"><strong>${r.price} Kč</strong><br><span class="badge-pay pay-ok">ZAPLACENO</span></td>
-                    <td data-label="PIN"><span class="pin-cell">${r.passcode}</span></td>
-                    <td data-label="Akce">
-                        <div class="action-buttons">
-                            <a href="${invoiceUrl}" target="_blank" class="btn-invoice"><i class="fa-solid fa-file-pdf"></i> PDF</a>
-                            ${isActive ? `<button onclick="archiveRes('${r._id}')" class="btn-archive">Ukončit</button>` : ''}
-                            <button onclick="deleteRes('${r._id}')" class="btn-delete">Smazat</button>
-                        </div>
-                    </td>
+            data.forEach(r => {
+                const createdDate = new Date(r.created).toLocaleString('cs-CZ');
+                const statusClass = `status-${r.paymentStatus.toLowerCase()}`;
+                
+                tbody.innerHTML += `
+                    <tr>
+                        <td>
+                            <strong>${r.reservationCode}</strong><br>
+                            <small style="color: #999">${createdDate}</small>
+                        </td>
+                        <td>
+                            ${r.startDate} - ${r.endDate}<br>
+                            <small>${r.time}</small>
+                        </td>
+                        <td>
+                            ${r.name}<br>
+                            <small>${r.email} | ${r.phone}</small>
+                        </td>
+                        <td>${r.price} Kč</td>
+                        <td><span class="status-badge ${statusClass}">${r.paymentStatus}</span></td>
+                        <td><code style="font-weight:bold; font-size: 1.1rem;">${r.passcode}</code></td>
+                        <td>
+                            <button onclick="downloadInvoice('${r._id}', '${r.reservationCode}')" class="btn-outline" title="Faktura"><i class="fas fa-file-pdf"></i></button>
+                            <button onclick="deleteRes('${r._id}')" class="btn-danger" title="Smazat"><i class="fas fa-trash"></i></button>
+                        </td>
+                    </tr>
                 `;
-                tbody.appendChild(tr);
             });
         }
 
-        function toggleAll(source) { document.querySelectorAll('.row-chk').forEach(c => c.checked = source.checked); }
-
-        async function bulkDelete() {
-            const ids = Array.from(document.querySelectorAll('.row-chk:checked')).map(c => c.dataset.id);
-            if (!ids.length) return alert("Nic není vybráno.");
-            if (!confirm(`Smazat ${ids.length} rezervací?`)) return;
-            await fetch(`${API_BASE}/admin/reservations/bulk`, {
-                method: "DELETE", headers: { "x-admin-password": localStorage.getItem("adminPass"), "Content-Type": "application/json" },
-                body: JSON.stringify({ ids })
-            });
-            loadReservations();
+        async function downloadInvoice(id, code) {
+            const pass = localStorage.getItem("adminPass");
+            try {
+                const res = await fetch(`${API_BASE}/admin/reservations/${id}/invoice`, {
+                    headers: { "x-admin-password": pass }
+                });
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `faktura_${code}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+            } catch (e) { alert("Chyba při stahování PDF"); }
         }
 
         async function deleteRes(id) {
-            if(!confirm("Opravdu smazat?")) return;
-            await fetch(`${API_BASE}/admin/reservations/${id}`, { method: "DELETE", headers: { "x-admin-password": localStorage.getItem("adminPass") } });
-            loadReservations();
-        }
-
-        async function archiveRes(id) {
-            if(!confirm("Ukončit rezervaci?")) return;
-            await fetch(`${API_BASE}/admin/reservations/${id}/archive`, { method: "POST", headers: { "x-admin-password": localStorage.getItem("adminPass") } });
+            if (!confirm("Opravdu smazat rezervaci? PIN bude ze zámku také odstraněn.")) return;
+            const pass = localStorage.getItem("adminPass");
+            await fetch(`${API_BASE}/admin/reservations/${id}`, {
+                method: "DELETE",
+                headers: { "x-admin-password": pass }
+            });
             loadReservations();
         }
 
@@ -226,15 +199,26 @@
             const email = document.getElementById("admin-email").value;
             const phone = document.getElementById("admin-phone").value;
             const price = document.getElementById("admin-price").value;
-            if(!startDate || !name) return alert("Vyplňte data");
-            await fetch(`${API_BASE}/reserve-range`, {
-                method: "POST", headers:{"Content-Type":"application/json"},
-                body: JSON.stringify({ startDate, endDate, time, name, email, phone, price })
-            });
-            loadReservations();
-            alert("Vytvořeno.");
+
+            if (!startDate || !name) return alert("Vyplňte jméno a datum!");
+
+            try {
+                const res = await fetch(`${API_BASE}/reserve-range`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ startDate, endDate, time, name, email, phone, price })
+                });
+                const result = await res.json();
+                if (result.success) {
+                    alert("Rezervace vytvořena. PIN: " + result.pin);
+                    loadReservations();
+                } else {
+                    alert("Chyba: " + result.error);
+                }
+            } catch (e) { alert("Chyba spojení."); }
         }
-        window.onload = () => { if(localStorage.getItem("adminPass")) loadReservations(); };
+
+        window.onload = checkAuth;
     </script>
 </body>
 </html>
