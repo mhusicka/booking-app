@@ -9,10 +9,11 @@ let endDate = null;
 let cachedReservations = []; 
 let isSubmitting = false; 
 
+// Hlavní spouštěcí funkce
 async function init() {
     console.log("🚀 Startuji aplikaci...");
     
-    // 1. Nejprve zkusíme načíst data, pokud to selže, nevadí, kalendář se vykreslí i tak
+    // 1. Zkusíme načíst data, ALE NEBLOKUJEME vykreslení, kdyby to spadlo
     await updateCalendar();
 
     const priceDisplay = document.getElementById("price-per-day-display");
@@ -25,7 +26,13 @@ async function init() {
             this.value = this.value.replace(/[^0-9+\s]/g, ''); 
             clearError("phone");
         });
+        phoneInput.addEventListener("blur", function() { 
+            if (this.value.trim() === "" || this.value.trim() === "+") this.value = "+420 ";
+        });
     }
+
+    document.getElementById("inp-name")?.addEventListener("input", () => clearError("name"));
+    document.getElementById("inp-email")?.addEventListener("input", () => clearError("email"));
 
     const submitBtn = document.getElementById("submit-btn");
     if (submitBtn) {
@@ -35,12 +42,12 @@ async function init() {
     document.getElementById("prev-month").addEventListener("click", () => {
         viewStartMonth--;
         if(viewStartMonth < 0) { viewStartMonth = 11; viewStartYear--; }
-        updateCalendar(); // Použijeme updateCalendar pro překreslení
+        renderCalendar();
     });
     document.getElementById("next-month").addEventListener("click", () => {
         viewStartMonth++;
         if(viewStartMonth > 11) { viewStartMonth = 0; viewStartYear++; }
-        updateCalendar(); // Použijeme updateCalendar pro překreslení
+        renderCalendar();
     });
 }
 
@@ -54,8 +61,9 @@ async function updateCalendar() {
             if (result.success) cachedReservations = result.data;
         }
     } catch (e) {
-        console.log("Jedu bez obsazenosti");
+        console.warn("Server nedostupný nebo chyba sítě, vykresluji prázdný kalendář.");
     }
+    // DŮLEŽITÉ: Render se volá vždy, i když fetch spadne
     renderCalendar();
 }
 
@@ -178,6 +186,7 @@ async function handleBooking(e) {
     if(loadingSpinner) loadingSpinner.style.display = "block";
 
     try {
+        // 1. Založit na serveru
         const res = await fetch(`${API_BASE}/create-booking`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -188,10 +197,11 @@ async function handleBooking(e) {
         const data = await res.json();
 
         if (data.success && data.gopay_url) {
-            // Otevřít GoPay
+            // 2. GoPay okno
             _gopay.checkout({ gatewayUrl: data.gopay_url, inline: true }, async function(result) {
                 if (result.state === 'PAID') {
                     submitBtn.innerText = "Dokončuji...";
+                    // 3. Potvrdit platbu
                     const verify = await fetch(`${API_BASE}/verify-payment`, {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
@@ -202,15 +212,17 @@ async function handleBooking(e) {
                         openModal('success-modal');
                         document.getElementById("booking-form").reset();
                         startDate = null; endDate = null;
-                        updateCalendar();
-                    } else alert("Chyba při generování kódu.");
+                        updateCalendar(); // Přenačíst obsazenost
+                    } else {
+                        alert("Platba OK, ale chyba při generování kódu. Kontaktujte nás.");
+                    }
                 } else {
-                    alert("Platba neprošla.");
+                    alert("Platba neproběhla.");
                 }
                 resetBtn();
             });
         } else {
-            alert(data.error || "Chyba.");
+            alert(data.error || "Chyba při rezervaci.");
             resetBtn();
         }
     } catch (err) {
