@@ -13,13 +13,12 @@ let isSubmitting = false;
 async function init() {
     console.log("🚀 Aplikace startuje...");
     
-    // Tady voláme kalendář
-    await updateCalendar();
+    // IHNED VYKRESLIT KALENDÁŘ (Původní chování)
+    renderCalendar();
 
     const priceDisplay = document.getElementById("price-per-day-display");
     if (priceDisplay) priceDisplay.innerText = `${PRICE_PER_DAY} Kč`;
     
-    // Validace
     const phoneInput = document.getElementById("inp-phone");
     if (phoneInput) {
         if (!phoneInput.value) phoneInput.value = "+420 ";
@@ -34,36 +33,19 @@ async function init() {
         submitBtn.addEventListener("click", handleBooking);
     }
 
-    // Tlačítka kalendáře
     document.getElementById("prev-month").addEventListener("click", () => {
         viewStartMonth--;
         if(viewStartMonth < 0) { viewStartMonth = 11; viewStartYear--; }
-        updateCalendar();
+        renderCalendar();
     });
     document.getElementById("next-month").addEventListener("click", () => {
         viewStartMonth++;
         if(viewStartMonth > 11) { viewStartMonth = 0; viewStartYear++; }
-        updateCalendar();
+        renderCalendar();
     });
 }
 
-// --- FUNKCE KALENDÁŘE (S OCHRANOU PROTI PÁDU) ---
-
-async function updateCalendar() {
-    try {
-        // Pokusíme se načíst data
-        const res = await fetch(`${API_BASE}/reservations`);
-        if (res.ok) {
-            const result = await res.json();
-            if(result.success) cachedReservations = result.data;
-        }
-    } catch(e) { 
-        console.warn("Nepodařilo se načíst rezervace, vykresluji prázdný kalendář.", e);
-        // I když to selže, pokračujeme dál!
-    }
-    
-    renderCalendar();
-}
+// --- ČISTÁ FUNKCE KALENDÁŘE (ŽÁDNÉ ÚPRAVY, ŽÁDNÝ FETCH) ---
 
 function renderCalendar() {
     const grid = document.getElementById("calendar-grid");
@@ -94,15 +76,9 @@ function renderCalendar() {
         const today = new Date();
         today.setHours(0,0,0,0);
 
-        // Kontrola minulosti
         if (currentDayDate < today) {
             div.classList.add("disabled");
-        }
-        // Kontrola obsazenosti
-        else if (isDateBooked(currentDayDate)) {
-             div.classList.add("disabled", "booked");
-             div.style.background = "#ffcccc"; // Vizuální indikace obsazení
-        }
+        } 
         else {
             if (startDate && currentDayDate.getTime() === startDate.getTime()) div.classList.add("selected", "start");
             if (endDate && currentDayDate.getTime() === endDate.getTime()) div.classList.add("selected", "end");
@@ -112,16 +88,6 @@ function renderCalendar() {
         }
         grid.appendChild(div);
     }
-}
-
-function isDateBooked(date) {
-    if (!cachedReservations || cachedReservations.length === 0) return false;
-    return cachedReservations.some(r => {
-        const start = new Date(r.startDate); 
-        const end = new Date(r.endDate);
-        start.setHours(0,0,0,0); end.setHours(0,0,0,0); date.setHours(0,0,0,0);
-        return date >= start && date <= end;
-    });
 }
 
 function handleDateClick(date) {
@@ -157,7 +123,7 @@ function updatePriceDisplay() {
     }
 }
 
-// --- FUNKCE PRO GOPAY ODESLÁNÍ ---
+// --- JEDINÁ ZMĚNA: FUNKCE PRO ODESLÁNÍ S GOPAY ---
 async function handleBooking(e) {
     e.preventDefault();
     const submitBtn = document.getElementById("submit-btn");
@@ -174,7 +140,7 @@ async function handleBooking(e) {
 
     if (!startDate || !endDate) { alert("Vyberte termín."); return; }
     if (!name || !email || !phone) { alert("Vyplňte povinné údaje."); return; }
-    if (!agree) { alert("Souhlas s podmínkami je nutný."); return; }
+    if (!agree) { alert("Musíte souhlasit s podmínkami."); return; }
 
     const days = Math.max(1, Math.ceil(Math.abs(endDate - startDate) / (1000 * 60 * 60 * 24))); 
     const totalPrice = days * PRICE_PER_DAY;
@@ -212,7 +178,7 @@ async function handleBooking(e) {
                         openModal('success-modal');
                         document.getElementById("booking-form").reset();
                         startDate = null; endDate = null;
-                        updateCalendar();
+                        renderCalendar(); // Přerenderovat čistý kalendář
                     } else alert("Chyba při generování kódu.");
                 } else {
                     alert("Platba neprošla.");
@@ -237,11 +203,9 @@ async function handleBooking(e) {
     }
 }
 
-// Helpery
 function showError(fieldId) { document.getElementById("inp-" + fieldId).style.border = "1px solid red"; }
 function clearError(fieldId) { document.getElementById("inp-" + fieldId).style.border = "1px solid #ddd"; }
 function openModal(id) { document.getElementById(id).style.display = 'flex'; }
 window.onclick = function(e) { if(e.target.className==='modal-overlay') e.target.style.display='none'; }
 
-// Start
 document.addEventListener("DOMContentLoaded", init);
