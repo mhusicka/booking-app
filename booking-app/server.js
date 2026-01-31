@@ -15,35 +15,32 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
-// --- DŮLEŽITÉ: CESTA K SOUBORŮM ---
-// Pokud máš index.html a script.js ve složce "public", nech toto:
+// --- ZDE JE VRÁCENÁ SPRÁVNÁ CESTA K PUBLIC SLOŽCE ---
 app.use(express.static(path.join(__dirname, 'public')));
-// Pokud je máš hned vedle server.js (v rootu), odkomentuj řádek níže a ten horní smaž:
-// app.use(express.static(__dirname));
-
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 
-
-// KONFIGURACE (Doplň si .env nebo přepiš zde)
+// KONFIGURACE (Bere se z Render Environment Variables)
 const MONGO_URI = process.env.MONGO_URI;
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const SENDER_EMAIL = process.env.SENDER_EMAIL || "info@vozik247.cz";
 
+// TTLock
 const TTLOCK_CLIENT_ID = process.env.TTLOCK_CLIENT_ID;
 const TTLOCK_CLIENT_SECRET = process.env.TTLOCK_CLIENT_SECRET;
 const TTLOCK_USERNAME = process.env.TTLOCK_USERNAME;
 const TTLOCK_PASSWORD = process.env.TTLOCK_PASSWORD;
 const MY_LOCK_ID = parseInt(process.env.MY_LOCK_ID);
 
-// GoPay Konfigurace
+// GoPay
 const GOPAY_CONFIG = {
     goid: process.env.GOPAY_GOID,
     clientId: process.env.GOPAY_CLIENT_ID,
     clientSecret: process.env.GOPAY_CLIENT_SECRET,
     isProduction: process.env.GOPAY_IS_PRODUCTION === 'true'
 };
-const GOPAY_API_URL = GOPAY_CONFIG.isProduction ? 'https://gate.gopay.cz/api' : 'https://gw.sandbox.gopay.com/api';
+const GOPAY_API_URL = GOPAY_CONFIG.isProduction 
+    ? 'https://gate.gopay.cz/api' 
+    : 'https://gw.sandbox.gopay.com/api';
 
 mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
     .then(() => console.log("✅ MongoDB připojeno"))
@@ -67,6 +64,7 @@ const ReservationSchema = new mongoose.Schema({
     keyboardPwdId: String,
     createdAt: { type: Date, default: Date.now }
 });
+
 const Reservation = mongoose.model("Reservation", ReservationSchema);
 
 const transporter = nodemailer.createTransport({
@@ -76,7 +74,7 @@ const transporter = nodemailer.createTransport({
     auth: { user: SENDER_EMAIL, pass: BREVO_API_KEY }
 });
 
-// --- POMOCNÉ FUNKCE ---
+// --- HELPERY ---
 async function getTtlockToken() {
     try {
         const params = new URLSearchParams();
@@ -121,19 +119,20 @@ async function getGoPayToken() {
     } catch (error) { throw new Error("GoPay Token Error"); }
 }
 
-// --- ENDPOINTY ---
+// --- API ---
 
-// 1. ZALOŽENÍ (Vrátí URL)
+// 1. ZALOŽENÍ (Vrací URL platby)
 app.post("/create-booking", async (req, res) => {
     const { startDate, endDate, name, email, phone, address, idNumber, vatNumber, price, agree, note } = req.body;
     try {
         const start = new Date(startDate);
         const end = new Date(endDate);
+        
         const collision = await Reservation.findOne({
             status: { $in: ["AKTIVNÍ", "ZAPLACENO"] }, 
             $or: [{ startDate: { $lte: end }, endDate: { $gte: start } }]
         });
-        if (collision) return res.json({ success: false, error: "Termín obsazen." });
+        if (collision) return res.json({ success: false, error: "Termín je obsazen." });
 
         let uniqueCode = crypto.randomBytes(3).toString('hex').toUpperCase();
         
@@ -174,7 +173,7 @@ app.post("/create-booking", async (req, res) => {
     }
 });
 
-// 2. DOKONČENÍ
+// 2. DOKONČENÍ (PIN + Email)
 app.post("/verify-payment", async (req, res) => {
     const { reservationCode } = req.body;
     try {
@@ -191,13 +190,18 @@ app.post("/verify-payment", async (req, res) => {
         const pdfPath = path.join(__dirname, `faktura_${r.reservationCode}.pdf`);
         const ws = fs.createWriteStream(pdfPath);
         doc.pipe(ws);
-        doc.text(`Faktura č. ${r.reservationCode} - Cena: ${r.price} Kč`);
+        doc.font('Helvetica-Bold').fontSize(20).text('FAKTURA', { align: 'center' });
+        doc.moveDown();
+        doc.fontSize(12).text(`Objednávka: ${r.reservationCode}`);
+        doc.text(`Datum: ${new Date().toLocaleDateString()}`);
+        doc.text(`Cena: ${r.price} Kč`);
         doc.end();
 
         ws.on('finish', async () => {
             await transporter.sendMail({
                 from: SENDER_EMAIL, to: r.email, subject: "Rezervace potvrzena",
-                html: `Kód: ${r.passcode} #`, attachments: [{ path: pdfPath }]
+                html: `<h2>Kód k zámku: ${r.passcode} #</h2>`,
+                attachments: [{ filename: `faktura.pdf`, path: pdfPath }]
             });
             fs.unlinkSync(pdfPath);
             res.json({ success: true });
@@ -205,15 +209,22 @@ app.post("/verify-payment", async (req, res) => {
     } catch (e) { res.status(500).json({ error: "Chyba" }); }
 });
 
-// Endpoint pro kalendář (zajišťuje, že se kalendář nezasekne)
+// Kalendář endpoint (aby fungovala i obsazenost, pokud ji budeš chtít)
 app.get("/reservations", async (req, res) => {
     try {
-        const reservations = await Reservation.find({ status: { $in: ["AKTIVNÍ", "ZAPLACENO"] } });
-        res.json({ success: true, data: reservations });
-    } catch (e) { res.json({ success: false, data: [] }); }
+        const data = await Reservation.find({ status: { $in: ["AKTIVNÍ", "ZAPLACENO"] } });
+        res.json({ success: true, data });
+    } catch(e) { res.json({ success: false, data: [] }); }
 });
 
-app.post("/retrieve-booking", async (req, res) => { /* Tvůj původní kód... */ });
+app.post("/retrieve-booking", async (req, res) => {
+    const { code } = req.body;
+    try {
+        const r = await Reservation.findOne({ reservationCode: code.toUpperCase() });
+        if (r) res.json({ success: true, pin: r.passcode, status: r.status });
+        else res.json({ success: false });
+    } catch (e) { res.status(500).json({ success: false }); }
+});
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server on ${PORT}`));
+app.listen(PORT, () => console.log(`Server běží na portu ${PORT}`));
