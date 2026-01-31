@@ -9,11 +9,17 @@ let endDate = null;
 let cachedReservations = []; 
 let isSubmitting = false; 
 
-// Hlavní spouštěcí funkce
 async function init() {
     console.log("🚀 Startuji aplikaci...");
     
-    // 1. Zkusíme načíst data, ALE NEBLOKUJEME vykreslení, kdyby to spadlo
+    // Kontrola návratu z GoPay s chybou
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('error') === 'payment_failed') {
+        alert("Platba nebyla dokončena. Rezervace nebyla vytvořena.");
+        // Vyčistit URL od parametrů
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
     await updateCalendar();
 
     const priceDisplay = document.getElementById("price-per-day-display");
@@ -34,214 +40,390 @@ async function init() {
     document.getElementById("inp-name")?.addEventListener("input", () => clearError("name"));
     document.getElementById("inp-email")?.addEventListener("input", () => clearError("email"));
 
-    const submitBtn = document.getElementById("submit-btn");
-    if (submitBtn) {
-        submitBtn.addEventListener("click", handleBooking);
+    const agreeCheckbox = document.getElementById("inp-agree");
+    const submitBtn = document.getElementById("btn-submit");
+    if (agreeCheckbox && submitBtn) {
+        agreeCheckbox.addEventListener("change", function() {
+            submitBtn.disabled = !this.checked;
+            submitBtn.style.backgroundColor = this.checked ? "#bfa37c" : "#ccc";
+            submitBtn.style.cursor = this.checked ? "pointer" : "not-allowed";
+        });
     }
 
-    document.getElementById("prev-month").addEventListener("click", () => {
-        viewStartMonth--;
-        if(viewStartMonth < 0) { viewStartMonth = 11; viewStartYear--; }
-        renderCalendar();
-    });
-    document.getElementById("next-month").addEventListener("click", () => {
-        viewStartMonth++;
-        if(viewStartMonth > 11) { viewStartMonth = 0; viewStartYear++; }
-        renderCalendar();
-    });
+    document.getElementById("prev")?.addEventListener("click", () => changeMonth(-1));
+    document.getElementById("next")?.addEventListener("click", () => changeMonth(1));
+    document.getElementById("inp-time")?.addEventListener("change", () => updateSummaryUI());
+    document.getElementById("btn-now")?.addEventListener("click", setNow);
+    document.getElementById("btn-submit")?.addEventListener("click", submitReservation);
 }
 
-// --- KALENDÁŘ ---
-
-async function updateCalendar() {
-    try {
-        const res = await fetch(`${API_BASE}/reservations`);
-        if (res.ok) {
-            const result = await res.json();
-            if (result.success) cachedReservations = result.data;
-        }
-    } catch (e) {
-        console.warn("Server nedostupný nebo chyba sítě, vykresluji prázdný kalendář.");
-    }
-    // DŮLEŽITÉ: Render se volá vždy, i když fetch spadne
-    renderCalendar();
+// === VALIDACE ===
+function showError(field, message) {
+    const input = document.getElementById(`inp-${field}`);
+    const errDiv = document.getElementById(`error-${field}`);
+    if (input) input.classList.add("input-error");
+    if (errDiv) { errDiv.innerText = message; errDiv.style.display = "block"; }
 }
 
-function renderCalendar() {
-    const grid = document.getElementById("calendar-grid");
-    const monthYear = document.getElementById("month-year");
-    const months = ["Leden", "Únor", "Březen", "Duben", "Květen", "Červen", "Červenec", "Srpen", "Září", "Říjen", "Listopad", "Prosinec"];
-    
-    if(!grid || !monthYear) return;
-
-    monthYear.innerText = `${months[viewStartMonth]} ${viewStartYear}`;
-    grid.innerHTML = "";
-
-    const firstDay = new Date(viewStartYear, viewStartMonth, 1).getDay(); 
-    const daysInMonth = new Date(viewStartYear, viewStartMonth + 1, 0).getDate();
-    let startDayIndex = firstDay === 0 ? 6 : firstDay - 1;
-
-    for (let i = 0; i < startDayIndex; i++) {
-        const div = document.createElement("div");
-        div.classList.add("day", "empty");
-        grid.appendChild(div);
-    }
-
-    for (let d = 1; d <= daysInMonth; d++) {
-        const div = document.createElement("div");
-        div.classList.add("day");
-        div.innerText = d;
-        
-        const currentDayDate = new Date(viewStartYear, viewStartMonth, d);
-        const today = new Date();
-        today.setHours(0,0,0,0);
-
-        if (currentDayDate < today) {
-            div.classList.add("disabled");
-        } 
-        else if (isDateBooked(currentDayDate)) {
-             div.classList.add("disabled", "booked");
-             div.style.backgroundColor = "#ffcccc";
-        }
-        else {
-            if (startDate && currentDayDate.getTime() === startDate.getTime()) div.classList.add("selected", "start");
-            if (endDate && currentDayDate.getTime() === endDate.getTime()) div.classList.add("selected", "end");
-            if (startDate && endDate && currentDayDate > startDate && currentDayDate < endDate) div.classList.add("range");
-            
-            div.addEventListener("click", () => handleDateClick(currentDayDate));
-        }
-        grid.appendChild(div);
-    }
+function clearError(field) {
+    const input = document.getElementById(`inp-${field}`);
+    const errDiv = document.getElementById(`error-${field}`);
+    if (input) input.classList.remove("input-error");
+    if (errDiv) { errDiv.style.display = "none"; errDiv.innerText = ""; }
 }
 
-function isDateBooked(date) {
-    if (!cachedReservations || cachedReservations.length === 0) return false;
-    return cachedReservations.some(r => {
-        const start = new Date(r.startDate); 
-        const end = new Date(r.endDate);
-        start.setHours(0,0,0,0); end.setHours(0,0,0,0); date.setHours(0,0,0,0);
-        return date >= start && date <= end;
-    });
+function clearAllErrors() {
+    clearError("name"); clearError("email"); clearError("phone");
+    const calendarErr = document.getElementById("error-calendar");
+    if (calendarErr) calendarErr.innerText = "";
 }
 
-function handleDateClick(date) {
-    if (!startDate || (startDate && endDate)) {
-        startDate = date;
-        endDate = null;
-    } else if (startDate && !endDate) {
-        if (date < startDate) startDate = date;
-        else endDate = date;
-    }
-    updatePriceDisplay();
-    renderCalendar();
-}
+// === ODESLÁNÍ ===
+async function submitReservation() {
+    if (isSubmitting) return; 
+    clearAllErrors();
+    let hasError = false;
 
-function updatePriceDisplay() {
-    const display = document.getElementById("selected-dates-display");
-    const priceEl = document.getElementById("total-price");
-    
     if (!startDate) {
-        display.innerText = "Vyberte dny v kalendáři";
-        priceEl.innerText = "0 Kč";
-        return;
+        const calErr = document.getElementById("error-calendar");
+        if(calErr) calErr.innerText = "⚠️ Prosím vyberte termín v kalendáři.";
+        hasError = true;
     }
-    const options = { day: 'numeric', month: 'numeric', year: 'numeric' };
-    if (!endDate) {
-        display.innerText = `Od: ${startDate.toLocaleDateString('cs-CZ', options)}`;
-        priceEl.innerText = `${PRICE_PER_DAY} Kč`;
-    } else {
-        display.innerText = `${startDate.toLocaleDateString('cs-CZ', options)} - ${endDate.toLocaleDateString('cs-CZ', options)}`;
-        const diffTime = Math.abs(endDate - startDate);
-        const days = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24))); 
-        priceEl.innerText = `${days * PRICE_PER_DAY} Kč`;
+
+    if (startDate && (!endDate || endDate === startDate)) {
+        endDate = getNextDay(startDate);
     }
-}
-
-// --- ODESLÁNÍ (GOPAY) ---
-async function handleBooking(e) {
-    e.preventDefault();
-    const submitBtn = document.getElementById("submit-btn");
-    const loadingSpinner = document.getElementById("loading-spinner");
-
+    
+    const time = document.getElementById("inp-time").value;
     const name = document.getElementById("inp-name").value.trim();
     const email = document.getElementById("inp-email").value.trim();
     const phone = document.getElementById("inp-phone").value.trim();
-    const address = document.getElementById("inp-address").value.trim();
-    const idNumber = document.getElementById("inp-ico").value.trim();
-    const vatNumber = document.getElementById("inp-dic").value.trim();
-    const note = document.getElementById("inp-note").value.trim();
-    const agree = document.getElementById("inp-agree").checked;
+    const btn = document.querySelector(".btn-pay");
 
-    if (!startDate || !endDate) { alert("Vyberte termín."); return; }
-    if (!name || !email || !phone) { alert("Vyplňte povinné údaje."); return; }
-    if (!agree) { alert("Musíte souhlasit s podmínkami."); return; }
+    if (!name) { showError("name", "Vyplňte jméno."); hasError = true; }
+    if (!email) { showError("email", "Vyplňte email."); hasError = true; }
+    else if (!email.includes("@") || !email.includes(".")) { showError("email", "Neplatný formát emailu."); hasError = true; }
+    if (!phone || phone.length < 5) { showError("phone", "Vyplňte telefon."); hasError = true; }
 
-    const days = Math.max(1, Math.ceil(Math.abs(endDate - startDate) / (1000 * 60 * 60 * 24))); 
-    const totalPrice = days * PRICE_PER_DAY;
+    if (hasError) return;
 
-    if (isSubmitting) return;
+    const diffDays = calculateDiffDays(startDate, endDate);
+    const finalPrice = diffDays * PRICE_PER_DAY;
+
     isSubmitting = true;
-    submitBtn.disabled = true;
-    submitBtn.innerText = "Zakládám platbu...";
-    if(loadingSpinner) loadingSpinner.style.display = "block";
+    btn.innerText = "PŘESMĚROVÁNÍ NA PLATBU...";
+    btn.disabled = true;
+    btn.style.opacity = "0.7";
 
     try {
-        // 1. Založit na serveru
-        const res = await fetch(`${API_BASE}/create-booking`, {
-            method: "POST",
+        // Voláme nový endpoint pro vytvoření platby
+        const res = await fetch(`${API_BASE}/create-payment`, {
+            method: "POST", 
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                startDate, endDate, name, email, phone, address, idNumber, vatNumber, note, agree, price: totalPrice
-            })
+            body: JSON.stringify({ startDate, endDate, time, name, email, phone, price: finalPrice })
         });
-        const data = await res.json();
-
-        if (data.success && data.gopay_url) {
-            // 2. GoPay okno
-            _gopay.checkout({ gatewayUrl: data.gopay_url, inline: true }, async function(result) {
-                if (result.state === 'PAID') {
-                    submitBtn.innerText = "Dokončuji...";
-                    // 3. Potvrdit platbu
-                    const verify = await fetch(`${API_BASE}/verify-payment`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ reservationCode: data.reservationCode })
-                    });
-                    const vData = await verify.json();
-                    if(vData.success) {
-                        openModal('success-modal');
-                        document.getElementById("booking-form").reset();
-                        startDate = null; endDate = null;
-                        updateCalendar(); // Přenačíst obsazenost
-                    } else {
-                        alert("Platba OK, ale chyba při generování kódu. Kontaktujte nás.");
-                    }
-                } else {
-                    alert("Platba neproběhla.");
-                }
-                resetBtn();
-            });
+        const result = await res.json();
+        
+        if (result.success && result.redirectUrl) {
+            // Přesměrování na GoPay bránu
+            window.location.href = result.redirectUrl;
         } else {
-            alert(data.error || "Chyba při rezervaci.");
-            resetBtn();
+            alert("Chyba rezervace: " + (result.error || "Termín je již obsazen."));
+            btn.innerText = "REZERVOVAT A ZAPLATIT"; 
+            btn.disabled = false; btn.style.opacity = "1"; isSubmitting = false; 
+            updateCalendar(); // Aktualizujeme kalendář
         }
-    } catch (err) {
-        console.error(err);
-        alert("Chyba spojení.");
-        resetBtn();
-    }
-
-    function resetBtn() {
-        isSubmitting = false;
-        submitBtn.disabled = false;
-        submitBtn.innerText = "Rezervovat a zaplatit";
-        if(loadingSpinner) loadingSpinner.style.display = "none";
+    } catch (e) { 
+        console.error(e);
+        alert("Chyba spojení se serverem."); 
+        btn.innerText = "REZERVOVAT A ZAPLATIT"; 
+        btn.disabled = false; btn.style.opacity = "1"; isSubmitting = false; 
     }
 }
 
-function showError(fieldId) { document.getElementById("inp-" + fieldId).style.border = "1px solid red"; }
-function clearError(fieldId) { document.getElementById("inp-" + fieldId).style.border = "1px solid #ddd"; }
-function openModal(id) { document.getElementById(id).style.display = 'flex'; }
-window.onclick = function(e) { if(e.target.className==='modal-overlay') e.target.style.display='none'; }
+// === KALENDÁŘ A UI ===
+
+function getDayBackgroundStyle(dateStr, isSelected) {
+    if (!cachedReservations) return null;
+    let overlaps = [];
+    let hasInteraction = false;
+
+    cachedReservations.forEach(res => {
+        if (!res.startDate || !res.endDate) return;
+        if (dateStr >= res.startDate && dateStr <= res.endDate) {
+            hasInteraction = true;
+            let startPct = 0; let endPct = 100;
+            let resTimeVal = 12.0; 
+            if (res.time) {
+                const parts = res.time.split(':');
+                if (parts.length === 2) resTimeVal = parseInt(parts[0]) + (parseInt(parts[1]) / 60);
+            }
+            if (res.startDate === dateStr) startPct = (resTimeVal / 24) * 100;
+            if (res.endDate === dateStr) endPct = (resTimeVal / 24) * 100;
+            overlaps.push({ start: startPct, end: endPct });
+        }
+    });
+
+    if (!hasInteraction) return null;
+
+    const cBooked = "#e0e0e0"; 
+    const cFree = isSelected ? "#bfa37c" : "#ffffff"; 
+
+    overlaps.sort((a,b) => a.start - b.start);
+    let gradientParts = [];
+    let currentPos = 0;
+
+    gradientParts.push(`${cFree} 0%`);
+    overlaps.forEach(o => {
+        if (o.start > currentPos) gradientParts.push(`${cFree} ${o.start}%`);
+        gradientParts.push(`${cBooked} ${o.start}%`);
+        gradientParts.push(`${cBooked} ${o.end}%`);
+        currentPos = o.end;
+    });
+    if (currentPos < 100) {
+        gradientParts.push(`${cFree} ${currentPos}%`);
+        gradientParts.push(`${cFree} 100%`);
+    }
+    return `linear-gradient(90deg, ${gradientParts.join(", ")})`;
+}
+
+async function updateCalendar() {
+    const wrapper = document.getElementById("calendar-wrapper");
+    if (!wrapper) return;
+    wrapper.innerHTML = '<div style="text-align:center; padding: 40px; color: #666;">⏳ Aktualizuji...</div>';
+    try {
+        const res = await fetch(`${API_BASE}/availability?t=${Date.now()}`);
+        if (!res.ok) throw new Error("Server error");
+        const data = await res.json();
+        cachedReservations = Array.isArray(data) ? data : [];
+        renderSingleCalendar();
+    } catch (e) { 
+        wrapper.innerHTML = `<div style="text-align:center;color:#d9534f;">Chyba načítání.</div>`;
+    }
+}
+
+function renderSingleCalendar() {
+    const wrapper = document.getElementById("calendar-wrapper");
+    if (!wrapper) return;
+    wrapper.innerHTML = "";
+    const grid = document.createElement("div"); grid.className = "days-grid";
+    ["PO","ÚT","ST","ČT","PÁ","SO","NE"].forEach(d => {
+        const el = document.createElement("div"); el.className = "weekday"; el.innerText = d; grid.appendChild(el);
+    });
+    const monthDate = new Date(viewStartYear, viewStartMonth, 1);
+    let startDay = monthDate.getDay(); 
+    const adjust = startDay === 0 ? 6 : startDay - 1;
+    for (let i = 0; i < adjust; i++) grid.appendChild(document.createElement("div")).className = "empty";
+    const daysInMonth = new Date(viewStartYear, viewStartMonth + 1, 0).getDate();
+    const todayStr = new Date().toLocaleDateString('en-CA');
+
+    for (let d = 1; d <= daysInMonth; d++) {
+        const dateObj = new Date(viewStartYear, viewStartMonth, d);
+        const dateStr = dateObj.toLocaleDateString('en-CA'); 
+        const dayEl = document.createElement("div");
+        dayEl.className = "day"; dayEl.innerText = d; dayEl.dataset.date = dateStr;
+        
+        const isSelected = (startDate === dateStr) || (endDate === dateStr) || (startDate && endDate && dateStr > startDate && dateStr < endDate);
+
+        if (dateStr < todayStr) {
+            dayEl.classList.add("past");
+        } else {
+            const bgStyle = getDayBackgroundStyle(dateStr, isSelected);
+            if (bgStyle) {
+                dayEl.style.setProperty("background", bgStyle, "important");
+                if (isSelected && bgStyle.includes("gradient")) {
+                     dayEl.style.color = "#333"; 
+                     dayEl.style.fontWeight = "bold";
+                }
+            } 
+            dayEl.onclick = () => handleDayClick(dateStr); 
+            dayEl.onmouseenter = () => handleHoverLogic(dateStr);
+        }
+        
+        if (startDate === dateStr) dayEl.classList.add("range-start");
+        if (endDate === dateStr) dayEl.classList.add("range-end");
+        if (startDate && endDate && dateStr > startDate && dateStr < endDate) dayEl.classList.add("range");
+        
+        grid.appendChild(dayEl);
+    }
+    wrapper.appendChild(grid);
+    document.getElementById("currentMonthLabel").innerText = new Date(viewStartYear, viewStartMonth, 1).toLocaleString("cs-CZ", { month: "long", year: "numeric" }).toUpperCase();
+}
+
+function handleHoverLogic(hoverDate) {
+    if (!startDate || (startDate && endDate)) return;
+    const days = document.querySelectorAll('.day[data-date]');
+    let s = startDate, e = hoverDate;
+    if (e < s) [s, e] = [e, s];
+    days.forEach(day => {
+        const d = day.dataset.date;
+        day.classList.remove('hover-range');
+        if (d >= s && d <= e && !day.classList.contains('range-start') && !day.classList.contains('booked')) day.classList.add('hover-range');
+    });
+    updateSummaryUI(hoverDate);
+}
+
+function handleDayClick(dateStr) {
+    if (startDate === dateStr && !endDate) { startDate = null; renderSingleCalendar(); updateSummaryUI(); return; }
+    
+    if (!startDate || (startDate && endDate)) { 
+        startDate = dateStr; 
+        endDate = null; 
+        checkAndSetTimeFromReservation(dateStr);
+        const hintEl = document.getElementById("time-hint");
+        if (hintEl) { hintEl.innerText = "Vyberte datum vrácení..."; hintEl.style.display = "block"; hintEl.style.color = "#bfa37c"; }
+    } else {
+        let s = startDate, e = dateStr;
+        if (e < s) [s, e] = [e, s];
+        startDate = s; endDate = e;
+        const hintEl = document.getElementById("time-hint"); if(hintEl) hintEl.style.display = "none";
+    }
+    document.querySelectorAll('.day.hover-range').forEach(d => d.classList.remove('hover-range'));
+    updateSummaryUI(); 
+    renderSingleCalendar();
+    
+    const errCal = document.getElementById("error-calendar");
+    if(errCal) errCal.innerText = "";
+}
+
+function checkAndSetTimeFromReservation(dateStr) {
+    const hintEl = document.getElementById("time-hint");
+    const timeInp = document.getElementById("inp-time");
+    
+    if (hintEl) hintEl.style.display = "none";
+    if (!Array.isArray(cachedReservations)) return;
+
+    const blockingRes = cachedReservations.find(r => r.endDate === dateStr);
+    
+    if (blockingRes) {
+        const freeFromTime = blockingRes.time || "12:00";
+        if (timeInp) { 
+            timeInp.value = freeFromTime; 
+            timeInp.style.backgroundColor = "#fff3cd"; 
+            setTimeout(() => timeInp.style.backgroundColor = "white", 1000); 
+        }
+        if (hintEl) { 
+            hintEl.innerText = `⚠️ Uvolní se až v ${freeFromTime}`; 
+            hintEl.style.color = "#d9534f"; 
+            hintEl.style.display = "block"; 
+        }
+    } else {
+        const startingRes = cachedReservations.find(r => r.startDate === dateStr);
+        if (startingRes && hintEl) {
+            hintEl.innerText = `⚠️ Rezervováno od ${startingRes.time || "12:00"}`;
+            hintEl.style.color = "#e67e22"; 
+            hintEl.style.display = "block";
+        }
+    }
+}
+
+// === POMOCNÉ FUNKCE ===
+
+function getNextDay(dateStr) {
+    const date = new Date(dateStr);
+    date.setDate(date.getDate() + 1);
+    return date.toLocaleDateString('en-CA');
+}
+
+function calculateDiffDays(start, end) {
+    if (!end) return 1;
+    const diffTime = Math.abs(new Date(end) - new Date(start));
+    return Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+}
+
+function setNow() {
+    const now = new Date();
+    const h = String(now.getHours()).padStart(2,'0');
+    const m = String(now.getMinutes()).padStart(2,'0');
+    const timeInp = document.getElementById("inp-time");
+    if (timeInp) timeInp.value = h + ":" + m;
+    
+    const todayStr = now.toLocaleDateString('en-CA');
+    startDate = todayStr;
+    endDate = getNextDay(todayStr);
+    
+    const hintEl = document.getElementById("time-hint");
+    if (hintEl) hintEl.style.display = "none";
+    
+    updateSummaryUI();
+    renderSingleCalendar();
+    
+    const errCal = document.getElementById("error-calendar");
+    if(errCal) errCal.innerText = "";
+}
+
+function changeMonth(delta) {
+    viewStartMonth += delta;
+    if (viewStartMonth > 11) { viewStartMonth = 0; viewStartYear++; }
+    else if (viewStartMonth < 0) { viewStartMonth = 11; viewStartYear--; }
+    renderSingleCalendar();
+}
+
+function formatCzDate(isoDateStr) { const d = new Date(isoDateStr); return d.getDate() + "." + (d.getMonth() + 1) + "." + d.getFullYear(); }
+
+function updateSummaryUI(previewEndDate = null) {
+    const startText = document.getElementById("date-start-text");
+    const endText = document.getElementById("date-end-text");
+    const countEl = document.getElementById("day-count");
+    const priceEl = document.getElementById("total-price");
+    const timeInp = document.getElementById("inp-time");
+    const timeVal = timeInp ? timeInp.value : "12:00";
+
+    if (!startDate) { 
+        if(startText) startText.innerText = "-"; 
+        if(endText) endText.innerText = "-"; 
+        if(countEl) countEl.innerText = "0"; 
+        if(priceEl) priceEl.innerText = "0 Kč"; 
+        return; 
+    }
+    
+    let activeEnd = endDate || previewEndDate || getNextDay(startDate);
+    
+    let s = startDate, e = activeEnd;
+    if (e < s) [s, e] = [e, s];
+
+    if(startText) startText.innerText = `${formatCzDate(s)} (${timeVal})`;
+    if(endText) endText.innerText = `${formatCzDate(e)} (${timeVal})`;
+    
+    const diffDays = calculateDiffDays(s, e);
+    
+    if(countEl) countEl.innerText = diffDays === 1 ? "1 (24 hod.)" : diffDays;
+    if(priceEl) priceEl.innerText = (diffDays * PRICE_PER_DAY).toLocaleString("cs-CZ") + " Kč";
+}
+
+window.closeModal = function() {
+    document.querySelectorAll('.modal-overlay').forEach(m => m.style.display = 'none');
+    document.body.style.overflow = 'auto'; 
+}
+window.openModal = function(id) {
+    const m = document.getElementById(id);
+    if(m) { m.style.display = 'flex'; document.body.style.overflow = 'hidden'; }
+}
+window.onclick = function(event) {
+    if (event.target.classList.contains('modal-overlay')) window.closeModal();
+}
+
+function quickCheckRedirect() {
+    const input = document.getElementById("quick-check-input");
+    const code = input.value.trim().toUpperCase();
+    if (code.length < 3) {
+        input.style.border = "1px solid red";
+        setTimeout(() => input.style.border = "none", 1000);
+        input.focus();
+        return;
+    }
+    window.location.href = `check.html?id=${code}`;
+}
+function handleEnter(e) { if (e.key === "Enter") quickCheckRedirect(); }
+function scrollToCheck() {
+    const searchBox = document.querySelector('.mini-search-box');
+    const input = document.getElementById('quick-check-input');
+    searchBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(() => { input.focus(); }, 500);
+    searchBox.style.transition = "box-shadow 0.3s, transform 0.3s";
+    searchBox.style.boxShadow = "0 0 20px #bfa37c";
+    searchBox.style.transform = "scale(1.1)";
+    setTimeout(() => { searchBox.style.boxShadow = ""; searchBox.style.transform = "scale(1)"; }, 800);
+}
 
 document.addEventListener("DOMContentLoaded", init);
