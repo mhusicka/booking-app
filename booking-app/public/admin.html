@@ -3,103 +3,136 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Panel - Vozík 24/7</title>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
+    <title>Admin - Vozík 24/7</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { font-family: 'Montserrat', sans-serif; background: #f4f7f6; padding: 20px; }
-        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        h1 { color: #bfa37c; }
+        body { font-family: 'Montserrat', sans-serif; background: #f0f2f5; margin: 0; padding: 20px; }
+        .admin-box { max-width: 1400px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        .login-screen { max-width: 400px; margin: 100px auto; text-align: center; background: white; padding: 40px; border-radius: 12px; }
+        h1 { color: #bfa37c; text-transform: uppercase; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         th, td { padding: 12px; border-bottom: 1px solid #eee; text-align: left; }
-        .status-paid { color: green; font-weight: bold; }
-        .status-pending { color: orange; }
-        .btn { padding: 8px 12px; border: none; cursor: pointer; border-radius: 4px; }
-        .btn-del { background: #ff4d4d; color: white; }
-        .login-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; display: flex; align-items: center; justify-content: center; z-index: 100; }
+        .btn { padding: 8px 12px; border: none; cursor: pointer; border-radius: 6px; font-weight: 600; }
+        .btn-primary { background: #bfa37c; color: white; }
+        .btn-danger { background: #ff4d4d; color: white; }
+        .manual-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        input { padding: 10px; border: 1px solid #ddd; border-radius: 6px; }
     </style>
 </head>
 <body>
 
-    <div id="login-box" class="login-overlay">
-        <div style="text-align: center;">
-            <h2>Admin Přihlášení</h2>
-            <input type="password" id="pass-input" placeholder="Heslo..." style="padding: 10px;">
-            <button onclick="savePass()" style="padding: 10px;">Vstoupit</button>
+    <div id="login-container" class="login-screen">
+        <h1>Vozík 24/7 Admin</h1>
+        <input type="password" id="admin-pass" placeholder="Heslo..." style="width: 100%;"><br><br>
+        <button onclick="login()" class="btn btn-primary" style="width: 100%;">PŘIHLÁSIT SE</button>
+    </div>
+
+    <div id="admin-content" style="display: none;">
+        <div class="admin-box">
+            <h1>Správa rezervací</h1>
+            
+            <h3>Manuální rezervace</h3>
+            <div class="manual-form">
+                <input type="date" id="admin-start">
+                <input type="date" id="admin-end">
+                <input type="time" id="admin-time" value="12:00">
+                <input type="text" id="admin-name" placeholder="Jméno">
+                <input type="email" id="admin-email" placeholder="Email">
+                <input type="text" id="admin-phone" placeholder="Telefon">
+                <input type="number" id="admin-price" value="230">
+                <button onclick="manualReserve()" class="btn btn-primary">Vytvořit</button>
+            </div>
+
+            <button onclick="loadReservations()" class="btn">🔄 Obnovit</button>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Kód / Vytvořeno</th>
+                        <th>Termín</th>
+                        <th>Zákazník</th>
+                        <th>Status / Cena</th>
+                        <th>PIN</th>
+                        <th>Akce</th>
+                    </tr>
+                </thead>
+                <tbody id="res-table-body"></tbody>
+            </table>
         </div>
     </div>
 
-    <div class="container">
-        <h1>Správa Rezervací</h1>
-        <button onclick="loadData()">🔄 Obnovit seznam</button>
-        
-        <table>
-            <thead>
-                <tr>
-                    <th>ID / Kód</th>
-                    <th>Zákazník</th>
-                    <th>Termín</th>
-                    <th>Status</th>
-                    <th>PIN</th>
-                    <th>Akce</th>
-                </tr>
-            </thead>
-            <tbody id="table-body"></tbody>
-        </table>
-    </div>
-
     <script>
-        function savePass() {
-            localStorage.setItem("adminPass", document.getElementById("pass-input").value);
+        function login() {
+            localStorage.setItem("adminPass", document.getElementById("admin-pass").value);
             checkAuth();
         }
-
         function checkAuth() {
             if (localStorage.getItem("adminPass")) {
-                document.getElementById("login-box").style.display = "none";
-                loadData();
+                document.getElementById("login-container").style.display = "none";
+                document.getElementById("admin-content").style.display = "block";
+                loadReservations();
             }
         }
 
-        async function loadData() {
+        async function loadReservations() {
             const pass = localStorage.getItem("adminPass");
-            const res = await fetch("/admin/reservations", {
-                headers: { "x-admin-password": pass }
-            });
-
-            if (res.status === 403) {
-                alert("Špatné heslo!");
-                localStorage.removeItem("adminPass");
-                location.reload();
-                return;
-            }
-
+            const res = await fetch("/admin/reservations", { headers: { "x-admin-password": pass } });
+            if (res.status === 403) return alert("Chybné heslo");
             const data = await res.json();
-            const tbody = document.getElementById("table-body");
+            const tbody = document.getElementById("res-table-body");
             tbody.innerHTML = "";
-
             data.forEach(r => {
                 tbody.innerHTML += `
                     <tr>
-                        <td>${r.reservationCode}</td>
-                        <td>${r.name}<br><small>${r.phone}</small></td>
-                        <td>${r.startDate} - ${r.endDate}</td>
-                        <td class="status-${r.paymentStatus.toLowerCase()}">${r.paymentStatus}</td>
-                        <td><strong>${r.passcode}</strong></td>
+                        <td><strong>${r.reservationCode}</strong><br><small>${new Date(r.created).toLocaleString()}</small></td>
+                        <td>${r.startDate} - ${r.endDate}<br><small>${r.time}</small></td>
+                        <td>${r.name}<br><small>${r.email}</small></td>
+                        <td>${r.paymentStatus}<br><strong>${r.price} Kč</strong></td>
+                        <td><code>${r.passcode}</code></td>
                         <td>
-                            <button class="btn btn-del" onclick="deleteRes('${r._id}')">Smazat</button>
+                            <button onclick="downloadInvoice('${r._id}')" class="btn"><i class="fa fa-file-pdf"></i></button>
+                            <button onclick="archiveRes('${r._id}')" class="btn">Archiv</button>
+                            <button onclick="deleteRes('${r._id}')" class="btn btn-danger">Smazat</button>
                         </td>
                     </tr>
                 `;
             });
         }
 
+        async function downloadInvoice(id) {
+            const res = await fetch(`/admin/reservations/${id}/invoice`, { headers: { "x-admin-password": localStorage.getItem("adminPass") } });
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = 'faktura.pdf'; a.click();
+        }
+
         async function deleteRes(id) {
-            if (!confirm("Smazat?")) return;
-            await fetch(`/admin/reservations/${id}`, {
-                method: "DELETE",
-                headers: { "x-admin-password": localStorage.getItem("adminPass") }
+            if(!confirm("Smazat?")) return;
+            await fetch(`/admin/reservations/${id}`, { method: "DELETE", headers: { "x-admin-password": localStorage.getItem("adminPass") } });
+            loadReservations();
+        }
+
+        async function archiveRes(id) {
+            await fetch(`/admin/reservations/${id}/archive`, { method: "POST", headers: { "x-admin-password": localStorage.getItem("adminPass") } });
+            loadReservations();
+        }
+
+        async function manualReserve() {
+            const body = {
+                startDate: document.getElementById("admin-start").value,
+                endDate: document.getElementById("admin-end").value,
+                time: document.getElementById("admin-time").value,
+                name: document.getElementById("admin-name").value,
+                email: document.getElementById("admin-email").value,
+                phone: document.getElementById("admin-phone").value,
+                price: document.getElementById("admin-price").value
+            };
+            await fetch("/reserve-range", {
+                method: "POST", headers: { "Content-Type": "application/json", "x-admin-password": localStorage.getItem("adminPass") },
+                body: JSON.stringify(body)
             });
-            loadData();
+            loadReservations();
         }
 
         window.onload = checkAuth;
