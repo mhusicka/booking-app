@@ -7,61 +7,66 @@
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        /* Zde zůstává tvůj kompletní CSS beze změny */
         body { font-family: 'Montserrat', sans-serif; background: #f0f2f5; margin: 0; padding: 20px; color: #333; }
         .admin-box { max-width: 1400px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); margin-bottom: 30px; }
         .login-screen { max-width: 400px; margin: 100px auto; text-align: center; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
-        h1, h2, h3 { color: #333; margin-top: 0; }
-        h1 { color: #bfa37c; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 30px; text-align: center; }
-        input, select, button { padding: 12px; margin: 5px; border-radius: 6px; border: 1px solid #ddd; font-family: inherit; }
-        button { cursor: pointer; border: none; font-weight: 600; transition: opacity 0.2s; }
-        .btn-primary { background: #bfa37c; color: white; }
-        .btn-danger { background: #ff4d4d; color: white; }
-        .btn-outline { background: #f8f9fa; border: 1px solid #ddd; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.9rem; }
+        h1 { color: #bfa37c; text-transform: uppercase; letter-spacing: 2px; text-align: center; }
+        
+        /* STATUS BADGES */
+        .badge { padding: 6px 12px; border-radius: 20px; font-weight: 800; font-size: 0.7rem; text-transform: uppercase; }
+        .bg-paid { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .bg-pending { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+        .bg-canceled { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+
+        .search-bar { margin: 20px 0; padding: 12px 20px; width: 100%; max-width: 400px; border: 2px solid #bfa37c; border-radius: 25px; outline: none; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.85rem; }
         th, td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; }
-        th { background: #f8f9fa; color: #666; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 1px; }
-        .search-bar { margin-bottom: 20px; padding: 10px; width: 100%; max-width: 400px; border: 2px solid #bfa37c; border-radius: 25px; outline: none; padding-left: 20px; }
+        th { background: #f8f9fa; color: #666; text-transform: uppercase; font-size: 0.7rem; }
+        .manual-form { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 10px; }
+        .btn-primary { background: #bfa37c; color: white; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; }
+        .btn-danger { color: #ff4d4d; background: none; border: none; cursor: pointer; font-size: 1.1rem; }
+        .btn-archive { color: #666; background: none; border: 1px solid #ccc; border-radius: 4px; padding: 4px 8px; cursor: pointer; }
+        code { background: #eee; padding: 2px 5px; border-radius: 4px; font-weight: bold; }
     </style>
 </head>
 <body>
 
     <div id="login-container" class="login-screen">
-        <h1>Vozík 24/7 Admin</h1>
-        <p>Zadejte administrátorské heslo</p>
-        <input type="password" id="admin-pass" placeholder="Heslo..." style="width: 80%;"><br><br>
-        <button onclick="login()" class="btn-primary" style="width: 85%;">PŘIHLÁSIT SE</button>
+        <h1>Admin Přihlášení</h1>
+        <input type="password" id="admin-pass" placeholder="Heslo..." style="width: 80%; padding: 10px;"><br><br>
+        <button onclick="login()" class="btn-primary" style="width: 85%;">VSTOUPIT</button>
     </div>
 
     <div id="admin-content" style="display: none;">
         <div class="admin-box">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h1>Správa rezervací</h1>
-                <button onclick="logout()" class="btn-outline">Odhlásit</button>
+                <h1>Půjčovna Vozíků - Správa</h1>
+                <button onclick="logout()" style="background:none; border:none; color:#999; cursor:pointer;">Odhlásit</button>
             </div>
 
             <div class="manual-form">
-                <h3>Manuální rezervace</h3>
                 <input type="date" id="admin-start">
                 <input type="date" id="admin-end">
                 <input type="time" id="admin-time" value="12:00">
                 <input type="text" id="admin-name" placeholder="Jméno">
                 <input type="email" id="admin-email" placeholder="Email">
                 <input type="text" id="admin-phone" placeholder="Telefon">
-                <input type="number" id="admin-price" value="230">
-                <button onclick="manualReserve()" class="btn-primary">Vytvořit</button>
+                <input type="number" id="admin-price" value="230" style="width: 70px;">
+                <button onclick="manualReserve()" class="btn-primary">Vytvořit manuálně</button>
             </div>
 
-            <input type="text" id="admin-search" class="search-bar" placeholder="Hledat podle jména, kódu, emailu..." oninput="filterReservations()">
+            <input type="text" id="admin-search" class="search-bar" placeholder="Hledat (kód, jméno, email...)" oninput="filterReservations()">
 
             <table>
                 <thead>
                     <tr>
-                        <th>ID / Kód</th>
-                        <th>Termín</th>
+                        <th>Vytvořeno</th>
+                        <th>Kód</th>
                         <th>Zákazník</th>
-                        <th>Stav / Cena</th>
+                        <th>Termín</th>
+                        <th>Stav Platby</th>
                         <th>PIN</th>
+                        <th>Cena</th>
                         <th>Akce</th>
                     </tr>
                 </thead>
@@ -72,7 +77,6 @@
 
     <script>
         let allReservations = [];
-        const API_BASE = "";
 
         function login() {
             localStorage.setItem("adminPass", document.getElementById("admin-pass").value);
@@ -95,57 +99,60 @@
 
         async function loadReservations() {
             const pass = localStorage.getItem("adminPass");
-            const res = await fetch(`${API_BASE}/admin/reservations`, { headers: { "x-admin-password": pass } });
-            if (res.status === 403) return logout();
-            allReservations = await res.json();
-            renderTable(allReservations);
+            try {
+                const res = await fetch("/admin/reservations", { headers: { "x-admin-password": pass } });
+                if (res.status === 403) return logout();
+                allReservations = await res.json();
+                renderTable(allReservations);
+            } catch (e) { alert("Chyba serveru"); }
         }
 
         function renderTable(data) {
             const tbody = document.getElementById("res-table-body");
-            tbody.innerHTML = data.map(r => `
-                <tr>
-                    <td><strong>${r.reservationCode}</strong><br><small>${new Date(r.created).toLocaleString()}</small></td>
-                    <td>${r.startDate} - ${r.endDate}<br><small>${r.time}</small></td>
-                    <td>${r.name}<br><small>${r.email}</small></td>
-                    <td>${r.paymentStatus}<br><strong>${r.price} Kč</strong></td>
-                    <td><code>${r.passcode}</code></td>
-                    <td>
-                        <button onclick="downloadInvoice('${r._id}')" class="btn-outline"><i class="fa fa-file-pdf"></i></button>
-                        <button onclick="archiveRes('${r._id}')" class="btn-outline">Archiv</button>
-                        <button onclick="deleteRes('${r._id}')" class="btn-danger"><i class="fa fa-trash"></i></button>
-                    </td>
-                </tr>
-            `).join('');
+            tbody.innerHTML = data.map(r => {
+                const createdDate = new Date(r.created).toLocaleString('cs-CZ', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                const statusClass = r.paymentStatus === 'PAID' ? 'bg-paid' : (r.paymentStatus === 'PENDING' ? 'bg-pending' : 'bg-canceled');
+                
+                return `
+                    <tr>
+                        <td style="color:#999; font-size: 0.75rem;">${createdDate}</td>
+                        <td><strong>${r.reservationCode}</strong></td>
+                        <td>${r.name}<br><small>${r.email} | ${r.phone}</small></td>
+                        <td>${r.startDate} — ${r.endDate}<br><small>${r.time}</small></td>
+                        <td><span class="badge ${statusClass}">${r.paymentStatus}</span></td>
+                        <td><code>${r.passcode}</code></td>
+                        <td>${r.price} Kč</td>
+                        <td>
+                            <button onclick="archiveRes('${r._id}')" class="btn-archive" title="Ukončit">Archiv</button>
+                            <button onclick="deleteRes('${r._id}')" class="btn-danger"><i class="fa fa-trash"></i></button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
         }
 
         function filterReservations() {
             const val = document.getElementById("admin-search").value.toLowerCase();
             const filtered = allReservations.filter(r => 
-                r.name.toLowerCase().includes(val) || 
+                (r.name && r.name.toLowerCase().includes(val)) || 
                 r.reservationCode.toLowerCase().includes(val) || 
-                r.email.toLowerCase().includes(val)
+                (r.email && r.email.toLowerCase().includes(val))
             );
             renderTable(filtered);
         }
 
         async function deleteRes(id) {
-            if(!confirm("Smazat?")) return;
-            await fetch(`${API_BASE}/admin/reservations/${id}`, { method: "DELETE", headers: { "x-admin-password": localStorage.getItem("adminPass") } });
+            if(!confirm("Smazat rezervaci a PIN?")) return;
+            const pass = localStorage.getItem("adminPass");
+            await fetch(`/admin/reservations/${id}`, { method: "DELETE", headers: { "x-admin-password": pass } });
             loadReservations();
         }
 
         async function archiveRes(id) {
-            if(!confirm("Archivovat?")) return;
-            await fetch(`${API_BASE}/admin/reservations/${id}/archive`, { method: "POST", headers: { "x-admin-password": localStorage.getItem("adminPass") } });
+            if(!confirm("Ukončit platnost PINu a archivovat?")) return;
+            const pass = localStorage.getItem("adminPass");
+            await fetch(`/admin/reservations/${id}/archive`, { method: "POST", headers: { "x-admin-password": pass } });
             loadReservations();
-        }
-
-        async function downloadInvoice(id) {
-            const res = await fetch(`${API_BASE}/admin/reservations/${id}/invoice`, { headers: { "x-admin-password": localStorage.getItem("adminPass") } });
-            const blob = await res.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a'); a.href = url; a.download = 'faktura.pdf'; a.click();
         }
 
         async function manualReserve() {
@@ -159,8 +166,9 @@
                 phone: document.getElementById("admin-phone").value,
                 price: document.getElementById("admin-price").value
             };
-            await fetch(`${API_BASE}/reserve-range`, {
-                method: "POST", headers: { "Content-Type": "application/json", "x-admin-password": pass },
+            await fetch("/reserve-range", {
+                method: "POST", 
+                headers: { "Content-Type": "application/json", "x-admin-password": pass },
                 body: JSON.stringify(body)
             });
             loadReservations();
