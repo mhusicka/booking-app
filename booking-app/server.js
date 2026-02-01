@@ -218,12 +218,17 @@ app.get("/payment-return", async (req, res) => {
     const { id } = req.query;
     const r = await Reservation.findOne({ gopayId: id });
     if (!r) return res.redirect("/?error=not_found");
-    if (r.paymentStatus === 'PAID') return res.redirect(`/success.html?pin=${r.passcode}&orderId=${r.reservationCode}`);
+
+    // ZMĚNA: Přesměrování rovnou na check.html
+    if (r.paymentStatus === 'PAID') return res.redirect(`/check.html?id=${r.reservationCode}`);
+    
     const token = await getGoPayToken();
     const statusRes = await axios.get(`${GOPAY_API_URL}/api/payments/payment/${id}`, { headers: { 'Authorization': `Bearer ${token}` } });
+    
     if (statusRes.data.state === 'PAID') {
         await finalizeReservation(r);
-        res.redirect(`/success.html?pin=${r.passcode}&orderId=${r.reservationCode}`);
+        // ZMĚNA: Přesměrování rovnou na check.html
+        res.redirect(`/check.html?id=${r.reservationCode}`);
     } else {
         r.paymentStatus = 'CANCELED'; await r.save();
         res.redirect("/?error=payment_failed");
