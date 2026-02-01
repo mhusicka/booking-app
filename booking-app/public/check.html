@@ -4,12 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Moje Rezervace - Vozík 24/7</title>
-    <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { background: #f4f4f4; }
-        .check-container { max-width: 500px; margin: 40px auto; padding: 20px; }
+        body { background: #f4f4f4; font-family: 'Montserrat', sans-serif; margin: 0; padding: 20px; display: flex; justify-content: center; min-height: 100vh; align-items: flex-start; }
+        .check-container { width: 100%; max-width: 500px; margin-top: 40px; }
         
         .detail-card { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.1); position: relative; }
         
@@ -17,159 +16,138 @@
         .bg-active { background: #28a745; }
         .bg-future { background: #17a2b8; }
         .bg-ended { background: #6c757d; }
+        .bg-pending { background: #ffc107; color: #333; }
 
-        .detail-body { padding: 30px 20px; text-align: center; }
+        .pin-box { text-align: center; padding: 30px 20px; border-bottom: 1px solid #eee; }
+        .pin-label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 5px; }
+        .pin-code { font-size: 48px; font-weight: 800; color: #333; letter-spacing: 5px; line-height: 1; }
         
-        .pin-wrapper { background: #fffdfa; border: 2px dashed #bfa37c; padding: 20px; border-radius: 10px; margin: 20px 0; }
-        .pin-label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 2px; display: block; margin-bottom: 5px; }
-        .pin-value { font-size: 48px; font-weight: 800; color: #333; letter-spacing: 8px; line-height: 1; }
-        
-        .info-row { display: flex; justify-content: space-between; border-bottom: 1px solid #f0f0f0; padding: 15px 0; font-size: 14px; }
-        .info-row:last-child { border-bottom: none; }
-        .info-label { color: #888; }
-        .info-val { font-weight: 600; color: #333; text-align: right; }
+        .info-grid { padding: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .info-item label { display: block; font-size: 11px; color: #888; text-transform: uppercase; margin-bottom: 3px; }
+        .info-item div { font-weight: 600; color: #333; font-size: 15px; }
 
-        .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
-        .btn-action { padding: 12px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; font-size: 13px; }
-        .btn-map { background: #f0f0f0; color: #333; }
-        .btn-sos { background: #ffebeb; color: #d63031; }
+        /* TLAČÍTKA */
+        .action-buttons { padding: 20px; background: #f8f9fa; display: flex; flex-direction: column; gap: 10px; }
+        .btn-side { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 12px; border-radius: 8px; text-decoration: none; font-weight: 700; transition: 0.2s; font-size: 14px; }
         
-        .instructions-mini { margin-top: 25px; background: #f8f9fa; padding: 15px; border-radius: 8px; text-align: left; font-size: 13px; color: #555; }
-        .instructions-mini i { color: #bfa37c; width: 20px; text-align: center; margin-right: 5px; }
-        .instructions-mini li { margin-bottom: 8px; list-style: none; }
+        /* ZELENÉ TLAČÍTKO PRO NAVIGACI */
+        .btn-nav { background: #28a745; color: white; }
+        .btn-nav:hover { background: #218838; }
+        
+        /* ŠEDÉ TLAČÍTKO PRO SOS */
+        .btn-sos { background: #e0e0e0; color: #333; }
+        .btn-sos:hover { background: #d0d0d0; }
 
-        .loader { text-align: center; margin-top: 50px; color: #bfa37c; font-size: 1.2rem; }
+        .btn-home { display: block; text-align: center; margin-top: 20px; color: #888; text-decoration: none; font-size: 13px; }
+        .btn-home:hover { color: #bfa37c; }
+
+        .loader { text-align: center; padding: 50px; color: #888; }
     </style>
 </head>
 <body>
 
-<div class="check-container">
-    
-    <div id="loader" class="loader">
-        <i class="fa-solid fa-circle-notch fa-spin"></i> Načítám rezervaci...
-    </div>
-
-    <div id="detail-section" class="detail-card" style="display: none;">
-        <div id="status-bar" class="status-header bg-future">...</div>
-        
-        <div class="detail-body">
-            <p style="margin:0; color:#aaa; font-size:12px; text-transform:uppercase;">ID Rezervace</p>
-            <h1 id="out-id" style="margin:5px 0 20px 0; color:#333; letter-spacing:2px;">---</h1>
-
-            <div class="pin-wrapper">
-                <span class="pin-label">PIN K ZÁMKU</span>
-                <span id="out-pin" class="pin-value">---</span>
-            </div>
-
-            <div class="info-group">
-                <div class="info-row">
-                    <span class="info-label">Vyzvednutí:</span>
-                    <span id="out-start" class="info-val">--.--. --:--</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Vrácení:</span>
-                    <span id="out-end" class="info-val">--.--. --:--</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Vozík:</span>
-                    <span class="info-val">Vozík č. 1 (Agados)</span>
-                </div>
-            </div>
-
-            <div class="action-grid">
-                <a href="https://www.google.com/maps/search/?api=1&query=Dubová+1490/2,+Mohelnice" target="_blank" class="btn-side btn-nav">
-                    <i class="fa-solid fa-location-arrow"></i> Navigovat
-                </a>
-                <a href="tel:+420702024786" class="btn-action btn-sos">
-                    <i class="fa-solid fa-phone"></i> Pomoc
-                </a>
-            </div>
-
-            <div class="instructions-mini">
-                <strong><i class="fa-solid fa-circle-info"></i> Jak odemknout?</strong>
-                <ul style="padding:0; margin:10px 0 0 0;">
-                    <li><i class="fa-solid fa-hand-pointer"></i> 1. Probuďte zámek dotykem na klávesnici.</li>
-                    <li><i class="fa-solid fa-keyboard"></i> 2. Zadejte PIN a stiskněte <i class="fa-solid fa-key"></i> (klíček).</li>
-                    <li><i class="fa-solid fa-unlock"></i> 3. Zámek se odemkne do 2 vteřin.</li>
-                </ul>
-            </div>
-
-            <button onclick="goHome()" style="background:none; border:none; color:#aaa; margin-top:20px; cursor:pointer; font-size:12px;">
-                <i class="fa-solid fa-xmark"></i> Zavřít
-            </button>
+    <div class="check-container">
+        <div id="loader" class="loader">
+            <i class="fa-solid fa-spinner fa-spin fa-2x"></i><br><br>Načítám rezervaci...
         </div>
+
+        <div id="detail-section" class="detail-card" style="display: none;">
+            <div id="status-bar" class="status-header">NAČÍTÁM...</div>
+            
+            <div class="pin-box">
+                <span class="pin-label">Váš PIN k zámku</span>
+                <span class="pin-code" id="out-pin">---</span>
+            </div>
+
+            <div class="info-grid">
+                <div class="info-item">
+                    <label>ID Rezervace</label>
+                    <div id="out-id">---</div>
+                </div>
+                <div class="info-item">
+                    <label>Vozík</label>
+                    <div>Vozík č. 1</div>
+                </div>
+                <div class="info-item">
+                    <label>Začátek</label>
+                    <div id="out-start">---</div>
+                </div>
+                <div class="info-item">
+                    <label>Konec</label>
+                    <div id="out-end">---</div>
+                </div>
+            </div>
+
+            <div class="action-buttons">
+                <a href="https://www.google.com/maps/search/?api=1&query=Dubová+1490/2,+789+85+Mohelnice" target="_blank" class="btn-side btn-nav">
+                    <i class="fa-solid fa-location-dot"></i> NAVIGOVAT K VOZÍKU
+                </a>
+                <a href="tel:+420702024786" class="btn-side btn-sos">
+                    <i class="fa-solid fa-phone"></i> SOS / VOLAT PODPORU
+                </a>
+            </div>
+        </div>
+        
+        <a href="index.html" class="btn-home">← Zpět na úvod</a>
     </div>
 
-</div>
+    <script>
+        const API_BASE = ""; 
 
-<script>
-    const API_BASE = "";
-
-    window.onload = () => {
-        const urlParams = new URLSearchParams(window.location.search);
-        const urlId = urlParams.get('id');
-        
-        // 1. Pokud máme ID, hledáme
-        if (urlId) {
-            fetchBooking(urlId);
-        } else {
-            // 2. Pokud ID nemáme, nemá tu uživatel co dělat -> Zpět na hlavní web
-            goHome();
-        }
-    };
-
-    function goHome() {
-        window.location.href = "index.html";
-    }
-
-    async function fetchBooking(code) {
-        try {
-            const res = await fetch(`${API_BASE}/retrieve-booking`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ code })
-            });
-            const data = await res.json();
-
-            if (data.success) {
-                document.getElementById('loader').style.display = "none";
-                showDetail(data);
-            } else {
-                alert("Rezervace nebyla nalezena. Zkuste to znovu.");
-                goHome(); // Při chybě zpět na vyhledávání
+        async function init() {
+            const params = new URLSearchParams(window.location.search);
+            const id = params.get("id");
+            
+            if (!id) {
+                alert("Chybí číslo rezervace.");
+                window.location.href = "index.html";
+                return;
             }
-        } catch (e) {
-            console.error(e);
-            alert("Chyba připojení.");
-            goHome();
+
+            try {
+                const res = await fetch(`${API_BASE}/retrieve-booking`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ code: id })
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    document.getElementById('loader').style.display = "none";
+                    showDetail(data);
+                } else {
+                    alert("Rezervace nebyla nalezena. Zkuste to znovu.");
+                    window.location.href = "index.html";
+                }
+            } catch (e) {
+                console.error(e);
+                alert("Chyba připojení.");
+                window.location.href = "index.html";
+            }
         }
-    }
 
-    function showDetail(data) {
-        document.getElementById('detail-section').style.display = 'block';
+        function showDetail(data) {
+            document.getElementById('detail-section').style.display = 'block';
 
-        document.getElementById('out-id').innerText = data.orderId;
-        document.getElementById('out-pin').innerText = data.pin;
-        document.getElementById('out-start').innerText = data.start;
-        document.getElementById('out-end').innerText = data.end;
+            document.getElementById('out-id').innerText = data.orderId;
+            document.getElementById('out-pin').innerText = data.pin;
+            document.getElementById('out-start').innerText = data.start;
+            document.getElementById('out-end').innerText = data.end;
 
-        const statusEl = document.getElementById('status-bar');
-        
-        if (data.status === "UKONČENO") {
-            statusEl.innerText = "REZERVACE UKONČENA";
-            statusEl.className = "status-header bg-ended";
-            document.getElementById('out-pin').style.textDecoration = "line-through";
-            document.getElementById('out-pin').style.color = "#ccc";
-        } else {
-            statusEl.innerText = "REZERVACE AKTIVNÍ";
-            statusEl.className = "status-header bg-active";
-            document.getElementById('out-pin').style.textDecoration = "none";
-            document.getElementById('out-pin').style.color = "#333";
+            const statusEl = document.getElementById('status-bar');
+            
+            if (data.status === "UKONČENO") {
+                statusEl.innerText = "REZERVACE UKONČENA";
+                statusEl.className = "status-header bg-ended";
+                document.getElementById('out-pin').style.textDecoration = "line-through";
+                document.getElementById('out-pin').style.color = "#ccc";
+            } else {
+                statusEl.innerText = "REZERVACE AKTIVNÍ";
+                statusEl.className = "status-header bg-active";
+            }
         }
-    }
-</script>
 
+        window.onload = init;
+    </script>
 </body>
 </html>
-
-
