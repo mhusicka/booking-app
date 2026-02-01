@@ -3,7 +3,6 @@ const PRICE_PER_DAY = 230;
 
 let cachedReservations = []; 
 let isSubmitting = false; 
-let calendarInstance = null; // Uložíme si instanci kalendáře
 
 // Inicializace
 async function init() {
@@ -20,14 +19,16 @@ async function init() {
         window.history.replaceState({}, document.title, window.location.pathname);
     }
 
-    // Načtení dat a vykreslení kalendáře
+    // 1. Nejprve načteme data
     await updateCalendar();
+
+    // 2. Až pak inicializujeme kalendář (aby se správně zobrazil)
+    initFlatpickr();
 
     const priceDisplay = document.getElementById("price-per-day-display");
     if (priceDisplay) priceDisplay.innerText = `${PRICE_PER_DAY} Kč`;
 
     // Posluchače pro automatickou kontrolu
-    // Poznámka: Date input řeší Flatpickr, Time input řešíme ručně
     const timeInput = document.getElementById("inp-time");
     if (timeInput) {
         timeInput.addEventListener("change", checkAvailabilityAndSnap);
@@ -48,33 +49,20 @@ async function updateCalendar() {
     try {
         const res = await fetch(`${API_BASE}/availability`);
         cachedReservations = await res.json();
-        
-        // Zde inicializujeme Flatpickr (TOHLE CHYBĚLO)
-        initFlatpickr();
-
     } catch(e) { console.error("Chyba načítání dat", e); }
 }
 
 function initFlatpickr() {
-    // Najdeme dny, které jsou PLNĚ obsazené (24h), abychom je v kalendáři rovnou škrtli
-    // Pro zjednodušení: Pokud je v daný den rezervace, která začíná <= 08:00 a končí >= 20:00 (nebo další den),
-    // považujeme den za "obsazený" pro vizuální přehled.
-    // Přesnou kontrolu ale dělá checkAvailabilityAndSnap.
-    
-    const disabledDates = [];
-    
-    // Jednoduchá logika pro disabled dates (volitelné, pro UX)
-    // Pokud chceš Gap Filling, je lepší nechat dny otevřené, pokud tam je aspoň kousek místa.
-    // Takže disabledDates necháme prázdné nebo jen pro minulé dny.
-    
-    calendarInstance = flatpickr("#inp-date", {
+    // Inicializace Flatpickr - vráceno do standardu, aby fungoval vzhled
+    flatpickr("#inp-date", {
         locale: "cs",
         minDate: "today",
         dateFormat: "Y-m-d",
-        disableMobile: "true", // Vynutí hezký kalendář i na mobilu
+        disableMobile: "true",
         defaultDate: new Date(),
+        // Zde nesahejme do 'disable', aby zůstal vzhled, jaký máš nastavený v CSS/šabloně
+        // Pouze při změně data spustíme naši chytrou kontrolu
         onChange: function(selectedDates, dateStr, instance) {
-            // Když uživatel vybere datum, spustíme kontrolu
             checkAvailabilityAndSnap();
         }
     });
@@ -85,13 +73,12 @@ function checkAvailabilityAndSnap() {
     const dateVal = document.getElementById("inp-date").value;
     const timeVal = document.getElementById("inp-time").value;
     
-    // Pokud element pro info neexistuje, vytvoříme ho dynamicky
+    // Element pro info hlášky
     let infoDiv = document.getElementById("auto-snap-info");
     if (!infoDiv) {
         infoDiv = document.createElement("div");
         infoDiv.id = "auto-snap-info";
         infoDiv.style.cssText = "font-size: 13px; margin-top: 10px; padding: 10px; border-radius: 5px; display: none;";
-        // Vložíme ho za input času
         const timeInput = document.getElementById("inp-time");
         if(timeInput && timeInput.parentNode) {
             timeInput.parentNode.appendChild(infoDiv);
@@ -106,7 +93,7 @@ function checkAvailabilityAndSnap() {
     const startDateTime = new Date(`${dateVal}T${timeVal}:00`);
     const now = new Date();
     
-    // Malá rezerva pro minulost (aby nešlo rezervovat 1 minutu zpět)
+    // Kontrola minulosti (5 min tolerance)
     if (startDateTime < new Date(now.getTime() - 5*60000)) {
         infoDiv.style.display = "block";
         infoDiv.style.background = "#ffebee";
@@ -177,15 +164,15 @@ function findConflict(myStart, myEnd) {
         const rTimeEnd = res.endTime || res.time; 
         const rEnd = new Date(`${res.endDate}T${rTimeEnd}:00`);
 
-        // (StartA < EndB) && (EndA > StartB)
+        // Logika překryvu: (StartA < EndB) && (EndA > StartB)
         if (myStart < rEnd && myEnd > rStart) {
-            // Zajímá nás kolize, která nám "uřízne" konec (začíná po nás)
+            // Pokud rezervace začíná PO nás (nebo stejně), uřízne nám konec
             if (rStart >= myStart) {
                 if (!nearestConflict || rStart < nearestConflict.start) {
                     nearestConflict = { start: rStart, end: rEnd };
                 }
             } else {
-                // Pokud kolize začíná PŘED námi a končí PO nás, jsme blokovaní úplně
+                // Pokud rezervace začala PŘED námi a končí PO nás, jsme úplně blokovaní
                 return { start: myStart, end: rEnd }; 
             }
         }
@@ -249,7 +236,6 @@ async function validateAndSubmit() {
             alert("CHYBA: " + (result.error || "Nepodařilo se vytvořit rezervaci."));
             isSubmitting = false;
             btn.innerText = "REZERVOVAT A ZAPLATIT";
-            // Obnovíme data, kdyby se mezitím něco změnilo
             updateCalendar(); 
         }
     } catch (e) {
@@ -266,7 +252,7 @@ function clearError(id) { document.getElementById("inp-"+id).style.border = "1px
 // Init
 document.addEventListener("DOMContentLoaded", init);
 
-// Funkce pro rychlé vyhledávání (zůstaly stejné)
+// Funkce pro rychlé vyhledávání
 function handleEnter(e) { if(e.key === "Enter") quickCheckRedirect(); }
 function quickCheckRedirect() {
     const val = document.getElementById("quick-check-input").value.trim().toUpperCase();
