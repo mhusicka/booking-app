@@ -8,8 +8,6 @@ let startDate = null;
 let endDate = null;
 let cachedReservations = []; 
 let isSubmitting = false; 
-
-// Proměnná pro uložení vynuceného konce
 let forcedEndData = null; 
 
 async function init() {
@@ -60,14 +58,8 @@ async function init() {
     document.getElementById("prev")?.addEventListener("click", () => changeMonth(-1));
     document.getElementById("next")?.addEventListener("click", () => changeMonth(1));
     
-    document.getElementById("inp-time")?.addEventListener("change", (e) => {
-        updateSummaryUI(true); 
-    });
-
-    document.getElementById("inp-time-end")?.addEventListener("change", () => {
-        updateSummaryUI(false);
-    });
-
+    document.getElementById("inp-time")?.addEventListener("change", () => updateSummaryUI(true));
+    document.getElementById("inp-time-end")?.addEventListener("change", () => updateSummaryUI(false));
     document.getElementById("btn-now")?.addEventListener("click", setNow);
     document.getElementById("btn-submit")?.addEventListener("click", submitReservation);
 }
@@ -124,24 +116,23 @@ function subtractMinutes(timeStr, mins) {
     return d.toLocaleTimeString('cs-CZ', {hour: '2-digit', minute:'2-digit'});
 }
 
-// === UPRAVENÁ LOGIKA PRO ZDI A HOVER ===
-function findNearestWall(fromDataStr, direction) {
-    // direction: 1 = do budoucna, -1 = do minulosti
-    let nearest = null;
+// === NOVÁ LOGIKA HRANIC (NEPRŮSTŘELNÁ ZEĎ) ===
+function calculateSafeBoundaries(fixedDateStr) {
+    // Najdeme nejbližší překážku vlevo (minulost) a vpravo (budoucnost)
+    let maxFuture = "9999-12-31";
+    let maxPast = "0000-01-01";
+
     for (const res of cachedReservations) {
-        if (direction === 1) {
-            // Hledáme nejbližší start PO fromDate
-            if (res.startDate > fromDataStr) {
-                if (!nearest || res.startDate < nearest) nearest = res.startDate;
-            }
-        } else {
-            // Hledáme nejbližší end PŘED fromDate
-            if (res.endDate < fromDataStr) {
-                if (!nearest || res.endDate > nearest) nearest = res.endDate;
-            }
+        // Hledáme nejbližší start v budoucnu
+        if (res.startDate > fixedDateStr) {
+            if (res.startDate < maxFuture) maxFuture = res.startDate;
+        }
+        // Hledáme nejbližší konec v minulosti
+        if (res.endDate < fixedDateStr) {
+            if (res.endDate > maxPast) maxPast = res.endDate;
         }
     }
-    return nearest;
+    return { maxFuture, maxPast };
 }
 
 function findConflict(myStartMs, myEndMs) {
@@ -179,14 +170,15 @@ async function submitReservation() {
     const timeEndVal = document.getElementById("inp-time-end").value;
     
     let finalEndDate = endDate; 
+    // Pokud chybí end date nebo je stejný, dopočítáme logicky
     if (startDate && (!endDate || endDate === startDate)) {
         const sTs = new Date(`${startDate}T${timeStartVal}:00`).getTime();
         const eTs = new Date(`${startDate}T${timeEndVal}:00`).getTime();
-        
         if (eTs <= sTs) finalEndDate = getNextDay(startDate);
         else finalEndDate = startDate;
     }
     
+    // Override pokud je bublina
     if (forcedEndData) {
         finalEndDate = forcedEndData.date;
     }
@@ -361,36 +353,37 @@ function renderSingleCalendar() {
     document.getElementById("currentMonthLabel").innerText = new Date(viewStartYear, viewStartMonth, 1).toLocaleString("cs-CZ", { month: "long", year: "numeric" }).toUpperCase();
 }
 
-// --- OPTICKÉ ZASTAVENÍ O ZEĎ (HOVER FIX) ---
+// --- ZDE JE TA MAGIE HOVERU ---
 function handleHoverLogic(hoverDate) {
     if (!startDate || (startDate && endDate)) return;
-    
-    // Zjistíme směr pohybu myši
-    let direction = (hoverDate >= startDate) ? 1 : -1;
-    let wall = findNearestWall(startDate, direction);
-    
-    let drawStart = startDate;
-    let drawEnd = hoverDate;
 
-    // Pokud existuje zeď a myš je za ní, ořízneme vizuál přesně na zeď
-    if (wall) {
-        if (direction === 1 && hoverDate >= wall) {
-            drawEnd = wall; // Zastavíme se o zeď
-        }
-        if (direction === -1 && hoverDate <= wall) {
-            drawEnd = wall; // Zastavíme se o zeď (v minulosti)
-        }
+    // Vypočteme hranice
+    const bounds = calculateSafeBoundaries(startDate);
+    
+    // Ořízneme hoverDate podle hranic (zastavíme se o zeď)
+    let safeHover = hoverDate;
+    
+    // Jdeme do budoucna, ale narazili jsme na future zeď
+    if (hoverDate > startDate && hoverDate >= bounds.maxFuture) {
+        safeHover = bounds.maxFuture; // Zastavíme na zdi
+    }
+    // Jdeme do minulosti, ale narazili jsme na past zeď
+    if (hoverDate < startDate && hoverDate <= bounds.maxPast) {
+        safeHover = bounds.maxPast; // Zastavíme na zdi
     }
 
-    // Srovnání pro loop
-    let s = drawStart, e = drawEnd;
+    // Pro účely barvení
+    let s = startDate;
+    let e = safeHover;
     if (e < s) [s, e] = [e, s];
 
     const days = document.querySelectorAll('.day[data-date]');
     days.forEach(day => {
         const d = day.dataset.date;
         day.classList.remove('hover-range');
-        // Barvíme jen to, co je v povoleném rozsahu (od startu po zeď)
+        
+        // Zabarvíme všechno mezi startem a "safe" koncem
+        // (A vynecháme dny, co jsou už booked, pro jistotu)
         if (d >= s && d <= e && !day.classList.contains('range-start') && !day.classList.contains('booked')) {
              day.classList.add('hover-range');
         }
@@ -398,34 +391,33 @@ function handleHoverLogic(hoverDate) {
 }
 
 function handleDayClick(dateStr) {
+    // 1. DVOJKLIK -> Automatika
     if (startDate === dateStr && !endDate) { 
-        // DVOJKLIK -> Automaticky 24h (pokud to jde)
         const nextDay = getNextDay(dateStr);
-        const wall = findNearestWall(dateStr, 1); // 1 = hledáme v budoucnu
+        const bounds = calculateSafeBoundaries(startDate);
         
-        // Pokud je zítra zeď, konec je dnes (Gap logic si poradí s časem)
-        if (wall && wall <= nextDay) endDate = dateStr; 
-        else endDate = nextDay; 
+        // Pokud je zítra zeď, zůstáváme na dnešku (Gap logic vyřeší čas)
+        if (nextDay >= bounds.maxFuture) endDate = dateStr;
+        else endDate = nextDay;
+        
     } else if (!startDate || (startDate && endDate)) { 
+        // 2. PRVNÍ KLIK (START)
         startDate = dateStr; 
         endDate = null; 
     } else {
-        // Druhý klik - musíme respektovat zeď stejně jako hover
-        let s = startDate;
-        let e = dateStr;
-        let direction = (e >= s) ? 1 : -1;
-        
-        const wall = findNearestWall(s, direction);
-        
-        // Pokud uživatel klikl za zeď, ořízneme to k zdi
-        if (wall) {
-            if (direction === 1 && e > wall) e = wall;
-            if (direction === -1 && e < wall) e = wall;
-        }
+        // 3. DRUHÝ KLIK (END)
+        const bounds = calculateSafeBoundaries(startDate);
+        let safeTarget = dateStr;
 
-        if (e < s) { startDate = e; endDate = s; }
-        else { startDate = s; endDate = e; }
+        // Pokud uživatel klikl za zeď, ořízneme to k zdi
+        if (dateStr > startDate && dateStr > bounds.maxFuture) safeTarget = bounds.maxFuture;
+        if (dateStr < startDate && dateStr < bounds.maxPast) safeTarget = bounds.maxPast;
+
+        let s = startDate, e = safeTarget;
+        if (e < s) [s, e] = [e, s];
+        startDate = s; endDate = e;
     }
+    
     document.querySelectorAll('.day.hover-range').forEach(d => d.classList.remove('hover-range'));
     updateSummaryUI(true); // Reset časů podle nové volby (defaultně -5 min)
     renderSingleCalendar();
