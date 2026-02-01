@@ -29,6 +29,8 @@
         .btn-arch:hover { background: #bbdefb; }
         .btn-resend { background: #fff3e0; color: #ef6c00; }
         .btn-resend:hover { background: #ffe0b2; }
+        .btn-edit { background: #e8f5e9; color: #2e7d32; }
+        .btn-edit:hover { background: #c8e6c9; }
         
         .btn-export { background: #28a745; color: white; padding: 8px 16px; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; }
         .btn-export:hover { background: #218838; }
@@ -39,7 +41,6 @@
         .btn-main { background: #bfa37c; color: white; padding: 12px 20px; font-size: 16px; width: 100%; font-weight: bold; }
         .btn-main:hover { background: #a68b68; }
 
-        /* DASHBOARD STATS */
         .dashboard-stats { display: flex; gap: 15px; margin-bottom: 20px; align-items: stretch; flex-wrap: wrap; }
         .stat-card { background: white; border: 1px solid #eee; padding: 15px 20px; border-radius: 8px; min-width: 180px; flex: 1; }
         .stat-card h3 { margin: 0 0 5px 0; font-size: 11px; text-transform: uppercase; color: #888; letter-spacing: 1px; }
@@ -47,8 +48,11 @@
         
         .card-dark { background: #333; color: white; border: none; }
         .card-dark .value { color: #bfa37c; }
+        .card-red { background: #fff5f5; border: 1px solid #ffcdd2; }
         .card-red .value { color: #dc3545; }
+        .card-orange { background: #fff8e1; border: 1px solid #ffe0b2; }
         .card-orange .value { color: #fd7e14; }
+        .card-green { background: #e8f5e9; border: 1px solid #c8e6c9; }
         .card-green .value { color: #28a745; }
         
         .month-filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #eee; }
@@ -60,12 +64,46 @@
         .settings-bar input { width: 60px; padding: 5px; border: 1px solid #ccc; border-radius: 4px; text-align: center; font-weight: bold; }
 
         tr.active-now { background: #e8f5e9; border-left: 4px solid #28a745; }
-        
-        /* Zvýraznění ID sloupce */
         .col-id { font-family: monospace; font-weight: bold; color: #bfa37c; font-size: 14px; }
+
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999; display: none; justify-content: center; align-items: center; }
+        .modal-box { background: white; padding: 30px; border-radius: 12px; width: 400px; max-width: 90%; box-shadow: 0 10px 40px rgba(0,0,0,0.3); }
+        .modal-box h2 { margin-top: 0; color: #333; border-bottom: 2px solid #bfa37c; display: inline-block; padding-bottom: 5px; }
+        .btn-pay { background: #007bff; color: white; }
+        .btn-pay:hover { background: #0056b3; }
     </style>
 </head>
 <body>
+
+    <div id="edit-modal" class="modal-overlay">
+        <div class="modal-box">
+            <h2>Upravit rezervaci</h2>
+            <input type="hidden" id="edit-id">
+            <input type="hidden" id="edit-original-price">
+            
+            <div class="input-group"><label>Datum Od:</label><input type="date" id="edit-start"></div>
+            <div class="input-group"><label>Datum Do:</label><input type="date" id="edit-end"></div>
+            <div class="input-group"><label>Čas:</label><input type="time" id="edit-time"></div>
+            <div class="input-group"><label>Čas vrácení (nepovinné):</label><input type="time" id="edit-endtime"></div>
+            
+            <div class="input-group" style="background: #f9f9f9; padding: 10px; border-radius: 5px;">
+                <label>Nová celková cena (Kč):</label>
+                <input type="number" id="edit-price" oninput="calcDiff()">
+                <div id="price-diff" style="font-size: 12px; color: #555; margin-top: 5px; font-weight: bold;"></div>
+            </div>
+
+            <p style="font-size:12px; color:#666;">
+                <strong>Možnost A (Uložit zdarma):</strong> Změní data hned a pošle nový PIN.<br>
+                <strong>Možnost B (Vyžádat doplatek):</strong> Pošle klientovi odkaz na platbu. PIN se změní až po zaplacení.
+            </p>
+            
+            <div style="display:flex; flex-direction: column; gap:10px;">
+                <button onclick="saveEditFree()" class="btn btn-main" style="background: #28a745;">A) Uložit změny (ZDARMA)</button>
+                <button onclick="saveEditPayment()" class="btn btn-main btn-pay">B) Poslat výzvu k doplatku</button>
+                <button onclick="closeEditModal()" class="btn btn-del" style="background:#ddd; color:#333;">Zrušit</button>
+            </div>
+        </div>
+    </div>
 
     <div id="login-section" class="login-screen">
         <h2>Admin přihlášení</h2>
@@ -156,57 +194,30 @@
         let allReservations = []; 
         let currentFilteredData = [];
         let computedDataMap = {}; 
-
-        // --- KONFIGURACE GOPAY (AUTOMATIKA) ---
-        const STANDARD_PERCENT = 0.01; // 1%
-        const STANDARD_FIXED = 1;      // 1 Kč
-        const CPK_LIMIT = 50000;       // Limit pro akci "Česko platí kartou"
+        const STANDARD_PERCENT = 0.01;
+        const STANDARD_FIXED = 1;
+        const CPK_LIMIT = 50000;
 
         function login() {
             const p = document.getElementById("admin-pass").value;
             localStorage.setItem("adminPass", p);
             checkAuth();
         }
-
-        function logout() {
-            localStorage.removeItem("adminPass");
-            location.reload();
-        }
+        function logout() { localStorage.removeItem("adminPass"); location.reload(); }
 
         async function checkAuth() {
             const pass = localStorage.getItem("adminPass");
             if (!pass) return;
-
             const res = await fetch("/admin/reservations", { headers: { "x-admin-password": pass } });
-            if (res.status === 403) {
-                alert("Špatné heslo");
-                localStorage.removeItem("adminPass");
-                return;
-            }
-            
+            if (res.status === 403) { alert("Špatné heslo"); localStorage.removeItem("adminPass"); return; }
             allReservations = await res.json(); 
             document.getElementById("login-section").style.display = "none";
             document.getElementById("admin-content").style.display = "block";
-            
             const savedTax = localStorage.getItem("taxRate");
             if (savedTax) document.getElementById("tax-rate").value = savedTax;
-
             calculateFeesGlobal();
             generateFilters();
-            
-            const now = new Date();
-            const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-            const hasData = allReservations.some(r => r.startDate && r.startDate.startsWith(currentMonthKey));
-            
-            if (hasData) {
-                setTimeout(() => {
-                    const btn = Array.from(document.querySelectorAll('.filter-btn')).find(b => b.innerText.includes(getMonthName(now.getMonth())));
-                    if(btn) btn.click();
-                    else filterData('ALL', document.querySelector('.filter-btn'));
-                }, 100);
-            } else {
-                filterData('ALL', document.querySelector('.filter-btn')); 
-            }
+            filterData('ALL', null);
         }
 
         function getMonthName(mIndex) {
@@ -218,36 +229,21 @@
             computedDataMap = {};
             const monthlyRevenue = {};
             const chronological = [...allReservations].sort((a,b) => new Date(a.startDate) - new Date(b.startDate));
-
             chronological.forEach(r => {
-                if (r.paymentStatus !== 'PAID') {
-                    computedDataMap[r._id] = { fee: 0, tax: 0, net: 0 };
-                    return;
-                }
-
+                if (r.paymentStatus !== 'PAID') { computedDataMap[r._id] = { fee: 0, tax: 0, net: 0 }; return; }
                 const mKey = r.startDate.substring(0, 7);
                 if (!monthlyRevenue[mKey]) monthlyRevenue[mKey] = 0;
-
                 let price = r.price || 0;
                 let fee = 0;
-                let currentTotal = monthlyRevenue[mKey];
-
-                if (currentTotal < CPK_LIMIT) {
-                    let freeSpace = CPK_LIMIT - currentTotal;
-                    if (price <= freeSpace) {
-                        fee = 0; 
-                    } else {
-                        let taxedPart = price - freeSpace;
-                        fee = Math.round(taxedPart * STANDARD_PERCENT + STANDARD_FIXED);
-                    }
-                } else {
-                    fee = Math.round(price * STANDARD_PERCENT + STANDARD_FIXED);
-                }
-
+                if (monthlyRevenue[mKey] < CPK_LIMIT) {
+                    let freeSpace = CPK_LIMIT - monthlyRevenue[mKey];
+                    if (price <= freeSpace) fee = 0; 
+                    else fee = Math.round((price - freeSpace) * STANDARD_PERCENT + STANDARD_FIXED);
+                } else fee = Math.round(price * STANDARD_PERCENT + STANDARD_FIXED);
+                
                 const taxRate = parseFloat(document.getElementById("tax-rate").value) || 0;
                 let tax = Math.round(price * (taxRate / 100));
                 let net = price - fee - tax;
-
                 monthlyRevenue[mKey] += price;
                 computedDataMap[r._id] = { fee, tax, net };
             });
@@ -257,8 +253,7 @@
             localStorage.setItem("taxRate", document.getElementById("tax-rate").value);
             calculateFeesGlobal();
             const activeBtn = document.querySelector('.filter-btn.active');
-            if (activeBtn) activeBtn.click();
-            else filterData('ALL', null);
+            if (activeBtn) activeBtn.click(); else filterData('ALL', null);
         }
 
         function generateFilters() {
@@ -278,7 +273,6 @@
                 document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
                 btnElement.classList.add('active');
             }
-
             const titleEl = document.getElementById('revenue-title');
             if (monthKey === 'ALL') {
                 currentFilteredData = allReservations;
@@ -288,57 +282,60 @@
                 const [year, month] = monthKey.split('-');
                 titleEl.innerText = `Tržba: ${getMonthName(parseInt(month) - 1)} ${year}`;
             }
-
             renderTable(currentFilteredData);
         }
 
         function renderTable(data) {
             const tbody = document.querySelector("#res-table tbody");
             tbody.innerHTML = "";
-
             let totalRev = 0, totalFees = 0, totalTax = 0, totalNet = 0;
             data.sort((a,b) => new Date(b.created) - new Date(a.created));
-
             data.forEach(r => {
                 let statusClass = "b-pending", statusText = "Čeká";
                 let vals = computedDataMap[r._id] || { fee: 0, tax: 0, net: 0 };
                 let price = r.price || 0;
-
-                if (r.paymentStatus === 'PAID') { 
+                
+                if (r.pendingExtension && r.pendingExtension.active) {
+                    statusText = "Doplatek...";
+                    statusClass = "b-pending";
+                } else if (r.paymentStatus === 'PAID') { 
                     statusClass = "b-paid"; statusText = "Zaplaceno"; 
-                    totalRev += price;
-                    totalFees += vals.fee;
-                    totalTax += vals.tax;
-                    totalNet += vals.net;
-                } else if (r.paymentStatus === 'CANCELED') { 
-                    statusClass = "b-canceled"; statusText = "Zrušeno"; 
-                }
+                    totalRev += price; totalFees += vals.fee; totalTax += vals.tax; totalNet += vals.net;
+                } else if (r.paymentStatus === 'CANCELED') { statusClass = "b-canceled"; statusText = "Zrušeno"; }
 
                 const todayStr = new Date().toISOString().split('T')[0];
                 const isActive = (r.startDate <= todayStr && r.endDate >= todayStr && r.paymentStatus === 'PAID');
+                
+                // Formátování vytvořeno
+                const createdDateObj = new Date(r.created);
+                const createdStr = `${createdDateObj.toLocaleDateString("cs-CZ")}<br><small style="color:#888">${createdDateObj.toLocaleTimeString("cs-CZ", {hour: '2-digit', minute:'2-digit'})}</small>`;
+                
+                // Formátování termínu
+                const endTimeDisplay = r.endTime || r.time;
+                const termStr = `<span style="color:#555">${new Date(r.startDate).toLocaleDateString("cs-CZ")}</span> <b>${r.time}</b><br><small>do</small> <span style="color:#555">${new Date(r.endDate).toLocaleDateString("cs-CZ")}</span> <b>${endTimeDisplay}</b>`;
 
                 const tr = document.createElement("tr");
                 tr.className = isActive ? 'active-now' : '';
                 tr.innerHTML = `
-                    <td style="font-size:11px">${new Date(r.created).toLocaleDateString("cs-CZ")}</td>
+                    <td style="font-size:11px">${createdStr}</td>
                     <td class="col-id">${r.reservationCode}</td>
                     <td><b>${r.name}</b></td>
-                    <td>${new Date(r.startDate).toLocaleDateString("cs-CZ")} - ${new Date(r.endDate).toLocaleDateString("cs-CZ")}</td>
+                    <td style="font-size:12px">${termStr}</td>
                     <td style="font-weight:bold">${price} Kč</td>
                     <td style="color:${vals.fee===0?'#ccc':'#dc3545'}">-${vals.fee} Kč</td>
                     <td style="color:#fd7e14">-${vals.tax} Kč</td>
                     <td style="color:#28a745; font-weight:bold">${vals.net} Kč</td>
                     <td style="font-family:monospace;">${r.passcode}</td>
                     <td><span class="badge ${statusClass}">${statusText}</span></td>
-                    <td>
-                        <button onclick="resendEmail('${r._id}')" class="btn btn-resend" title="Znovu odeslat"><i class="fa-regular fa-envelope"></i></button>
-                        <button onclick="archiveRes('${r._id}')" class="btn btn-arch" title="Ukončit rezervaci a smazat PIN"><i class="fa-solid fa-lock-open"></i> Ukončit</button>
-                        <button onclick="deleteRes('${r._id}')" class="btn btn-del" title="Smazat záznam"><i class="fa-solid fa-trash"></i></button>
+                    <td style="display:flex; gap:3px; flex-wrap:wrap;">
+                        <button onclick='openEditModal(${JSON.stringify(r)})' class="btn btn-edit" title="Editovat"><i class="fa-solid fa-pen-to-square"></i></button>
+                        <button onclick="resendEmail('${r._id}')" class="btn btn-resend" title="Přeposlat"><i class="fa-regular fa-envelope"></i></button>
+                        <button onclick="archiveRes('${r._id}')" class="btn btn-arch" title="Ukončit"><i class="fa-solid fa-lock-open"></i></button>
+                        <button onclick="deleteRes('${r._id}')" class="btn btn-del" title="Smazat"><i class="fa-solid fa-trash"></i></button>
                     </td>
                 `;
                 tbody.appendChild(tr);
             });
-
             document.getElementById("total-revenue").innerText = totalRev.toLocaleString("cs-CZ") + " Kč";
             document.getElementById("total-fees").innerText = "-" + totalFees.toLocaleString("cs-CZ") + " Kč";
             document.getElementById("total-tax").innerText = "-" + totalTax.toLocaleString("cs-CZ") + " Kč";
@@ -346,22 +343,92 @@
             document.getElementById("res-count").innerText = data.length;
         }
 
-        // --- EXPORT ---
+        // --- EDIT MODAL ---
+        function openEditModal(r) {
+            document.getElementById('edit-id').value = r._id;
+            document.getElementById('edit-start').value = r.startDate;
+            document.getElementById('edit-end').value = r.endDate;
+            document.getElementById('edit-time').value = r.time;
+            document.getElementById('edit-endtime').value = r.endTime || "";
+            document.getElementById('edit-original-price').value = r.price || 0;
+            document.getElementById('edit-price').value = r.price || 0;
+            document.getElementById('edit-modal').style.display = 'flex';
+            calcDiff();
+        }
+        function closeEditModal() { document.getElementById('edit-modal').style.display = 'none'; }
+        
+        function calcDiff() {
+            const oldP = parseFloat(document.getElementById('edit-original-price').value) || 0;
+            const newP = parseFloat(document.getElementById('edit-price').value) || 0;
+            const diff = newP - oldP;
+            const el = document.getElementById('price-diff');
+            if(diff > 0) { el.innerText = `Doplatek: ${diff} Kč`; el.style.color = "red"; }
+            else if(diff < 0) { el.innerText = `Přeplatek: ${Math.abs(diff)} Kč`; el.style.color = "green"; }
+            else { el.innerText = "Cena beze změny"; el.style.color = "black"; }
+        }
+
+        async function saveEditFree() {
+            if(!confirm("Opravdu uložit změny hned a změnit PIN?")) return;
+            sendEdit("/admin/reservations/" + document.getElementById('edit-id').value, "PUT");
+        }
+
+        async function saveEditPayment() {
+            const oldP = parseFloat(document.getElementById('edit-original-price').value) || 0;
+            const newP = parseFloat(document.getElementById('edit-price').value) || 0;
+            if (newP <= oldP) { alert("Pro výzvu k platbě musí být nová cena vyšší než původní."); return; }
+            if(!confirm(`Odeslat klientovi výzvu k úhradě ${newP - oldP} Kč? PIN se změní až po zaplacení.`)) return;
+            
+            const id = document.getElementById('edit-id').value;
+            const body = getFormBody();
+            body.newTotalPrice = body.price; 
+            
+            try {
+                const res = await fetch(`/admin/reservations/${id}/create-extension`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "x-admin-password": localStorage.getItem("adminPass") },
+                    body: JSON.stringify(body)
+                });
+                if(res.ok) { alert("Výzva odeslána."); closeEditModal(); checkAuth(); }
+                else alert("Chyba.");
+            } catch(e) { alert("Chyba."); }
+        }
+
+        function getFormBody() {
+            return {
+                startDate: document.getElementById('edit-start').value,
+                endDate: document.getElementById('edit-end').value,
+                time: document.getElementById('edit-time').value,
+                endTime: document.getElementById('edit-endtime').value,
+                price: document.getElementById('edit-price').value
+            };
+        }
+
+        async function sendEdit(url, method) {
+            try {
+                const res = await fetch(url, {
+                    method: method,
+                    headers: { "Content-Type": "application/json", "x-admin-password": localStorage.getItem("adminPass") },
+                    body: JSON.stringify(getFormBody())
+                });
+                if(res.ok) { alert("Uloženo."); closeEditModal(); checkAuth(); }
+                else alert("Chyba.");
+            } catch(e) { alert("Chyba."); }
+        }
+
         function downloadCSV() {
             if (!currentFilteredData || currentFilteredData.length === 0) { alert("Žádná data."); return; }
-            let csv = "\uFEFFID Rezervace;Jméno;Email;Vytvořeno;Termín;Cena (Kč);Poplatek GoPay;Daň;Čistý Zisk;Stav;PIN\n";
-            
+            let csv = "\uFEFFID Rezervace;Jméno;Email;Vytvořeno;Termín Od;Termín Do;Cena (Kč);Poplatek GoPay;Daň;Čistý Zisk;Stav;PIN\n";
             currentFilteredData.forEach(r => {
                 let vals = computedDataMap[r._id] || { fee: 0, tax: 0, net: 0 };
                 let row = [
                     r.reservationCode, `"${r.name}"`, r.email,
                     new Date(r.created).toLocaleDateString("cs-CZ"),
-                    `${new Date(r.startDate).toLocaleDateString("cs-CZ")} - ${new Date(r.endDate).toLocaleDateString("cs-CZ")}`,
+                    new Date(r.startDate).toLocaleDateString("cs-CZ") + " " + r.time,
+                    new Date(r.endDate).toLocaleDateString("cs-CZ") + " " + (r.endTime || r.time),
                     r.price || 0, vals.fee, vals.tax, vals.net, r.paymentStatus, r.passcode
                 ];
                 csv += row.join(";") + "\n";
             });
-
             const link = document.createElement("a");
             link.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
             link.download = `Export_Vozik_${new Date().toISOString().slice(0,10)}.csv`;
@@ -371,10 +438,13 @@
         async function resendEmail(id) { if(confirm("Odeslat znovu?")) fetch(`/admin/reservations/${id}/resend-email`, { method: "POST", headers: { "x-admin-password": localStorage.getItem("adminPass") } }).then(()=>alert("OK")); }
         async function deleteRes(id) { if(confirm("Smazat?")) { await fetch(`/admin/reservations/${id}`, { method: "DELETE", headers: { "x-admin-password": localStorage.getItem("adminPass") } }); checkAuth(); } }
         async function archiveRes(id) { if(confirm("Ukončit a smazat PIN?")) { await fetch(`/admin/reservations/${id}/archive`, { method: "POST", headers: { "x-admin-password": localStorage.getItem("adminPass") } }); checkAuth(); } }
-        async function manualReserve() { /* stejné */ 
+        
+        async function manualReserve() {
+             const start = document.getElementById("admin-start").value;
+             const end = document.getElementById("admin-end").value;
+             if (!start || !end) { alert("Vyplňte obě data."); return; }
              const body = {
-                startDate: document.getElementById("admin-start").value,
-                endDate: document.getElementById("admin-end").value,
+                startDate: start, endDate: end,
                 time: document.getElementById("admin-time").value,
                 name: document.getElementById("admin-name").value,
                 email: document.getElementById("admin-email").value,
@@ -382,8 +452,7 @@
                 price: document.getElementById("admin-price").value
             };
             await fetch("/reserve-range", { method: "POST", headers: { "Content-Type": "application/json", "x-admin-password": localStorage.getItem("adminPass") }, body: JSON.stringify(body) });
-            alert("Rezervace vytvořena");
-            checkAuth();
+            alert("Vytvořeno"); checkAuth();
         }
 
         window.onload = checkAuth;
