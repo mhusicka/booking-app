@@ -9,15 +9,14 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body { background: #f4f4f4; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; box-sizing: border-box; margin: 0; }
-        
         .check-container { width: 100%; max-width: 500px; }
         
+        /* HLAVNÍ KARTA */
         .detail-card { 
             background: white; border-radius: 12px; overflow: hidden; 
             box-shadow: 0 10px 30px rgba(0,0,0,0.1); position: relative; 
         }
         
-        /* Horní barevný pruh - stejný jako v check.html */
         .status-header { 
             padding: 15px; text-align: center; font-weight: 800; color: white; 
             text-transform: uppercase; font-size: 14px; letter-spacing: 1px; 
@@ -27,37 +26,45 @@
 
         .card-body { padding: 30px; text-align: center; }
         
-        .order-id-label { color: #888; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 5px; display: block; }
-        .order-id-value { font-weight: 800; color: #333; font-size: 1.2rem; margin-bottom: 20px; display: block; }
+        .order-id-info { color: #888; font-size: 0.85rem; margin-bottom: 20px; }
+        .order-id-info strong { color: #333; }
 
+        /* PIN DISPLAY */
         .pin-section { 
-            background: #f9f9f9; border: 2px dashed #bfa37c; 
-            border-radius: 10px; padding: 20px; margin: 20px 0; 
+            background: #fdfdfd; border: 2px dashed #bfa37c; 
+            border-radius: 10px; padding: 20px; margin: 0 0 25px 0; 
         }
         .pin-label { display: block; font-size: 0.75rem; color: #888; text-transform: uppercase; margin-bottom: 5px; }
-        .pin-value { font-size: 3rem; font-weight: 800; color: #333; letter-spacing: 5px; line-height: 1; }
+        .pin-value { font-size: 3.5rem; font-weight: 800; color: #333; letter-spacing: 5px; line-height: 1; }
 
-        .info-table { width: 100%; margin-top: 20px; text-align: left; border-top: 1px solid #eee; }
+        /* NÁVOD NA ODEMČENÍ */
+        .instructions-box { text-align: left; background: #fcfcfc; border: 1px solid #eee; padding: 15px; border-radius: 8px; margin-bottom: 25px; }
+        .ins-title { font-weight: 800; font-size: 0.8rem; text-transform: uppercase; color: #bfa37c; margin-bottom: 10px; display: block; }
+        .ins-step { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; font-size: 0.9rem; color: #555; }
+        .ins-step i { color: #bfa37c; width: 15px; text-align: center; }
+
+        /* TABULKA ÚDAJŮ */
+        .info-table { width: 100%; text-align: left; border-top: 1px solid #eee; }
         .info-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #eee; }
-        .info-label { color: #888; font-size: 0.9rem; }
+        .info-label { color: #aaa; font-size: 0.85rem; }
         .info-val { font-weight: 600; color: #333; font-size: 0.9rem; }
 
-        /* Tlačítka */
+        /* TLAČÍTKA */
         .btn-nav {
             display: block; width: 100%; padding: 15px; margin-top: 25px;
             background: #bfa37c; color: white; text-decoration: none; border-radius: 8px;
-            font-weight: 700; transition: 0.3s; box-sizing: border-box; text-align: center;
+            font-weight: 700; transition: 0.3s; text-align: center;
         }
         .btn-nav:hover { background: #a68d6a; }
 
         .btn-sos {
             display: block; width: 100%; padding: 15px; margin-top: 10px;
             background: #dc3545; color: white; text-decoration: none; border-radius: 8px;
-            font-weight: 700; transition: 0.3s; box-sizing: border-box; text-align: center;
+            font-weight: 700; transition: 0.3s; text-align: center;
         }
         .btn-home { 
             display: block; width: 100%; padding: 15px; margin-top: 10px; 
-            background: transparent; border: 2px solid #ddd; border-radius: 8px; 
+            background: transparent; border: 1px solid #ddd; border-radius: 8px; 
             color: #666; text-decoration: none; font-weight: 600; transition: 0.3s; text-align: center;
         }
     </style>
@@ -69,12 +76,20 @@
             <div id="status-bar" class="status-header bg-active">REZERVACE AKTIVNÍ</div>
             
             <div class="card-body">
-                <span class="order-id-label">Kód rezervace</span>
-                <span id="out-id" class="order-id-value">---</span>
+                <div class="order-id-info">
+                    ID rezervace: <strong id="out-id">---</strong>
+                </div>
 
                 <div class="pin-section">
-                    <span class="pin-label">Váš PIN k zámku</span>
+                    <span class="pin-label">PIN k zámku</span>
                     <span id="out-pin" class="pin-value">----</span>
+                </div>
+
+                <div class="instructions-box">
+                    <span class="ins-title">Jak odemknout:</span>
+                    <div class="ins-step"><i class="fa-solid fa-hand-pointer"></i> Probuďte klávesnici dotykem</div>
+                    <div class="ins-step"><i class="fa-solid fa-keyboard"></i> Zadejte svůj 6místný PIN</div>
+                    <div class="ins-step"><i class="fa-solid fa-key"></i> Potvrďte tlačítkem vpravo dole</div>
                 </div>
 
                 <div class="info-table">
@@ -88,7 +103,7 @@
                     </div>
                     <div class="info-row">
                         <span class="info-label">Vozík:</span>
-                        <span class="info-val">Přívěsný vozík č. 1</span>
+                        <span class="info-val">Vozík č. 1</span>
                     </div>
                 </div>
 
@@ -105,12 +120,9 @@
 
     <script>
         const params = new URLSearchParams(window.location.search);
-        
         const pin = params.get("pin");
         const orderId = params.get("orderId");
         const status = params.get("status");
-        
-        // Formátování dat z URL
         const start = params.get("start");
         const end = params.get("end");
         const time = params.get("time");
@@ -119,6 +131,7 @@
         if (orderId) document.getElementById("out-id").innerText = orderId;
 
         const format = (d) => {
+            if (!d) return "---";
             const date = new Date(d);
             return isNaN(date.getTime()) ? d : date.toLocaleDateString("cs-CZ");
         };
@@ -128,7 +141,6 @@
             document.getElementById("out-end").innerText = `${format(end || start)} ${time}`;
         }
 
-        // Pokud je rezervace ukončena (při vyhledávání), změníme barvu pruhu
         if (status === "UKONČENO") {
             const bar = document.getElementById("status-bar");
             bar.innerText = "REZERVACE UKONČENA";
