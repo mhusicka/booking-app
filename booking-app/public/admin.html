@@ -60,6 +60,9 @@
         .settings-bar input { width: 60px; padding: 5px; border: 1px solid #ccc; border-radius: 4px; text-align: center; font-weight: bold; }
 
         tr.active-now { background: #e8f5e9; border-left: 4px solid #28a745; }
+        
+        /* Zvýraznění ID sloupce */
+        .col-id { font-family: monospace; font-weight: bold; color: #bfa37c; font-size: 14px; }
     </style>
 </head>
 <body>
@@ -76,7 +79,7 @@
             <h1>
                 <span><i class="fa-solid fa-chart-line"></i> Přehled rezervací</span>
                 <div>
-                    <button onclick="downloadCSV()" class="btn btn-export"><i class="fa-solid fa-file-excel"></i> Export pro účetní</button>
+                    <button onclick="downloadCSV()" class="btn btn-export"><i class="fa-solid fa-file-excel"></i> Export</button>
                     <button onclick="logout()" class="btn btn-del">Odhlásit</button>
                 </div>
             </h1>
@@ -117,8 +120,9 @@
             <table id="res-table">
                 <thead>
                     <tr>
-                        <th>Datum</th>
-                        <th>Jméno / ID</th>
+                        <th>Vytvořeno</th>
+                        <th>ID</th>
+                        <th>Jméno</th>
                         <th>Termín</th>
                         <th>Cena (Klient)</th>
                         <th style="color:#dc3545">GoPay</th>
@@ -151,7 +155,7 @@
     <script>
         let allReservations = []; 
         let currentFilteredData = [];
-        let computedDataMap = {}; // Uložíme si vypočítané poplatky pro ID
+        let computedDataMap = {}; 
 
         // --- KONFIGURACE GOPAY (AUTOMATIKA) ---
         const STANDARD_PERCENT = 0.01; // 1%
@@ -184,14 +188,12 @@
             document.getElementById("login-section").style.display = "none";
             document.getElementById("admin-content").style.display = "block";
             
-            // Načíst uloženou daň
             const savedTax = localStorage.getItem("taxRate");
             if (savedTax) document.getElementById("tax-rate").value = savedTax;
 
-            calculateFeesGlobal(); // Spočítat všechna data před filtrováním
+            calculateFeesGlobal();
             generateFilters();
             
-            // Zkusit vybrat aktuální měsíc
             const now = new Date();
             const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
             const hasData = allReservations.some(r => r.startDate && r.startDate.startsWith(currentMonthKey));
@@ -212,12 +214,9 @@
             return monthNames[mIndex];
         }
 
-        // --- HLAVNÍ LOGIKA VÝPOČTU POPLATKŮ ---
         function calculateFeesGlobal() {
             computedDataMap = {};
             const monthlyRevenue = {};
-
-            // Musíme procházet chronologicky od nejstarší, abychom správně určili překročení limitu 50k
             const chronological = [...allReservations].sort((a,b) => new Date(a.startDate) - new Date(b.startDate));
 
             chronological.forEach(r => {
@@ -226,7 +225,6 @@
                     return;
                 }
 
-                // Klíč měsíce (YYYY-MM)
                 const mKey = r.startDate.substring(0, 7);
                 if (!monthlyRevenue[mKey]) monthlyRevenue[mKey] = 0;
 
@@ -234,25 +232,20 @@
                 let fee = 0;
                 let currentTotal = monthlyRevenue[mKey];
 
-                // Automatika CPK: Pokud jsme pod 50k, poplatek je 0
                 if (currentTotal < CPK_LIMIT) {
                     let freeSpace = CPK_LIMIT - currentTotal;
                     if (price <= freeSpace) {
-                        fee = 0; // Vejde se do limitu
+                        fee = 0; 
                     } else {
-                        // Část je zdarma, zbytek se daní
                         let taxedPart = price - freeSpace;
                         fee = Math.round(taxedPart * STANDARD_PERCENT + STANDARD_FIXED);
                     }
                 } else {
-                    // Už jsme nad limitem
                     fee = Math.round(price * STANDARD_PERCENT + STANDARD_FIXED);
                 }
 
-                // Výpočet daně z příjmu (z hrubé částky)
                 const taxRate = parseFloat(document.getElementById("tax-rate").value) || 0;
                 let tax = Math.round(price * (taxRate / 100));
-
                 let net = price - fee - tax;
 
                 monthlyRevenue[mKey] += price;
@@ -304,7 +297,6 @@
             tbody.innerHTML = "";
 
             let totalRev = 0, totalFees = 0, totalTax = 0, totalNet = 0;
-            // Řadíme od nejnovější pro zobrazení
             data.sort((a,b) => new Date(b.created) - new Date(a.created));
 
             data.forEach(r => {
@@ -328,8 +320,9 @@
                 const tr = document.createElement("tr");
                 tr.className = isActive ? 'active-now' : '';
                 tr.innerHTML = `
-                    <td>${new Date(r.created).toLocaleDateString("cs-CZ")}</td>
-                    <td><b>${r.name}</b><br><small style="color:#999">${r.reservationCode}</small></td>
+                    <td style="font-size:11px">${new Date(r.created).toLocaleDateString("cs-CZ")}</td>
+                    <td class="col-id">${r.reservationCode}</td>
+                    <td><b>${r.name}</b></td>
                     <td>${new Date(r.startDate).toLocaleDateString("cs-CZ")} - ${new Date(r.endDate).toLocaleDateString("cs-CZ")}</td>
                     <td style="font-weight:bold">${price} Kč</td>
                     <td style="color:${vals.fee===0?'#ccc':'#dc3545'}">-${vals.fee} Kč</td>
@@ -338,9 +331,9 @@
                     <td style="font-family:monospace;">${r.passcode}</td>
                     <td><span class="badge ${statusClass}">${statusText}</span></td>
                     <td>
-                        <button onclick="resendEmail('${r._id}')" class="btn btn-resend"><i class="fa-regular fa-envelope"></i></button>
-                        <button onclick="archiveRes('${r._id}')" class="btn btn-arch"><i class="fa-solid fa-box-archive"></i></button>
-                        <button onclick="deleteRes('${r._id}')" class="btn btn-del"><i class="fa-solid fa-trash"></i></button>
+                        <button onclick="resendEmail('${r._id}')" class="btn btn-resend" title="Znovu odeslat"><i class="fa-regular fa-envelope"></i></button>
+                        <button onclick="archiveRes('${r._id}')" class="btn btn-arch" title="Ukončit rezervaci a smazat PIN"><i class="fa-solid fa-lock-open"></i> Ukončit</button>
+                        <button onclick="deleteRes('${r._id}')" class="btn btn-del" title="Smazat záznam"><i class="fa-solid fa-trash"></i></button>
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -377,8 +370,21 @@
 
         async function resendEmail(id) { if(confirm("Odeslat znovu?")) fetch(`/admin/reservations/${id}/resend-email`, { method: "POST", headers: { "x-admin-password": localStorage.getItem("adminPass") } }).then(()=>alert("OK")); }
         async function deleteRes(id) { if(confirm("Smazat?")) { await fetch(`/admin/reservations/${id}`, { method: "DELETE", headers: { "x-admin-password": localStorage.getItem("adminPass") } }); checkAuth(); } }
-        async function archiveRes(id) { if(confirm("Archivovat?")) { await fetch(`/admin/reservations/${id}/archive`, { method: "POST", headers: { "x-admin-password": localStorage.getItem("adminPass") } }); checkAuth(); } }
-        async function manualReserve() { /* zachováno stejné */ }
+        async function archiveRes(id) { if(confirm("Ukončit a smazat PIN?")) { await fetch(`/admin/reservations/${id}/archive`, { method: "POST", headers: { "x-admin-password": localStorage.getItem("adminPass") } }); checkAuth(); } }
+        async function manualReserve() { /* stejné */ 
+             const body = {
+                startDate: document.getElementById("admin-start").value,
+                endDate: document.getElementById("admin-end").value,
+                time: document.getElementById("admin-time").value,
+                name: document.getElementById("admin-name").value,
+                email: document.getElementById("admin-email").value,
+                phone: document.getElementById("admin-phone").value,
+                price: document.getElementById("admin-price").value
+            };
+            await fetch("/reserve-range", { method: "POST", headers: { "Content-Type": "application/json", "x-admin-password": localStorage.getItem("adminPass") }, body: JSON.stringify(body) });
+            alert("Rezervace vytvořena");
+            checkAuth();
+        }
 
         window.onload = checkAuth;
     </script>
