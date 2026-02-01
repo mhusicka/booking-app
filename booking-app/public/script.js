@@ -3,6 +3,7 @@ const PRICE_PER_DAY = 230;
 
 let cachedReservations = []; 
 let isSubmitting = false; 
+let calendarInstance = null; // Uložíme si instanci kalendáře
 
 // Inicializace
 async function init() {
@@ -19,18 +20,16 @@ async function init() {
         window.history.replaceState({}, document.title, window.location.pathname);
     }
 
-    // Načtení dat a nastavení listenerů
+    // Načtení dat a vykreslení kalendáře
     await updateCalendar();
 
     const priceDisplay = document.getElementById("price-per-day-display");
     if (priceDisplay) priceDisplay.innerText = `${PRICE_PER_DAY} Kč`;
 
-    // Posluchače pro automatickou kontrolu dostupnosti
-    const dateInput = document.getElementById("inp-date");
+    // Posluchače pro automatickou kontrolu
+    // Poznámka: Date input řeší Flatpickr, Time input řešíme ručně
     const timeInput = document.getElementById("inp-time");
-    
-    if (dateInput && timeInput) {
-        dateInput.addEventListener("change", checkAvailabilityAndSnap);
+    if (timeInput) {
         timeInput.addEventListener("change", checkAvailabilityAndSnap);
     }
 
@@ -49,33 +48,66 @@ async function updateCalendar() {
     try {
         const res = await fetch(`${API_BASE}/availability`);
         cachedReservations = await res.json();
+        
+        // Zde inicializujeme Flatpickr (TOHLE CHYBĚLO)
+        initFlatpickr();
+
     } catch(e) { console.error("Chyba načítání dat", e); }
+}
+
+function initFlatpickr() {
+    // Najdeme dny, které jsou PLNĚ obsazené (24h), abychom je v kalendáři rovnou škrtli
+    // Pro zjednodušení: Pokud je v daný den rezervace, která začíná <= 08:00 a končí >= 20:00 (nebo další den),
+    // považujeme den za "obsazený" pro vizuální přehled.
+    // Přesnou kontrolu ale dělá checkAvailabilityAndSnap.
+    
+    const disabledDates = [];
+    
+    // Jednoduchá logika pro disabled dates (volitelné, pro UX)
+    // Pokud chceš Gap Filling, je lepší nechat dny otevřené, pokud tam je aspoň kousek místa.
+    // Takže disabledDates necháme prázdné nebo jen pro minulé dny.
+    
+    calendarInstance = flatpickr("#inp-date", {
+        locale: "cs",
+        minDate: "today",
+        dateFormat: "Y-m-d",
+        disableMobile: "true", // Vynutí hezký kalendář i na mobilu
+        defaultDate: new Date(),
+        onChange: function(selectedDates, dateStr, instance) {
+            // Když uživatel vybere datum, spustíme kontrolu
+            checkAvailabilityAndSnap();
+        }
+    });
 }
 
 // --- HLAVNÍ LOGIKA AUTOMATICKÉHO ZKRÁCENÍ (SNAP) ---
 function checkAvailabilityAndSnap() {
     const dateVal = document.getElementById("inp-date").value;
     const timeVal = document.getElementById("inp-time").value;
-    const infoBox = document.getElementById("availability-info"); // Musíme vytvořit v HTML nebo injectnout
     
-    // Pokud element pro info neexistuje, vytvoříme ho dynamicky pod časem
+    // Pokud element pro info neexistuje, vytvoříme ho dynamicky
     let infoDiv = document.getElementById("auto-snap-info");
     if (!infoDiv) {
         infoDiv = document.createElement("div");
         infoDiv.id = "auto-snap-info";
         infoDiv.style.cssText = "font-size: 13px; margin-top: 10px; padding: 10px; border-radius: 5px; display: none;";
-        document.getElementById("inp-time").parentNode.appendChild(infoDiv);
+        // Vložíme ho za input času
+        const timeInput = document.getElementById("inp-time");
+        if(timeInput && timeInput.parentNode) {
+            timeInput.parentNode.appendChild(infoDiv);
+        }
     }
 
     if (!dateVal || !timeVal) {
-        infoDiv.style.display = "none";
+        if(infoDiv) infoDiv.style.display = "none";
         return;
     }
 
     const startDateTime = new Date(`${dateVal}T${timeVal}:00`);
     const now = new Date();
     
-    if (startDateTime < now) {
+    // Malá rezerva pro minulost (aby nešlo rezervovat 1 minutu zpět)
+    if (startDateTime < new Date(now.getTime() - 5*60000)) {
         infoDiv.style.display = "block";
         infoDiv.style.background = "#ffebee";
         infoDiv.style.color = "#c62828";
@@ -89,10 +121,10 @@ function checkAvailabilityAndSnap() {
 
     // Hledáme kolizi v intervalu <Start, Start+24h>
     const conflict = findConflict(startDateTime, standardEnd);
+    const btn = document.querySelector('.btn-main');
 
     if (conflict) {
         // KOLIZE NALEZENA -> Automaticky zkrátit
-        // Konflikt začíná v conflict.start. To je náš NUCENÝ konec.
         const forcedEnd = new Date(conflict.start);
         
         // Výpočet trvání
@@ -100,14 +132,17 @@ function checkAvailabilityAndSnap() {
         const diffHrs = (diffMs / (1000 * 60 * 60)).toFixed(1);
 
         if (diffHrs < 0.5) {
+            // Méně než půl hodiny nemá smysl
             infoDiv.style.display = "block";
             infoDiv.style.background = "#ffebee";
             infoDiv.style.color = "#c62828";
             infoDiv.innerHTML = `<strong>Termín obsazen!</strong><br>Kolize s rezervací od ${formatDate(conflict.start)} ${formatTime(conflict.start)}.`;
-            document.querySelector('.btn-main').disabled = true;
-            document.querySelector('.btn-main').style.opacity = "0.5";
+            btn.disabled = true;
+            btn.style.opacity = "0.5";
+            delete btn.dataset.forcedEndDate;
+            delete btn.dataset.forcedEndTime;
         } else {
-            // Je tam mezera, povolíme to, ale s varováním
+            // Je tam mezera, povolíme to
             infoDiv.style.display = "block";
             infoDiv.style.background = "#fff3cd"; // žlutá
             infoDiv.style.color = "#856404";
@@ -115,10 +150,9 @@ function checkAvailabilityAndSnap() {
             Vozík je dostupný pouze do <strong>${formatDate(forcedEnd)} ${formatTime(forcedEnd)}</strong> (${diffHrs} hod).<br>
             Další zákazník má rezervaci hned poté.`;
             
-            // Uložíme si nucený konec do datasetu tlačítka, abychom ho použili při odeslání
-            const btn = document.querySelector('.btn-main');
+            // Uložíme si nucený konec do datasetu tlačítka
             btn.dataset.forcedEndDate = forcedEnd.toISOString().split('T')[0];
-            btn.dataset.forcedEndTime = formatTime(forcedEnd);
+            btn.dataset.forcedEndTime = formatTime(forcedEnd); // HH:MM
             btn.disabled = false;
             btn.style.opacity = "1";
         }
@@ -129,7 +163,6 @@ function checkAvailabilityAndSnap() {
         infoDiv.style.color = "#155724";
         infoDiv.innerHTML = `<i class="fa-solid fa-check"></i> <strong>Volno</strong><br>Rezervace na celých 24 hodin.<br>Do: ${formatDate(standardEnd)} ${formatTime(standardEnd)}`;
         
-        const btn = document.querySelector('.btn-main');
         delete btn.dataset.forcedEndDate;
         delete btn.dataset.forcedEndTime;
         btn.disabled = false;
@@ -141,7 +174,7 @@ function findConflict(myStart, myEnd) {
     let nearestConflict = null;
     for (const res of cachedReservations) {
         const rStart = new Date(`${res.startDate}T${res.time}:00`);
-        const rTimeEnd = res.endTime || res.time; // podpora pro zkrácené
+        const rTimeEnd = res.endTime || res.time; 
         const rEnd = new Date(`${res.endDate}T${rTimeEnd}:00`);
 
         // (StartA < EndB) && (EndA > StartB)
@@ -152,8 +185,7 @@ function findConflict(myStart, myEnd) {
                     nearestConflict = { start: rStart, end: rEnd };
                 }
             } else {
-                // Pokud kolize začíná PŘED námi a končí PO nás, jsme úplně uvnitř -> blokováno
-                // Vracíme jako nearestConflict, který začíná hned (myStart), takže délka 0
+                // Pokud kolize začíná PŘED námi a končí PO nás, jsme blokovaní úplně
                 return { start: myStart, end: rEnd }; 
             }
         }
@@ -177,8 +209,9 @@ async function validateAndSubmit() {
     }
 
     const btn = document.querySelector('.btn-main');
+    if (btn.disabled) return;
     
-    // Zjistíme, jestli máme nucený konec (z checkAvailabilityAndSnap)
+    // Zjistíme, jestli máme nucený konec
     let finalEndDate, finalEndTime;
     
     if (btn.dataset.forcedEndDate && btn.dataset.forcedEndTime) {
@@ -189,7 +222,7 @@ async function validateAndSubmit() {
         const d = new Date(`${dateInput}T${timeInput}:00`);
         d.setDate(d.getDate() + 1);
         finalEndDate = d.toISOString().split('T')[0];
-        finalEndTime = null; // null znamená "stejný jako start time" (resp. standard)
+        finalEndTime = null; 
     }
 
     isSubmitting = true;
@@ -213,11 +246,11 @@ async function validateAndSubmit() {
         if (result.success) {
             window.location.href = result.redirectUrl;
         } else {
-            // Tady zachytíme chybu ze serveru (např. někdo to vyfoukl)
             alert("CHYBA: " + (result.error || "Nepodařilo se vytvořit rezervaci."));
             isSubmitting = false;
             btn.innerText = "REZERVOVAT A ZAPLATIT";
-            updateCalendar(); // Obnovit data
+            // Obnovíme data, kdyby se mezitím něco změnilo
+            updateCalendar(); 
         }
     } catch (e) {
         alert("Chyba připojení.");
@@ -226,13 +259,14 @@ async function validateAndSubmit() {
     }
 }
 
-
 function formatDate(date) { return `${String(date.getDate()).padStart(2,'0')}.${String(date.getMonth()+1).padStart(2,'0')}`; }
 function formatTime(date) { return date.toLocaleTimeString('cs-CZ', {hour:'2-digit', minute:'2-digit'}); }
 function clearError(id) { document.getElementById("inp-"+id).style.border = "1px solid #ddd"; }
 
 // Init
 document.addEventListener("DOMContentLoaded", init);
+
+// Funkce pro rychlé vyhledávání (zůstaly stejné)
 function handleEnter(e) { if(e.key === "Enter") quickCheckRedirect(); }
 function quickCheckRedirect() {
     const val = document.getElementById("quick-check-input").value.trim().toUpperCase();
