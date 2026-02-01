@@ -3,248 +3,174 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vozík 24/7 - Půjčovna přívěsných vozíků Mohelnice</title>
-    <link rel="stylesheet" href="style.css">
+    <title>Vozík 24/7 Mohelnice - Rezervace</title>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
-    <div class="main-container">
-        <h1>Vozík 24/7</h1>
 
-        <div class="about-section">
-            <p>
-                Potřebujete převézt nábytek, stavební materiál nebo zahradní techniku? 
-                Nabízíme <strong>samoobslužný pronájem přívěsného vozíku v Mohelnici</strong>. 
-                Rezervujte online, zaplaťte kartou a vyzvedněte si vozík kdykoliv – ve dne i v noci.
-            </p>
+<div id="testing-lock" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #1a1a1a; z-index: 999999; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: 'Montserrat', sans-serif; color: white; text-align: center; padding: 20px; box-sizing: border-box;">
+    <div style="max-width: 400px; width: 100%; background: #222; padding: 40px; border-radius: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); border: 1px solid #333;">
+        <i class="fa-solid fa-screwdriver-wrench" style="font-size: 50px; color: #bfa37c; margin-bottom: 20px;"></i>
+        <h1 style="margin: 0 0 10px 0; font-size: 24px; text-transform: uppercase; letter-spacing: 2px;">Vozík 24/7</h1>
+        <p style="color: #888; margin-bottom: 30px; font-size: 14px;">Web je aktuálně v režimu ladění a přípravy.<br>Pro vstup zadejte heslo.</p>
+        
+        <input type="password" id="test-pass" placeholder="Zadejte heslo" onkeypress="if(event.key==='Enter') unlockWeb()" style="width: 100%; padding: 15px; border-radius: 10px; border: 1px solid #444; background: #111; color: white; margin-bottom: 20px; text-align: center; font-size: 16px; outline: none; box-sizing: border-box;">
+        
+        <button onclick="unlockWeb()" style="width: 100%; padding: 15px; border-radius: 10px; border: none; background: #bfa37c; color: white; font-weight: bold; cursor: pointer; text-transform: uppercase; transition: 0.3s;" onmouseover="this.style.background='#a68d6a'" onmouseout="this.style.background='#bfa37c'">
+            Odemknout
+        </button>
+        <div id="lock-error" style="color: #ff4d4d; font-size: 12px; margin-top: 15px; display: none;">Neplatné heslo, zkuste to znovu.</div>
+    </div>
+    <p style="position: absolute; bottom: 20px; font-size: 11px; color: #555;">&copy; 2026 Vozík 24/7 Mohelnice</p>
+</div>
+
+<script>
+    function unlockWeb() {
+        const pass = document.getElementById('test-pass').value;
+        const correctPass = '3C1a4d88*'; 
+        
+        if (pass === correctPass) {
+            document.getElementById('testing-lock').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('testing-lock').style.display = 'none';
+            }, 300);
+            localStorage.setItem('vozik_debug_access', 'true');
+        } else {
+            const err = document.getElementById('lock-error');
+            err.style.display = 'block';
+            document.getElementById('test-pass').value = '';
+            document.getElementById('test-pass').style.borderColor = '#ff4d4d';
+        }
+    }
+    if (localStorage.getItem('vozik_debug_access') === 'true') {
+        document.getElementById('testing-lock').style.display = 'none';
+    }
+</script>
+<header>
+    <div class="container header-flex">
+        <div class="logo">VOZÍK <span>24/7</span></div>
+        <nav>
+            <a href="#rezervace" class="nav-link">Rezervace</a>
+            <a href="javascript:scrollToCheck()" class="nav-link highlight">Sledovat stav</a>
+        </nav>
+    </div>
+</header>
+
+<main class="container">
+    <section id="rezervace" class="booking-section">
+        <div class="booking-grid">
             
-            <div class="features-grid">
-                <a href="instructions.html" class="feature-item-link">
-                    <div class="feature-item">
-                        <div class="feature-default">
-                            <i class="fa-solid fa-clock feature-icon"></i>
-                            <strong>24 / 7 provoz</strong>
-                            <span>Vyzvednutí i vrácení kdykoliv.</span>
-                        </div>
-                        <div class="feature-hover">
-                            <i class="fa-solid fa-circle-info feature-icon-small"></i>
-                            <strong>Jak na to?</strong>
-                            <p>Podívejte se na jednoduchý návod, jak si vozík půjčit.</p>
-                            <span class="btn-fake">Zobrazit návod ↓</span>
-                        </div>
-                    </div>
-                </a>
-
-                <a href="pricelist.html" target="_blank" class="feature-item-link">
-                    <div class="feature-item">
-                        <div class="feature-default">
-                            <i class="fa-solid fa-tag feature-icon"></i>
-                            <strong>230 Kč / den</strong>
-                            <span>Žádné skryté poplatky.</span>
-                        </div>
-                        <div class="feature-hover">
-                            <i class="fa-solid fa-file-invoice feature-icon-small"></i>
-                            <strong>Kompletní ceník</strong>
-                            <p>Zde najdete přehled všech služeb a případných poplatků.</p>
-                            <span class="btn-fake">Otevřít ceník →</span>
-                        </div>
-                    </div>
-                </a>
-
-                <div class="feature-item-link">
-                    <div class="feature-item">
-                        <div class="feature-default">
-                            <i class="fa-solid fa-mobile-screen-button feature-icon"></i>
-                            <strong>Samoobslužné</strong>
-                            <span>Odemknutí zámku PIN kódem.</span>
-                        </div>
-                        <div class="feature-hover">
-                            <i class="fa-solid fa-bolt feature-icon-small"></i>
-                            <strong>Do minuty odjíždíte</strong>
-                            <p>Jste u vozíku? Zaplaťte mobilem a okamžitě vyražte.</p>
-                        </div>
-                    </div>
-                </div>
-
-                <a href="https://www.gopay.com/cs/" target="_blank" class="feature-item-link">
-                    <div class="feature-item">
-                        <div class="feature-default">
-                            <i class="fa-solid fa-credit-card feature-icon"></i>
-                            <strong>Platba kartou</strong>
-                            <span>Rychlá online rezervace.</span>
-                        </div>
-                        <div class="feature-hover">
-                            <i class="fa-solid fa-shield-halved feature-icon-small"></i>
-                            <strong>Bezpečné platby</strong>
-                            <p>Využíváme bránu GoPay pro maximální bezpečnost.</p>
-                            <span class="btn-fake">Více o GoPay →</span>
-                        </div>
-                    </div>
-                </a>
-            </div>
-        </div>
-
-        <div class="content-wrapper">
-            <div class="calendar-section">
-                <h2>1. Vyberte termín</h2>
-                <div class="controls">
-                    <button id="prev" class="nav-btn">❮</button>
-                    <span id="currentMonthLabel"></span>
-                    <button id="next" class="nav-btn">❯</button>
+            <div class="calendar-card">
+                <div class="calendar-header">
+                    <button id="prev"><i class="fa-solid fa-chevron-left"></i></button>
+                    <h2 id="currentMonthLabel">NAČÍTÁM...</h2>
+                    <button id="next"><i class="fa-solid fa-chevron-right"></i></button>
                 </div>
                 <div id="calendar-wrapper"></div>
-                <div id="legend">
-                    <div class="legend-item"><span class="box available"></span> Volno</div>
-                    <div class="legend-item"><span class="box booked"></span> Obsazeno</div>
-                    <div class="legend-item"><span class="box selecting"></span> Váš výběr</div>
+                
+                <div class="calendar-legend">
+                    <div class="leg-item"><span class="leg-box booked"></span> Obsazeno</div>
+                    <div class="leg-item"><span class="leg-box range"></span> Váš výběr</div>
                 </div>
-                <div id="error-calendar" class="error-message" style="text-align: center; margin-top: 10px;"></div>
             </div>
 
-            <div id="booking-form">
-                <div class="form-header-row">
-                    <h2>2. Vaše rezervace</h2>
-                    <div class="mini-search-box">
-                        <input type="text" id="quick-check-input" placeholder="Máte rezervaci?" maxlength="6" onkeypress="handleEnter(event)">
-                        <button onclick="quickCheckRedirect()" title="Vyhledat">
-                            <i class="fa-solid fa-magnifying-glass"></i>
-                        </button>
+            <div class="form-card">
+                <div class="form-group">
+                    <label><i class="fa-solid fa-clock"></i> Čas vyzvednutí a vrácení</label>
+                    <div class="time-input-group">
+                        <input type="time" id="inp-time" value="12:00">
+                        <button type="button" id="btn-now" class="btn-small">Teď</button>
                     </div>
                 </div>
 
                 <div class="summary-box">
-                    <p>Vyzvednutí: <strong id="date-start-text">-</strong></p>
-                    <p>Vrácení: <strong id="date-end-text">-</strong></p>
-                    <p>Počet dní: <strong id="day-count">0</strong></p>
-                    <div class="price-tag">
-                        Cena celkem: <span id="total-price">0 Kč</span>
+                    <div class="sum-row">
+                        <span>Vyzvednutí:</span>
+                        <strong id="date-start-text">-</strong>
                     </div>
-                </div>
-                
-                <div class="form-group">
-                    <label>Čas vyzvednutí</label>
-                    <div class="time-row">
-                        <input type="time" id="inp-time" value="09:00">
-                        <button id="btn-now" class="btn-small">Teď</button>
+                    <div class="sum-row">
+                        <span>Vrácení:</span>
+                        <strong id="date-end-text">-</strong>
                     </div>
-                    <small id="time-hint" style="color: #d9534f; font-weight: bold; display: none; margin-top: 5px;"></small>
-                </div>
-                
-                <div class="form-group">
-                    <label>Jméno a příjmení</label>
-                    <input type="text" id="inp-name" placeholder="Jan Novák">
-                    <div id="error-name" class="error-message"></div>
-                </div>
-
-                <div class="form-group">
-                    <label>Email</label>
-                    <input type="email" id="inp-email" placeholder="jan@novak.cz">
-                    <div id="error-email" class="error-message"></div>
-                </div>
-
-                <div class="form-group">
-                    <label>Telefon</label>
-                    <input type="tel" id="inp-phone" placeholder="+420 777 123 456">
-                    <div id="error-phone" class="error-message"></div>
-                </div>
-
-                <div class="terms-container">
-                    <div style="display: flex; align-items: flex-start; gap: 10px;">
-                        <input type="checkbox" id="inp-agree" style="width: 20px; height: 20px; cursor: pointer;">
-                        <label for="inp-agree">
-                            Potvrzuji, že jsem se seznámil/a se <a href="conditions.html" target="_blank" style="color: #bfa37c; font-weight: bold;">Smluvními podmínkami</a> a se <a href="privacy.html" target="_blank" style="color: #bfa37c; font-weight: bold;">Zásadami ochrany osobních údajů</a>.
-                        </label>
+                    <hr>
+                    <div class="sum-row total">
+                        <span>Počet dní: <b id="day-count">0</b></span>
+                        <span id="total-price" class="price-tag">0 Kč</span>
                     </div>
                 </div>
 
-                <button onclick="submitReservation()" id="btn-submit" class="btn-pay" disabled>
+                <div class="user-info">
+                    <div class="input-wrap">
+                        <input type="text" id="inp-name" placeholder="Jméno a příjmení">
+                        <div class="error-msg" id="error-name"></div>
+                    </div>
+                    <div class="input-wrap">
+                        <input type="email" id="inp-email" placeholder="E-mail pro zaslání PINu">
+                        <div class="error-msg" id="error-email"></div>
+                    </div>
+                    <div class="input-wrap">
+                        <input type="tel" id="inp-phone" placeholder="Telefon (pro SMS)">
+                        <div class="error-msg" id="error-phone"></div>
+                    </div>
+                </div>
+
+                <div class="agreement">
+                    <label class="checkbox-container">
+                        <input type="checkbox" id="inp-agree">
+                        <span class="checkmark"></span>
+                        Souhlasím s <a href="javascript:openModal('modal-obchodni')">obchodními podmínkami</a>
+                    </label>
+                </div>
+
+                <button id="btn-submit" class="btn-main btn-pay" disabled>
                     REZERVOVAT A ZAPLATIT
                 </button>
-            </div> 
-        </div> 
-    </div> 
-
-    <div class="process-section">
-        <h2>Je to jednoduché</h2>
-        <div class="process-grid">
-            <div class="process-step">
-                <div class="step-number">1</div>
-                <h3>Online rezervace</h3>
-                <p>Objednávka z mobilu vám zabere 3 minuty.</p>
-            </div>
-            <div class="process-step">
-                <div class="step-number">2</div>
-                <h3>Okamžitý přístup</h3>
-                <p>PIN kód k zámku obdržíte ihned po zaplacení.</p>
-            </div>
-            <div class="process-step">
-                <div class="step-number">3</div>
-                <h3>Odjíždíte</h3>
-                <p>Odemknete, zapřáhnete a můžete vyrazit.</p>
+                <div id="error-calendar" class="error-main"></div>
             </div>
         </div>
-        <div style="margin-top: 40px;">
-            <a href="instructions.html" class="btn-outline">
-                Zobrazit podrobný návod k obsluze →
-            </a>
+    </section>
+
+    <section class="mini-search-box">
+        <h3>Již máte rezervaci?</h3>
+        <p>Zadejte ID kód pro zobrazení PINu a stavu.</p>
+        <div class="search-wrap">
+            <input type="text" id="quick-check-input" placeholder="Kód např. AB12CD" onkeypress="handleEnter(event)">
+            <button onclick="quickCheckRedirect()"><i class="fa-solid fa-magnifying-glass"></i></button>
+        </div>
+    </section>
+</main>
+
+<div id="modal-obchodni" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Obchodní podmínky</h2>
+            <button onclick="closeModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p>Zde budou obchodní podmínky provozovatele...</p>
         </div>
     </div>
+</div>
 
-    <div class="map-section">
-        <h2>Kde nás najdete?</h2>
-        <p><strong>Dubová 1490/2, Mohelnice</strong></p>
-        <div class="map-container">
-            <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2576.456865243343!2d16.9248232!3d49.7774113!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x4712398402777177%3A0x6b777a87e8346b!2zRHVib3bDoSAxNDkwLzIsIDc4OSA4NSBNb2hlbG5pY2U!5e0!3m2!1scs!2scz!4v1700000000000" 
-            width="100%" height="350" style="border:0;" allowfullscreen="" loading="lazy"></iframe>
+<footer>
+    <div class="container footer-grid">
+        <div>
+            <div class="logo">VOZÍK <span>24/7</span></div>
+            <p>Samoobslužný pronájem přívěsných vozíků v Mohelnici. K dispozici nonstop.</p>
+        </div>
+        <div>
+            <h4>Kontakt</h4>
+            <p><i class="fa-solid fa-location-dot"></i> Dubová 1490/2, Mohelnice</p>
+            <p><i class="fa-solid fa-phone"></i> +420 702 024 786</p>
         </div>
     </div>
+    <div class="footer-bottom">
+        &copy; 2026 Vozík 24/7 Mohelnice. Všechna práva vyhrazena.
+    </div>
+</footer>
 
-    <footer class="site-footer">
-        <div class="footer-content">
-            <div class="footer-col">
-                <h3>Kontakt</h3>
-                <p><strong>Martin Husička</strong><br>
-                Dubová 1490/2, Mohelnice<br>
-                IČO: 76534898<br>
-                Email: <a href="mailto:info@vozik247.cz">info@vozik247.cz</a></p>
-            </div>
-
-            <div class="footer-col">
-                <h3>Informace</h3>
-                <p><a href="instructions.html">Návod k použití</a></p>
-                <p><a href="pricelist.html" target="_blank">Ceník služeb</a></p>
-                <p><a href="conditions.html" target="_blank">Obchodní podmínky</a></p>
-                <p><a href="privacy.html" target="_blank">Ochrana údajů</a></p>
-                <p>
-                    <a href="javascript:void(0)" onclick="scrollToCheck()" style="color: #bfa37c; font-weight: bold; text-decoration: none;">
-                        <i class="fa-solid fa-arrow-up"></i> Máte už rezervaci?
-                    </a>
-                </p>
-            </div>
-
-            <div class="footer-col">
-                <h3>Bezpečné platby</h3>
-                <div class="payment-group">
-                    <div class="payment-logos">
-                        <img src="https://upload.wikimedia.org/wikipedia/commons/5/5e/Visa_Inc._logo.svg" alt="Visa">
-                        <img src="https://upload.wikimedia.org/wikipedia/commons/2/2a/Mastercard-logo.svg" alt="Mastercard">
-                    </div>
-                    <div class="gopay-banner">
-                        <a href="https://www.gopay.com/cs/" target="_blank">
-                            <img src="https://help.gopay.com/cs/img.php?hash=3f16ee624dcff569b03ab83c0bc797561eeac7c6103ec90783f6d37390921eab.png" alt="Platební brána GoPay">
-                        </a>
-                    </div>
-                    <p class="payment-note">Zabezpečeno bránou GoPay</p>
-                </div>
-            </div>
-        </div>
-        <div class="copyright">
-            © 2025 Vozík 24/7 Mohelnice. Všechna práva vyhrazena.
-        </div>
-    </footer>
-<script src="https://gw.sandbox.gopay.com/gp-gw/js/embed.js"></script>
-    <script src="script.js"></script>
+<script src="script.js"></script>
 </body>
 </html>
