@@ -8,65 +8,38 @@
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { background: #f4f4f4; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; box-sizing: border-box; margin: 0; }
+        body { background: #f4f4f4; margin: 0; padding: 20px; font-family: 'Montserrat', sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; box-sizing: border-box; }
         .check-container { width: 100%; max-width: 500px; }
+        .detail-card { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
         
-        /* HLAVNÍ KARTA */
-        .detail-card { 
-            background: white; border-radius: 12px; overflow: hidden; 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1); position: relative; 
-        }
-        
-        .status-header { 
-            padding: 15px; text-align: center; font-weight: 800; color: white; 
-            text-transform: uppercase; font-size: 14px; letter-spacing: 1px; 
-        }
+        .status-header { padding: 15px; text-align: center; font-weight: 800; color: white; text-transform: uppercase; font-size: 14px; letter-spacing: 1px; }
         .bg-active { background: #28a745; }
         .bg-ended { background: #dc3545; }
 
         .card-body { padding: 30px; text-align: center; }
-        
         .order-id-info { color: #888; font-size: 0.85rem; margin-bottom: 20px; }
-        .order-id-info strong { color: #333; }
-
-        /* PIN DISPLAY */
-        .pin-section { 
-            background: #fdfdfd; border: 2px dashed #bfa37c; 
-            border-radius: 10px; padding: 20px; margin: 0 0 25px 0; 
-        }
+        .pin-display { background: #fdfdfd; border: 2px dashed #bfa37c; margin-bottom: 25px; padding: 20px; border-radius: 8px; }
         .pin-label { display: block; font-size: 0.75rem; color: #888; text-transform: uppercase; margin-bottom: 5px; }
-        .pin-value { font-size: 3.5rem; font-weight: 800; color: #333; letter-spacing: 5px; line-height: 1; }
+        .pin-number { font-size: 3.5rem; font-weight: 800; color: #333; letter-spacing: 5px; line-height: 1; }
 
-        /* NÁVOD NA ODEMČENÍ */
         .instructions-box { text-align: left; background: #fcfcfc; border: 1px solid #eee; padding: 15px; border-radius: 8px; margin-bottom: 25px; }
         .ins-title { font-weight: 800; font-size: 0.8rem; text-transform: uppercase; color: #bfa37c; margin-bottom: 10px; display: block; }
-        .ins-step { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; font-size: 0.9rem; color: #555; }
-        .ins-step i { color: #bfa37c; width: 15px; text-align: center; }
+        .ins-step { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; font-size: 0.85rem; color: #555; }
+        .ins-step i { color: #bfa37c; width: 15px; }
 
-        /* TABULKA ÚDAJŮ */
-        .info-table { width: 100%; text-align: left; border-top: 1px solid #eee; }
-        .info-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #eee; }
-        .info-label { color: #aaa; font-size: 0.85rem; }
-        .info-val { font-weight: 600; color: #333; font-size: 0.9rem; }
+        .info-table { width: 100%; text-align: left; border-top: 1px solid #eee; margin-bottom: 20px; }
+        .info-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }
+        .info-label { color: #aaa; font-size: 0.8rem; }
+        .info-val { font-weight: 600; color: #333; font-size: 0.85rem; }
 
-        /* TLAČÍTKA */
-        .btn-nav {
-            display: block; width: 100%; padding: 15px; margin-top: 25px;
-            background: #bfa37c; color: white; text-decoration: none; border-radius: 8px;
-            font-weight: 700; transition: 0.3s; text-align: center;
-        }
-        .btn-nav:hover { background: #a68d6a; }
-
-        .btn-sos {
-            display: block; width: 100%; padding: 15px; margin-top: 10px;
-            background: #dc3545; color: white; text-decoration: none; border-radius: 8px;
-            font-weight: 700; transition: 0.3s; text-align: center;
-        }
-        .btn-home { 
-            display: block; width: 100%; padding: 15px; margin-top: 10px; 
-            background: transparent; border: 1px solid #ddd; border-radius: 8px; 
-            color: #666; text-decoration: none; font-weight: 600; transition: 0.3s; text-align: center;
-        }
+        /* TLAČÍTKA VEDLE SEBE */
+        .btn-group-row { display: flex; gap: 10px; margin-top: 20px; }
+        .btn-side { flex: 1; padding: 15px 5px; border-radius: 8px; font-weight: 700; text-decoration: none; font-size: 0.85rem; display: flex; align-items: center; justify-content: center; gap: 5px; }
+        
+        .btn-nav { background: #bfa37c; color: white; }
+        .btn-sos { background: #dc3545; color: white; }
+        
+        .btn-home { display: block; width: 100%; padding: 15px; margin-top: 10px; background: transparent; border: 2px solid #ddd; border-radius: 8px; color: #666; text-decoration: none; font-weight: 600; text-align: center; box-sizing: border-box; }
     </style>
 </head>
 <body>
@@ -76,13 +49,11 @@
             <div id="status-bar" class="status-header bg-active">REZERVACE AKTIVNÍ</div>
             
             <div class="card-body">
-                <div class="order-id-info">
-                    ID rezervace: <strong id="out-id">---</strong>
-                </div>
+                <div class="order-id-info">ID rezervace: <strong id="out-id">---</strong></div>
 
-                <div class="pin-section">
+                <div class="pin-display">
                     <span class="pin-label">PIN k zámku</span>
-                    <span id="out-pin" class="pin-value">----</span>
+                    <span id="out-pin" class="pin-number">----</span>
                 </div>
 
                 <div class="instructions-box">
@@ -93,26 +64,18 @@
                 </div>
 
                 <div class="info-table">
-                    <div class="info-row">
-                        <span class="info-label">Vyzvednutí:</span>
-                        <span id="out-start" class="info-val">---</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Vrácení:</span>
-                        <span id="out-end" class="info-val">---</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Vozík:</span>
-                        <span class="info-val">Vozík č. 1</span>
-                    </div>
+                    <div class="info-row"><span class="info-label">Vyzvednutí:</span><span id="out-start" class="info-val">---</span></div>
+                    <div class="info-row"><span class="info-label">Vrácení:</span><span id="out-end" class="info-val">---</span></div>
                 </div>
 
-                <a href="https://www.google.com/maps/search/?api=1&query=Vozík+24/7+Mohelnice" target="_blank" class="btn-nav">
-                    <i class="fa-solid fa-location-dot"></i> NAVIGOVAT NA MÍSTO
-                </a>
-                <a href="tel:+420702024786" class="btn-sos">
-                    <i class="fa-solid fa-phone"></i> MÁM PROBLÉM (VOLAT)
-                </a>
+                <div class="btn-group-row">
+                    <a href="https://www.google.com/maps/search/?api=1&query=Vozík+24/7+Mohelnice" target="_blank" class="btn-side btn-nav">
+                        <i class="fa-solid fa-location-dot"></i> NAVIGOVAT
+                    </a>
+                    <a href="tel:+420702024786" class="btn-side btn-sos">
+                        <i class="fa-solid fa-phone"></i> SOS / VOLAT
+                    </a>
+                </div>
                 <a href="index.html" class="btn-home">Zpět na úvod</a>
             </div>
         </div>
@@ -120,31 +83,18 @@
 
     <script>
         const params = new URLSearchParams(window.location.search);
-        const pin = params.get("pin");
-        const orderId = params.get("orderId");
-        const status = params.get("status");
-        const start = params.get("start");
-        const end = params.get("end");
-        const time = params.get("time");
+        document.getElementById("out-pin").innerText = params.get("pin") || "----";
+        document.getElementById("out-id").innerText = params.get("orderId") || "---";
+        
+        const start = params.get("start"), end = params.get("end"), time = params.get("time");
+        const format = (d) => { if(!d) return "---"; const date = new Date(d); return isNaN(date.getTime()) ? d : date.toLocaleDateString("cs-CZ"); };
+        
+        if (start) document.getElementById("out-start").innerText = `${format(start)} ${time || ''}`;
+        if (end) document.getElementById("out-end").innerText = `${format(end)} ${time || ''}`;
 
-        if (pin) document.getElementById("out-pin").innerText = pin;
-        if (orderId) document.getElementById("out-id").innerText = orderId;
-
-        const format = (d) => {
-            if (!d) return "---";
-            const date = new Date(d);
-            return isNaN(date.getTime()) ? d : date.toLocaleDateString("cs-CZ");
-        };
-
-        if (start && time) {
-            document.getElementById("out-start").innerText = `${format(start)} ${time}`;
-            document.getElementById("out-end").innerText = `${format(end || start)} ${time}`;
-        }
-
-        if (status === "UKONČENO") {
+        if (params.get("status") === "UKONČENO") {
             const bar = document.getElementById("status-bar");
-            bar.innerText = "REZERVACE UKONČENA";
-            bar.className = "status-header bg-ended";
+            bar.innerText = "REZERVACE UKONČENA"; bar.className = "status-header bg-ended";
             document.getElementById("out-pin").style.textDecoration = "line-through";
             document.getElementById("out-pin").style.color = "#ccc";
         }
