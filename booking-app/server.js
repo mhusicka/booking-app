@@ -74,12 +74,11 @@ function generateResCode() { return Math.random().toString(36).substring(2, 8).t
 function generatePin() { return Array.from({ length: 6 }, () => Math.floor(Math.random() * 10)).join(""); }
 function hashPassword(password) { return crypto.createHash("md5").update(password).digest("hex"); }
 
-// --- KONTROLA PŘEKRYVU (CRITICAL) ---
+// --- KONTROLA PŘEKRYVU (S tolerancí na dotyk) ---
 async function checkOverlap(startStr, endStr, excludeId = null) {
     const newStart = new Date(startStr).getTime();
     const newEnd = new Date(endStr).getTime();
 
-    // Najdeme všechny aktivní rezervace
     const query = { 
         paymentStatus: { $in: ['PAID', 'PENDING'] },
         _id: { $ne: excludeId } 
@@ -97,51 +96,16 @@ async function checkOverlap(startStr, endStr, excludeId = null) {
         const rEndTimeStr = r.endTime || r.time;
         const rEnd = new Date(`${r.endDate}T${rEndTimeStr}:00`).getTime();
 
-        // Logika: Pokud NOVÁ začíná přesně v momentě kdy STARÁ končí (nebo později), je to OK.
-        // Kolize nastává pouze pokud se časové úseky SKUTEČNĚ překrývají.
-        // (StartA < EndB) a (EndA > StartB)
+        // Kolize nastává pouze při SKUTEČNÉM průniku.
+        // Pokud jedna končí v 15:00 a druhá začíná v 15:00 -> NENÍ to kolize (díky < a >).
         if (newStart < rEnd && newEnd > rStart) {
-            return true; // KOLIZE!
+            return true; 
         }
     }
     return false;
 }
 
-// ... (ZBYTEK SOUBORU ZŮSTÁVÁ STEJNÝ - funkce email, faktura, ttlock, endpointy) ...
-// (Pro úsporu místa zde neopisuji celý soubor znovu, protože změna v checkOverlap je to hlavní, co řeší tvůj problém s chybou při navazujících časech)
-// Zkopíruj sem prosím celý zbytek souboru ze server.js, který jsem poslal minule, nic jiného se tam nemění.
-
-// JEN PRO JISTOTU OPRAVENÝ CREATE-PAYMENT ENDPOINT S BUFFEREM:
-app.post("/create-payment", async (req, res) => {
-    const { startDate, endDate, time, endTime, name, email, phone, price } = req.body;
-    try {
-        const reqStartStr = `${startDate}T${time}:00`;
-        const reqEndStr = `${endDate}T${endTime || time}:00`;
-        const overlap = await checkOverlap(reqStartStr, reqEndStr);
-        
-        if (overlap) {
-            return res.status(409).json({ error: "Termín je již obsazen (kolize)." });
-        }
-
-        const rCode = generateResCode();
-        const reservation = new Reservation({ reservationCode: rCode, startDate, endDate, time, endTime, name, email, phone, price, paymentStatus: 'PENDING' });
-        await reservation.save();
-        const token = await getGoPayToken();
-        const gpRes = await axios.post(`${GOPAY_API_URL}/api/payments/payment`, {
-            payer: { contact: { first_name: name, email, phone_number: phone } },
-            amount: Math.round(price * 100), currency: "CZK", order_number: `${rCode}-${Date.now().toString().slice(-4)}`,
-            target: { type: "ACCOUNT", goid: GOPAY_GOID },
-            callback: { return_url: `${BASE_URL}/payment-return`, notification_url: `${BASE_URL}/api/payment-notify` },
-            lang: "CS"
-        }, { headers: { 'Authorization': `Bearer ${token}` } });
-        reservation.gopayId = gpRes.data.id;
-        await reservation.save();
-        res.json({ success: true, redirectUrl: gpRes.data.gw_url });
-    } catch (e) { res.status(500).json({ error: "Chyba brány nebo kolize" }); }
-});
-
-// ... (Zbytek beze změny)
-// --- EMAIL FUNKCE ---
+// --- EMAIL ---
 async function sendReservationEmail(data, pdfBuffer, isUpdate = false, paymentLink = null) {
     if (!BREVO_API_KEY) return;
     const startF = formatDateCz(data.startDate);
@@ -246,6 +210,7 @@ function createInvoicePdf(data) {
     });
 }
 
+// --- TTLOCK & GOPAY ---
 async function getTTLockToken() {
     const params = new URLSearchParams({ client_id: TTLOCK_CLIENT_ID, client_secret: TTLOCK_CLIENT_SECRET, username: TTLOCK_USERNAME, password: hashPassword(TTLOCK_PASSWORD), grant_type: "password", redirect_uri: BASE_URL });
     const res = await axios.post("https://euapi.ttlock.com/oauth2/token", params.toString());
@@ -299,6 +264,34 @@ async function getGoPayToken() {
     return response.data.access_token;
 }
 
+app.post("/create-payment", async (req, res) => {
+    const { startDate, endDate, time, endTime, name, email, phone, price } = req.body;
+    try {
+        const reqStartStr = `${startDate}T${time}:00`;
+        const reqEndStr = `${endDate}T${endTime || time}:00`;
+        const overlap = await checkOverlap(reqStartStr, reqEndStr);
+        
+        if (overlap) {
+            return res.status(409).json({ error: "Termín je již obsazen (kolize)." });
+        }
+
+        const rCode = generateResCode();
+        const reservation = new Reservation({ reservationCode: rCode, startDate, endDate, time, endTime, name, email, phone, price, paymentStatus: 'PENDING' });
+        await reservation.save();
+        const token = await getGoPayToken();
+        const gpRes = await axios.post(`${GOPAY_API_URL}/api/payments/payment`, {
+            payer: { contact: { first_name: name, email, phone_number: phone } },
+            amount: Math.round(price * 100), currency: "CZK", order_number: `${rCode}-${Date.now().toString().slice(-4)}`,
+            target: { type: "ACCOUNT", goid: GOPAY_GOID },
+            callback: { return_url: `${BASE_URL}/payment-return`, notification_url: `${BASE_URL}/api/payment-notify` },
+            lang: "CS"
+        }, { headers: { 'Authorization': `Bearer ${token}` } });
+        reservation.gopayId = gpRes.data.id;
+        await reservation.save();
+        res.json({ success: true, redirectUrl: gpRes.data.gw_url });
+    } catch (e) { res.status(500).json({ error: "Chyba brány nebo kolize" }); }
+});
+
 app.get("/payment-return", async (req, res) => {
     const { id } = req.query;
     let r = await Reservation.findOne({ gopayId: id });
@@ -346,6 +339,7 @@ app.get("/payment-return", async (req, res) => {
     }
 });
 
+// ADMIN ROUTES
 const checkAdmin = (req, res, next) => {
     if (req.headers["x-admin-password"] !== ADMIN_PASSWORD) return res.sendStatus(403);
     next();
@@ -433,7 +427,6 @@ app.put("/admin/reservations/:id", checkAdmin, async (req, res) => {
         const { startDate, endDate, time, endTime, price } = req.body;
         const r = await Reservation.findById(req.params.id);
         if (!r) return res.status(404).json({ error: "Nenalezeno" });
-
         if (r.keyboardPwdId) await deletePinFromLock(r.keyboardPwdId);
 
         r.startDate = startDate;
