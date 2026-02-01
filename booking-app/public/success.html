@@ -32,19 +32,25 @@
         .detail-label { color: #888; }
         .detail-value { font-weight: 600; color: #333; }
 
+        /* TLAČÍTKA AKCÍ */
+        .action-buttons { display: flex; gap: 10px; margin-top: 25px; }
+        
+        .btn-action { 
+            flex: 1; padding: 15px; border-radius: 6px; font-weight: 700; 
+            text-decoration: none; transition: 0.3s; display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        .btn-nav { background: #bfa37c; color: white; }
+        .btn-nav:hover { background: #a68d6a; }
+        
+        .btn-sos { background: #dc3545; color: white; }
+        .btn-sos:hover { background: #c82333; }
+
         .btn-home { 
             display: block; width: 100%; padding: 15px; margin-top: 10px; 
             background: white; border: 2px solid #ddd; border-radius: 6px; 
-            color: #555; text-decoration: none; font-weight: 600; transition: 0.3s; 
+            color: #555; text-decoration: none; font-weight: 600; transition: 0.3s; box-sizing: border-box;
         }
         .btn-home:hover { border-color: #bfa37c; color: #bfa37c; }
-
-        .btn-sos {
-            display: block; width: 100%; padding: 15px; margin-top: 20px;
-            background: #dc3545; color: white; text-decoration: none; border-radius: 6px;
-            font-weight: 700; transition: 0.3s; box-sizing: border-box;
-        }
-        .btn-sos:hover { background: #c82333; }
 
         h1 { margin: 10px 0 30px 0; font-size: 1.8rem; }
         .check-icon { font-size: 4rem; color: #28a745; display: block; margin-bottom: 10px; }
@@ -79,9 +85,15 @@
             </div>
         </div>
 
-        <a href="tel:+420702024786" class="btn-sos">
-            <i class="fa-solid fa-phone"></i> Mám problém (Volat)
-        </a>
+        <div class="action-buttons">
+            <a href="https://www.google.com/maps/search/?api=1&query=Dubová+1490/2,+789+85+Mohelnice" target="_blank" class="btn-action btn-nav">
+                <i class="fa-solid fa-location-dot"></i> NAVIGOVAT
+            </a>
+            <a href="tel:+420702024786" class="btn-action btn-sos">
+                <i class="fa-solid fa-phone"></i> POMOC / VOLAT
+            </a>
+        </div>
+
         <a href="index.html" class="btn-home">Zpět na úvod</a>
 
         <div id="email-warning" style="display:none; margin-top: 15px; font-size: 0.8rem; color: #856404; background: #fff3cd; padding: 10px; border-radius: 4px;">
@@ -97,30 +109,23 @@
         const restored = params.get("restored");
         const status = params.get("status");
         
-        // Zpracování datumu (buď rawDateText z retrieve, nebo start/end/time z nové rezervace)
         const rawDate = params.get("rawDateText");
         const start = params.get("start");
         const end = params.get("end");
         const time = params.get("time");
 
-        // Vyplnění údajů
         if (pin) document.getElementById("display-pin").innerText = pin;
         if (orderId) document.getElementById("display-order-id").innerText = orderId;
 
-        // Logika pro zobrazení data
         const dateEl = document.getElementById("display-date");
         if (rawDate) {
-            // Pokud jdeme z "Najít PIN", server poslal hotový string nebo my jsme ho složili v JS
             dateEl.innerText = rawDate;
         } else if (start && time) {
-            // Pokud jdeme z nové rezervace
             const format = (d) => {
                 const date = new Date(d);
-                // Pokud je datum neplatné (protože už je formátované z JS), vrátíme ho rovnou
                 if (isNaN(date.getTime())) return d; 
                 return date.toLocaleDateString("cs-CZ");
             };
-            // Jednoduché zobrazení
             if (end) {
                 dateEl.innerHTML = `${format(start)} ${time} - ${format(end)} ${time}`;
             } else {
@@ -128,17 +133,14 @@
             }
         }
 
-        // Úprava vzhledu pro "Zobrazení existující rezervace"
         if (restored === "true") {
             document.getElementById("page-title").innerText = "Detail rezervace";
-            document.getElementById("icon-success").style.display = "none"; // Skryjeme "fajfku"
-            document.getElementById("sub-msg").style.display = "none"; // Skryjeme text o odeslání emailu
+            document.getElementById("icon-success").style.display = "none"; 
+            document.getElementById("sub-msg").style.display = "none"; 
             
-            // Zobrazíme kód rezervace v hlavičce místo v sub-msg
             const h1 = document.getElementById("page-title");
             h1.innerHTML += `<br><span style="font-size: 1rem; color: #888; font-weight: normal;">#${orderId}</span>`;
 
-            // Status badge logic
             const badge = document.getElementById("status-badge");
             if (status === "UKONČENO") {
                 badge.innerText = "UKONČENO";
@@ -147,7 +149,6 @@
                 badge.innerText = "AKTIVNÍ";
             }
         } else {
-            // Nová rezervace - skryjeme status badge, protože je jasné že je nová
             document.getElementById("status-badge").style.display = "none";
         }
 
@@ -157,4 +158,3 @@
     </script>
 </body>
 </html>
-
