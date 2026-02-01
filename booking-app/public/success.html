@@ -20,29 +20,27 @@
             margin-bottom: 20px;
         }
         .status-badge.ended { background: #f8d7da; color: #721c24; }
-
-        .pin-display {
-            background: #fdfdfd; border: 2px dashed #bfa37c; margin: 25px 0; padding: 20px; border-radius: 8px;
-        }
+        .pin-display { background: #fdfdfd; border: 2px dashed #bfa37c; margin: 25px 0; padding: 20px; border-radius: 8px; }
         .pin-label { display: block; font-size: 0.8rem; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
         .pin-number { font-size: 3.5rem; font-weight: 800; color: #333; letter-spacing: 8px; line-height: 1; }
-
         .detail-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; font-size: 0.95rem; }
         .detail-row:last-child { border-bottom: none; }
         .detail-label { color: #888; }
         .detail-value { font-weight: 600; color: #333; }
-
-        /* TLAČÍTKA AKCÍ */
-        .action-buttons { display: flex; gap: 10px; margin-top: 25px; }
         
-        .btn-action { 
-            flex: 1; padding: 15px; border-radius: 6px; font-weight: 700; 
-            text-decoration: none; transition: 0.3s; display: flex; align-items: center; justify-content: center; gap: 8px;
+        /* Styl pro navigaci v tvém designu */
+        .btn-nav {
+            display: block; width: 100%; padding: 15px; margin-top: 25px;
+            background: #bfa37c; color: white; text-decoration: none; border-radius: 6px;
+            font-weight: 700; transition: 0.3s; box-sizing: border-box;
         }
-        .btn-nav { background: #bfa37c; color: white; }
         .btn-nav:hover { background: #a68d6a; }
-        
-        .btn-sos { background: #dc3545; color: white; }
+
+        .btn-sos {
+            display: block; width: 100%; padding: 15px; margin-top: 10px;
+            background: #dc3545; color: white; text-decoration: none; border-radius: 6px;
+            font-weight: 700; transition: 0.3s; box-sizing: border-box;
+        }
         .btn-sos:hover { background: #c82333; }
 
         .btn-home { 
@@ -57,23 +55,18 @@
     </style>
 </head>
 <body>
-
     <div class="success-box">
         <div id="status-badge" class="status-badge">AKTIVNÍ</div>
         <i class="fa-solid fa-circle-check check-icon" id="icon-success"></i>
-        
         <h1 id="page-title">Rezervace úspěšná!</h1>
-        
         <p id="sub-msg" style="color: #666; margin-bottom: 20px;">
             Potvrzení bylo odesláno na email.<br>
             Kód rezervace: <strong id="display-order-id" style="color: #333;">---</strong>
         </p>
-
         <div class="pin-display">
             <span class="pin-label">Váš PIN k zámku</span>
             <span id="display-pin" class="pin-number">----</span>
         </div>
-
         <div class="details-container">
             <div class="detail-row">
                 <span class="detail-label">Termín:</span>
@@ -85,30 +78,24 @@
             </div>
         </div>
 
-        <div class="action-buttons">
-            <a href="https://www.google.com/maps/search/?api=1&query=Dubová+1490/2,+789+85+Mohelnice" target="_blank" class="btn-action btn-nav">
-                <i class="fa-solid fa-location-dot"></i> NAVIGOVAT
-            </a>
-            <a href="tel:+420702024786" class="btn-action btn-sos">
-                <i class="fa-solid fa-phone"></i> POMOC / VOLAT
-            </a>
-        </div>
-
+        <a href="https://www.google.com/maps/search/?api=1&query=Vozík+24/7+Mohelnice" target="_blank" class="btn-nav">
+            <i class="fa-solid fa-location-dot"></i> NAVIGOVAT NA MÍSTO
+        </a>
+        <a href="tel:+420702024786" class="btn-sos">
+            <i class="fa-solid fa-phone"></i> MÁM PROBLÉM (VOLAT)
+        </a>
         <a href="index.html" class="btn-home">Zpět na úvod</a>
 
         <div id="email-warning" style="display:none; margin-top: 15px; font-size: 0.8rem; color: #856404; background: #fff3cd; padding: 10px; border-radius: 4px;">
             ⚠️ Email se nepodařilo odeslat. Prosím, uložte si tento PIN a kód rezervace!
         </div>
     </div>
-
     <script>
         const params = new URLSearchParams(window.location.search);
-        
         const pin = params.get("pin");
         const orderId = params.get("orderId");
         const restored = params.get("restored");
         const status = params.get("status");
-        
         const rawDate = params.get("rawDateText");
         const start = params.get("start");
         const end = params.get("end");
@@ -137,10 +124,8 @@
             document.getElementById("page-title").innerText = "Detail rezervace";
             document.getElementById("icon-success").style.display = "none"; 
             document.getElementById("sub-msg").style.display = "none"; 
-            
             const h1 = document.getElementById("page-title");
             h1.innerHTML += `<br><span style="font-size: 1rem; color: #888; font-weight: normal;">#${orderId}</span>`;
-
             const badge = document.getElementById("status-badge");
             if (status === "UKONČENO") {
                 badge.innerText = "UKONČENO";
@@ -150,10 +135,6 @@
             }
         } else {
             document.getElementById("status-badge").style.display = "none";
-        }
-
-        if (params.get("emailStatus") === "failed") {
-            document.getElementById("email-warning").style.display = "block";
         }
     </script>
 </body>
