@@ -9,13 +9,12 @@ let endDate = null;
 let cachedReservations = []; 
 let isSubmitting = false; 
 
-// Proměnná pro uložení vynuceného konce (pokud existuje kolize)
+// Proměnná pro uložení vynuceného konce
 let forcedEndData = null; 
 
 async function init() {
     console.log("🚀 Startuji aplikaci...");
     
-    // Inject druhého inputu pro čas (Čas Do), pokud neexistuje
     injectEndTimeInput();
 
     const urlParams = new URLSearchParams(window.location.search);
@@ -61,15 +60,15 @@ async function init() {
     document.getElementById("prev")?.addEventListener("click", () => changeMonth(-1));
     document.getElementById("next")?.addEventListener("click", () => changeMonth(1));
     
+    // Změna Start Času
     document.getElementById("inp-time")?.addEventListener("change", (e) => {
-        const startTime = e.target.value;
-        const endTimeInp = document.getElementById("inp-time-end");
-        if (endTimeInp) endTimeInp.value = startTime;
-        updateSummaryUI();
+        // Při změně startu přepočítáme konec (resetujeme na default 24h cyklus nebo gap)
+        updateSummaryUI(true); 
     });
 
+    // Změna End Času
     document.getElementById("inp-time-end")?.addEventListener("change", () => {
-        updateSummaryUI();
+        updateSummaryUI(false);
     });
 
     document.getElementById("btn-now")?.addEventListener("click", setNow);
@@ -121,22 +120,23 @@ function clearAllErrors() {
     if (calendarErr) calendarErr.innerText = "";
 }
 
-// === NOVÉ: DETEKCE ZDI (STOP HOVER) ===
+// === POMOCNÉ ČASOVÉ FUNKCE ===
+function subtractMinutes(timeStr, mins) {
+    const [h, m] = timeStr.split(':').map(Number);
+    const d = new Date();
+    d.setHours(h, m - mins, 0, 0);
+    return d.toLocaleTimeString('cs-CZ', {hour: '2-digit', minute:'2-digit'});
+}
+
+// === DETEKCE KOLIZÍ A ZDI ===
 function findFirstWall(startStr, endStr) {
     let s = startStr, e = endStr;
-    if (e < s) [s, e] = [e, s]; // srovnat
-
+    if (e < s) [s, e] = [e, s]; 
     let wall = null;
-
-    // Hledáme nejbližší rezervaci uvnitř intervalu
     for (const res of cachedReservations) {
-        // Pokud rezervace zasahuje do intervalu s..e
-        if (res.startDate <= e && res.endDate >= s) {
-            // Zajímá nás začátek té rezervace jako zeď
-            if (res.startDate >= s) {
-                if (!wall || res.startDate < wall) {
-                    wall = res.startDate;
-                }
+        if (res.startDate > s && res.startDate <= e) {
+            if (!wall || res.startDate < wall) {
+                wall = res.startDate;
             }
         }
     }
@@ -175,18 +175,29 @@ async function submitReservation() {
     }
 
     const timeStartVal = document.getElementById("inp-time").value;
-    const timeEndVal = document.getElementById("inp-time-end") ? document.getElementById("inp-time-end").value : timeStartVal;
-
-    let finalEndDate = endDate;
+    const timeEndVal = document.getElementById("inp-time-end").value;
+    
+    // Konec dne je určen buď kalendářem (endDate) nebo automatikou (stejný den/další den)
+    // Zde už bereme hodnoty z UI, které 'updateSummaryUI' nastavilo správně (včetně 5min bufferu)
+    let finalEndDate = endDate; 
     if (startDate && (!endDate || endDate === startDate)) {
-        if (timeEndVal <= timeStartVal) finalEndDate = getNextDay(startDate);
-        else finalEndDate = startDate; 
+        // Porovnáme časy "přes půlnoc"
+        // Pokud je konec menší než start, je to další den. ALE pozor na buffer.
+        // Jednodušší: spolehneme se na to, co uživatel vidí v "date-end-text" (který se počítá v UI), 
+        // ale pro jistotu to dopočítáme znova logicky:
+        
+        const sTs = new Date(`${startDate}T${timeStartVal}:00`).getTime();
+        const eTs = new Date(`${startDate}T${timeEndVal}:00`).getTime(); // stejný den
+        
+        if (eTs <= sTs) finalEndDate = getNextDay(startDate);
+        else finalEndDate = startDate;
     }
-
+    
+    // Pokud bylo forcedEnd (bublina), updateSummaryUI už nastavil endDate správně, ale pro jistotu:
     if (forcedEndData) {
         finalEndDate = forcedEndData.date;
     }
-    
+
     const name = document.getElementById("inp-name").value.trim();
     const email = document.getElementById("inp-email").value.trim();
     const phone = document.getElementById("inp-phone").value.trim();
@@ -199,13 +210,16 @@ async function submitReservation() {
 
     if (hasError) return;
 
+    // Validace délky (aspoň 30 min)
     const startMs = new Date(`${startDate}T${timeStartVal}:00`).getTime();
     const endMs = new Date(`${finalEndDate}T${timeEndVal}:00`).getTime();
-    const diffMs = endMs - startMs;
     
-    if (diffMs <= 0) { alert("Čas vrácení musí být po čase vyzvednutí."); return; }
+    if ((endMs - startMs) < 30 * 60000) {
+        alert("Minimální doba pronájmu je 30 minut.");
+        return;
+    }
 
-    const durationDays = Math.ceil(diffMs / (24 * 60 * 60 * 1000));
+    const durationDays = Math.ceil((endMs - startMs) / (24 * 60 * 60 * 1000));
     const finalPrice = durationDays * PRICE_PER_DAY;
 
     isSubmitting = true;
@@ -356,60 +370,54 @@ function renderSingleCalendar() {
     document.getElementById("currentMonthLabel").innerText = new Date(viewStartYear, viewStartMonth, 1).toLocaleString("cs-CZ", { month: "long", year: "numeric" }).toUpperCase();
 }
 
-// --- OPRAVENÁ LOGIKA HOVERU (ZASTAVÍ SE O ZEĎ) ---
 function handleHoverLogic(hoverDate) {
     if (!startDate || (startDate && endDate)) return;
     
-    // Zjistíme, kde je "zeď" (nejbližší rezervace)
-    const wall = findFirstWall(startDate, hoverDate);
+    let s = startDate, e = hoverDate;
+    if (e < s) [s, e] = [e, s];
+
+    const wall = findFirstWall(s, e);
     
-    // Ořízneme hoverDate, pokud je za zdí
-    let effectiveHoverDate = hoverDate;
-    if (wall) {
-        // Pokud jdeme dopředu a wall je menší než hover, stopneme na wall
-        if (hoverDate > startDate && wall <= hoverDate) effectiveHoverDate = wall;
+    let effectiveEnd = e;
+    if (wall && wall <= e) {
+        effectiveEnd = wall;
     }
 
     const days = document.querySelectorAll('.day[data-date]');
-    let s = startDate, e = effectiveHoverDate;
-    if (e < s) [s, e] = [e, s];
-    
     days.forEach(day => {
         const d = day.dataset.date;
         day.classList.remove('hover-range');
-        // Zabarvíme jen po zeď
-        if (d >= s && d <= e && !day.classList.contains('range-start') && !day.classList.contains('booked')) {
-            // Pokud je to přímo ta zeď, už ji nebarvíme (je obsazená)
-            // Ale my v CSS barvíme background, který už tam je šedý.
-            // Takže jen přidáme třídu.
+        if (d >= s && d <= effectiveEnd && !day.classList.contains('range-start') && !day.classList.contains('booked')) {
              day.classList.add('hover-range');
         }
     });
     
-    // Souhrn taky ukáže jen to, co je reálné
-    updateSummaryUI(effectiveHoverDate);
+    // Pro update UI stačí poslat ten hoverDate, updateSummary si s tím poradí (nebo effectiveEnd)
+    // Zde je lepší nevolat updateSummary při každém pohybu myší kvůli výkonu a blikání inputů,
+    // ale pokud chceme dynamiku, zavoláme to s effectiveEnd, ale jen pro vizuál.
+    // PROZATÍM NEVOLÁME updateSummaryUI na hover, aby se neměnily inputy pod rukama.
+    // Inputy se změní až na klik.
 }
 
 function handleDayClick(dateStr) {
-    if (startDate === dateStr && !endDate) { startDate = null; renderSingleCalendar(); updateSummaryUI(); return; }
-    
-    if (!startDate || (startDate && endDate)) { 
+    if (startDate === dateStr && !endDate) { 
+        // DVOJKLIK -> Automaticky 24h (nebo max do zdi)
+        const nextDay = getNextDay(dateStr);
+        const wall = findFirstWall(dateStr, nextDay);
+        if (wall && wall <= nextDay) endDate = dateStr; 
+        else endDate = nextDay; 
+    } else if (!startDate || (startDate && endDate)) { 
         startDate = dateStr; 
         endDate = null; 
     } else {
-        // Kliknutí na druhý den - musíme zkontrolovat, jestli jsme neklikli "za zeď"
-        const wall = findFirstWall(startDate, dateStr);
-        if (wall && dateStr > wall) {
-            // Uživatel klikl až za rezervaci -> ořízneme to k té rezervaci
-            endDate = wall;
-        } else {
-            let s = startDate, e = dateStr;
-            if (e < s) [s, e] = [e, s];
-            startDate = s; endDate = e;
-        }
+        let s = startDate, e = dateStr;
+        if (e < s) [s, e] = [e, s];
+        const wall = findFirstWall(s, e);
+        if (wall && wall <= e) e = wall;
+        startDate = s; endDate = e;
     }
     document.querySelectorAll('.day.hover-range').forEach(d => d.classList.remove('hover-range'));
-    updateSummaryUI(); 
+    updateSummaryUI(true); // true = resetovat čas podle logiky (Gap nebo 24h)
     renderSingleCalendar();
 }
 
@@ -423,15 +431,16 @@ function setNow() {
     const now = new Date();
     const h = String(now.getHours()).padStart(2,'0');
     const m = String(now.getMinutes()).padStart(2,'0');
+    
     const timeInp = document.getElementById("inp-time");
     if (timeInp) timeInp.value = h + ":" + m;
-    const timeEndInp = document.getElementById("inp-time-end");
-    if (timeEndInp) timeEndInp.value = h + ":" + m;
+    // Konec nastavíme automaticky v updateSummary
     
     const todayStr = now.toLocaleDateString('en-CA');
     startDate = todayStr;
-    endDate = getNextDay(todayStr);
-    updateSummaryUI();
+    endDate = null; // Necháme updateSummary dopočítat
+    
+    updateSummaryUI(true);
     renderSingleCalendar();
 }
 
@@ -444,7 +453,8 @@ function changeMonth(delta) {
 
 function formatCzDate(isoDateStr) { const d = new Date(isoDateStr); return d.getDate() + "." + (d.getMonth() + 1) + "." + d.getFullYear(); }
 
-function updateSummaryUI(previewEndDate = null) {
+// --- LOGIKA UI (S 5 MIN BUFFEREM) ---
+function updateSummaryUI(resetEndTime = false) {
     const startText = document.getElementById("date-start-text");
     const endText = document.getElementById("date-end-text");
     const countEl = document.getElementById("day-count");
@@ -453,10 +463,22 @@ function updateSummaryUI(previewEndDate = null) {
     const timeInp = document.getElementById("inp-time");
     const timeVal = timeInp ? timeInp.value : "12:00";
     const timeEndInp = document.getElementById("inp-time-end");
+    
+    // Pokud resetujeme (např. při kliku na nový den), vypočteme default (Start - 5min)
+    if (resetEndTime && timeEndInp && !timeEndInp.disabled) {
+        timeEndInp.value = subtractMinutes(timeVal, 5);
+    }
+    
     let timeEndVal = timeEndInp ? timeEndInp.value : timeVal;
 
+    // Reset stavu
     forcedEndData = null;
-    if (timeEndInp) timeEndInp.style.backgroundColor = "white";
+    if (timeEndInp) {
+        timeEndInp.disabled = false;
+        timeEndInp.style.backgroundColor = "white";
+        timeEndInp.style.color = "black";
+        timeEndInp.style.border = "1px solid #ddd";
+    }
 
     if (!startDate) { 
         if(startText) startText.innerText = "-"; 
@@ -466,8 +488,12 @@ function updateSummaryUI(previewEndDate = null) {
         return; 
     }
     
-    let activeEnd = endDate || previewEndDate;
+    let activeEnd = endDate;
     if (!activeEnd) {
+         // Default: pokud je End <= Start, je to zítra.
+         // ALE: my jsme teď nastavili End = Start - 5min. Takže to technicky je menší, ale myslíme tím zítra.
+         // Příklad: Start 10:00. End default 09:55. 09:55 < 10:00 -> Next Day. Správně.
+         // Příklad: Start 10:00. End manual 18:00. 18:00 > 10:00 -> Same Day. Správně.
          if (timeEndVal <= timeVal) activeEnd = getNextDay(startDate);
          else activeEnd = startDate;
     }
@@ -475,6 +501,7 @@ function updateSummaryUI(previewEndDate = null) {
     let s = startDate, e = activeEnd;
     if (e < s) [s, e] = [e, s];
 
+    // Kolize check
     const startMs = new Date(`${s}T${timeVal}:00`).getTime();
     const endMs = new Date(`${e}T${timeEndVal}:00`).getTime();
     const conflict = findConflict(startMs, endMs);
@@ -486,15 +513,25 @@ function updateSummaryUI(previewEndDate = null) {
             const btn = document.getElementById("btn-submit");
             if(btn) { btn.disabled = true; btn.style.opacity = "0.5"; }
         } else {
+            // === BUBLINA (GAP) ===
             forcedEndData = { date: conflict.dateStr, time: conflict.timeStr };
             activeEnd = conflict.dateStr;
             e = conflict.dateStr;
-            timeEndVal = conflict.timeStr;
+            
+            // Čas kolize (kdy začíná další)
+            // My chceme skončit 5 min PŘED tím.
+            const safeEndTime = subtractMinutes(conflict.timeStr, 5);
+            timeEndVal = safeEndTime;
+
             if (timeEndInp) {
-                timeEndInp.value = conflict.timeStr;
-                timeEndInp.style.backgroundColor = "#ffcccc";
+                timeEndInp.value = safeEndTime;
+                timeEndInp.disabled = true; // ZAMRAZIT
+                timeEndInp.style.backgroundColor = "#ffebee"; 
+                timeEndInp.style.color = "#c62828"; 
+                timeEndInp.style.border = "1px solid #c62828";
             }
             warningHtml = `<span style="color:#d9534f; font-weight:bold; font-size:12px; display:block; margin-top:5px;">⚠️ ZKRÁCENÝ TERMÍN (do ${timeEndVal})</span>`;
+            
             const btn = document.getElementById("btn-submit");
             const agree = document.getElementById("inp-agree");
             if(btn && agree && agree.checked) { btn.disabled = false; btn.style.opacity = "1"; }
