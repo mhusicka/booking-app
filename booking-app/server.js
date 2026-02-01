@@ -3,11 +3,11 @@ const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
-const axios = require("axios"); 
+const axios = require("axios");
 const crypto = require("crypto");
 const { URLSearchParams } = require("url");
 const path = require("path");
-const PDFDocument = require('pdfkit'); 
+const PDFDocument = require('pdfkit');
 const fs = require('fs');
 
 const app = express();
@@ -33,7 +33,7 @@ const MY_LOCK_ID = parseInt(process.env.MY_LOCK_ID);
 const GOPAY_GOID = process.env.GOPAY_GOID;
 const GOPAY_CLIENT_ID = process.env.GOPAY_CLIENT_ID;
 const GOPAY_CLIENT_SECRET = process.env.GOPAY_CLIENT_SECRET;
-const GOPAY_API_URL = "https://gw.sandbox.gopay.com"; 
+const GOPAY_API_URL = "https://gw.sandbox.gopay.com";
 
 mongoose.connect(MONGO_URI).then(() => console.log("✅ DB připojena"));
 
@@ -48,14 +48,14 @@ const ReservationSchema = new mongoose.Schema({
     passcode: { type: String, default: "---" },
     keyboardPwdId: Number,
     price: { type: Number, default: 0 },
-    paymentStatus: { type: String, default: 'PENDING' }, 
+    paymentStatus: { type: String, default: 'PENDING' },
     gopayId: String,
     created: { type: Date, default: Date.now }
 });
 const Reservation = mongoose.model("Reservation", ReservationSchema);
 
 // POMOCNÉ FUNKCE
-function formatDateCz(dateStr) { 
+function formatDateCz(dateStr) {
     const d = new Date(dateStr);
     return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`;
 }
@@ -64,7 +64,7 @@ function generatePin() { return Array.from({ length: 6 }, () => Math.floor(Math.
 function hashPassword(password) { return crypto.createHash("md5").update(password).digest("hex"); }
 
 // --- PŮVODNÍ DESIGN EMAILU ---
-async function sendReservationEmail(data, pdfBuffer) { 
+async function sendReservationEmail(data, pdfBuffer) {
     if (!BREVO_API_KEY) return;
     const startF = formatDateCz(data.startDate);
     const endF = formatDateCz(data.endDate);
@@ -128,7 +128,7 @@ function createInvoicePdf(data) {
             doc.moveDown(3);
             const topDates = 240;
             const now = new Date();
-            const dateStr = `${String(now.getDate()).padStart(2, '0')}.${String(now.getMonth() + 1).padStart(2, '0')}.${now.getFullYear()}`; 
+            const dateStr = `${String(now.getDate()).padStart(2, '0')}.${String(now.getMonth() + 1).padStart(2, '0')}.${now.getFullYear()}`;
             doc.fillColor('#888888').text('Datum vystavení:', 50, topDates);
             doc.fillColor('#333333').text(dateStr, 150, topDates);
             const tableTop = 290;
