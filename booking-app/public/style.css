@@ -1,4 +1,4 @@
-/* 1. ZÁKLAD - PŮVODNÍ */
+/* 1. ZÁKLAD */
 body { font-family: 'Montserrat', sans-serif; background: #f8f9fa; color: #333; padding: 20px; margin: 0; }
 .main-container { max-width: 1100px; margin: 0 auto; background: white; padding: 40px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); border-radius: 8px; }
 
@@ -35,31 +35,6 @@ h2 { font-size: 1.2rem; margin-top: 0; margin-bottom: 0; border-bottom: 2px soli
 .day.selected { background: #bfa37c !important; color: white !important; font-weight: bold; box-shadow: 0 4px 10px rgba(191,163,124,0.4); }
 .day.in-range { background: #fcf8f2; }
 
-/* NOVÉ: Hover range a Limitovaný slot */
-.day.hover-range { background: rgba(191, 163, 124, 0.2) !important; border: 1px dashed #bfa37c !important; }
-
-.limit-badge {
-    display: inline-block;
-    background: #fff5f5;
-    color: #c0392b;
-    border: 1px solid #fadbd8;
-    padding: 3px 10px;
-    border-radius: 4px;
-    font-size: 0.7rem;
-    font-weight: 800;
-    margin-top: 8px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.input-locked {
-    background-color: #fdf2f2 !important;
-    color: #c0392b !important;
-    border: 1.5px dashed #c0392b !important;
-    cursor: not-allowed !important;
-    font-weight: 600;
-}
-
 /* FORMULÁŘ */
 .booking-form { display: flex; flex-direction: column; gap: 15px; }
 .input-group { display: flex; flex-direction: column; gap: 5px; }
@@ -81,21 +56,36 @@ h2 { font-size: 1.2rem; margin-top: 0; margin-bottom: 0; border-bottom: 2px soli
 .btn-now { background: #444; color: white; border: none; padding: 10px; border-radius: 6px; font-size: 0.8rem; cursor: pointer; margin-bottom: 15px; transition: background 0.2s; }
 .btn-now:hover { background: #555; }
 
-/* MODÁLNÍ OKNA A OSTATNÍ (PŮVODNÍ) */
-.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 1000; display: none; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box; }
+/* MODÁLNÍ OKNA */
+.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 1000; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box; }
 .modal-content { background: white; width: 100%; max-width: 450px; padding: 30px; border-radius: 12px; text-align: center; position: relative; box-shadow: 0 10px 40px rgba(0,0,0,0.3); animation: slideUp 0.3s ease-out; }
 @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 .close-modal { position: absolute; top: 15px; right: 20px; font-size: 2rem; cursor: pointer; color: #aaa; }
 .close-modal:hover { color: #333; }
 
-/* RESPONSIVITA */
-@media (max-width: 850px) {
-    .booking-section { grid-template-columns: 1fr; }
-    .main-container { padding: 20px; }
+/* MINI SEARCH */
+.mini-search-box {
+    display: flex;
+    align-items: center;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 20px;
+    padding: 2px 5px 2px 15px;
+    width: 200px;
+    transition: all 0.3s ease;
 }
+.mini-search-box:focus-within { border-color: #bfa37c; box-shadow: 0 0 10px rgba(191,163,124,0.2); width: 220px; }
+.mini-search-box input { border: none; outline: none; background: transparent; padding: 8px 0; font-family: inherit; font-size: 0.85rem; width: 100%; }
+.mini-search-box button { background: #bfa37c; color: white; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s; flex-shrink: 0; margin-left: 5px; }
+.mini-search-box button:hover { background: #a68b63; }
 
-/* FOOTER A DOPLŇKY */
-.footer-info { margin-top: 60px; display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 40px; border-top: 1px solid #eee; padding-top: 40px; }
-.footer-col h3 { font-size: 1rem; text-transform: uppercase; margin-bottom: 20px; color: #333; }
-.footer-col p { font-size: 0.9rem; color: #666; line-height: 1.6; }
-.copyright { text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; font-size: 0.8rem; color: #999; }
+/* --- DOPLNĚNÉ FUNKČNÍ STYLY --- */
+.day.hover-range { background: rgba(191, 163, 124, 0.2) !important; border: 1px dashed #bfa37c !important; }
+.limit-badge {
+    display: inline-block; background: #fff5f5; color: #c0392b; border: 1px solid #fadbd8;
+    padding: 3px 10px; border-radius: 4px; font-size: 0.7rem; font-weight: 800; margin-top: 8px; text-transform: uppercase;
+}
+.input-locked {
+    background-color: #fdf2f2 !important; color: #c0392b !important; border: 1.5px dashed #c0392b !important;
+    cursor: not-allowed !important; font-weight: 600;
+}
