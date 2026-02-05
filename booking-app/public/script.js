@@ -4,46 +4,40 @@ const PRICE_PER_DAY = 230;
 let viewStartMonth = new Date().getMonth();
 let viewStartYear = new Date().getFullYear();
 
-// Hlavní stavové proměnné
 let startDate = null;
 let endDate = null;
 let cachedReservations = []; 
 let isSubmitting = false; 
 
-// Indikuje, jestli uživatel právě "vybírá" konec (má start, nemá end)
-let isSelectingEnd = false;
-
+// Hlavní funkce
 async function init() {
-    console.log("🚀 Vozík 24/7 Smart Calendar Loaded");
+    console.log("🚀 Vozík 24/7 - Stable Logic Loaded");
     
-    injectEndTimeInput();
+    injectEndTimeInput(); // Přidá input pro konečný čas, pokud chybí
     await updateCalendar();
 
     const priceDisplay = document.getElementById("price-per-day-display");
     if (priceDisplay) priceDisplay.innerText = `${PRICE_PER_DAY} Kč`;
     
-    // Navigace v kalendáři
+    // Navigace
     document.getElementById("prev")?.addEventListener("click", () => changeMonth(-1));
     document.getElementById("next")?.addEventListener("click", () => changeMonth(1));
 
-    // Listenery pro změnu času (okamžitý přepočet)
+    // Listenery pro změnu času - TOTO JE KLÍČOVÉ PRO 24H LOGIKU
     const timeStart = document.getElementById("inp-time");
     const timeEnd = document.getElementById("inp-time-end");
 
     if (timeStart) {
+        // Když změním čas startu, chci přepočítat konec (posunout 24h okno)
         timeStart.addEventListener("change", () => {
-            // Při změně start času posouváme i konec, pokud není zamknutý limit
-            if (startDate && !endDate && timeEnd && !timeEnd.disabled) {
-                timeEnd.value = timeStart.value;
-            }
-            // Pokud máme vybráno, přepočítáme validaci
-            if (startDate) recalculateSelection(); 
+             if (startDate) calculateSmartEndDate();
         });
     }
     
     if (timeEnd) {
+        // Když ručně změním čas vrácení, jen přepočítám cenu
         timeEnd.addEventListener("change", () => {
-            if (startDate) recalculateSelection();
+            if (startDate && endDate) updateSummaryUI();
         });
     }
 
@@ -59,272 +53,167 @@ async function init() {
     }
 }
 
-// === 1. PŘÍSNÁ DETEKCE ZDI (LIMITU) ===
-function findNextWall(startIsoDate, startTimeStr) {
-    let closestWall = null;
-    const myStartMs = new Date(`${startIsoDate}T${startTimeStr}:00`).getTime();
+// === 1. LOGIKA VÝPOČTU DATA VRÁCENÍ (Klouzavých 24h) ===
+function calculateSmartEndDate() {
+    if (!startDate) return;
+
+    const timeStartVal = document.getElementById("inp-time").value || "09:00";
+    
+    // 1. Zjistíme přesný moment startu
+    const startMs = new Date(`${startDate}T${timeStartVal}:00`).getTime();
+    
+    // 2. Najdeme nejbližší "zeď" (budoucí rezervaci)
+    let closestWallMs = null;
+    let closestWallDate = null;
+    let closestWallTime = null;
 
     cachedReservations.forEach(res => {
         if (res.paymentStatus === 'CANCELED') return;
-
-        // Začátek cizí rezervace je moje zeď
-        const resStartMs = new Date(`${res.startDate}T${res.time}:00`).getTime();
+        const rStartMs = new Date(`${res.startDate}T${res.time}:00`).getTime();
         
-        // Hledáme nejbližší rezervaci, která začíná OSTŘE PO mém startu
-        if (resStartMs > myStartMs) {
-            if (!closestWall || resStartMs < closestWall.ms) {
-                closestWall = {
-                    ms: resStartMs,
-                    date: res.startDate,
-                    time: res.time
-                };
+        // Hledáme jen rezervace, které začínají PO našem startu
+        if (rStartMs > startMs) {
+            if (!closestWallMs || rStartMs < closestWallMs) {
+                closestWallMs = rStartMs;
+                closestWallDate = res.startDate;
+                closestWallTime = res.time;
             }
         }
     });
-    return closestWall;
-}
 
-// === 2. LOGIKA HOVERU (LIVE PREVIEW) ===
-function handleDayHover(hoverDateStr) {
-    // Preview děláme jen, když máme START, ale ještě nemáme KONEC
-    if (!startDate || endDate) return; 
-
-    // Ignorujeme minulost před startem
-    if (hoverDateStr < startDate) return;
-
-    const timeStartVal = document.getElementById("inp-time").value || "08:00";
+    // 3. Vypočítáme ideální konec (Start + 24 hodin)
+    const idealEndMs = startMs + (24 * 60 * 60 * 1000);
+    const idealEndObj = new Date(idealEndMs);
+    const idealEndDateStr = idealEndObj.toLocaleDateString('en-CA');
     
-    // 1. Zjistíme, jestli mezi Startem a Hover dnem nestojí zeď
-    const wall = findNextWall(startDate, timeStartVal);
-    
-    let effectiveEndDate = hoverDateStr;
-    let effectiveEndTime = timeStartVal; // Defaultně 24h cyklus
-    let limitHit = false;
+    // Formát času HH:mm z ideálního konce
+    const ih = String(idealEndObj.getHours()).padStart(2, '0');
+    const im = String(idealEndObj.getMinutes()).padStart(2, '0');
+    const idealEndTimeStr = `${ih}:${im}`;
 
-    // Pokud existuje zeď
-    if (wall) {
-        const hoverMs = new Date(`${hoverDateStr}T${timeStartVal}:00`).getTime();
+    // 4. Rozhodnutí: Narazíme do zdi?
+    if (closestWallMs && idealEndMs > closestWallMs) {
+        // ANO, narazíme -> Zkrátíme termín přesně na začátek té další rezervace
+        endDate = closestWallDate;
+        document.getElementById("inp-time-end").value = closestWallTime;
         
-        // Pokud uživatel najel myší ZA zeď, simulujeme náraz do zdi
-        if (hoverMs >= wall.ms) {
-            effectiveEndDate = wall.date;
-            effectiveEndTime = wall.time;
-            limitHit = true;
-        }
+        // Vizuální indikace "Zaseknuto o rezervaci"
+        markTimeInputAsLimited(true);
+    } else {
+        // NE, je volno -> Nastavíme přesně 24h
+        endDate = idealEndDateStr;
+        document.getElementById("inp-time-end").value = idealEndTimeStr; // Měl by být stejný jako start time
+        markTimeInputAsLimited(false);
     }
 
-    // 2. Vizuální obarvení kalendáře (jen pro efekt výběru)
-    const days = document.querySelectorAll('.day[data-date]');
-    days.forEach(day => {
-        const d = day.dataset.date;
-        day.classList.remove('hover-range');
-        // Barvíme jen dny, které jsou součástí preview intervalu
-        if (d > startDate && d <= effectiveEndDate) {
-            day.classList.add('hover-range');
-        }
-    });
-
-    // 3. ŽIVÁ AKTUALIZACE TABULKY (Preview data)
-    updateSummaryUI({
-        start: startDate,
-        end: effectiveEndDate,
-        timeS: timeStartVal,
-        timeE: effectiveEndTime,
-        limitHit: limitHit,
-        isPreview: true // Flag, že jde jen o náhled
-    });
+    renderSingleCalendar(); // Překreslíme, aby se vybarvil range
+    updateSummaryUI();      // Přepočítáme cenu
 }
 
-// === 3. KLIKNUTÍ NA DEN ===
-function handleDayClick(clickedDateStr) {
-    const timeInp = document.getElementById("inp-time");
-    const currentTime = timeInp ? timeInp.value : "09:00";
+function markTimeInputAsLimited(isLimited) {
+    const el = document.getElementById("inp-time-end");
+    if (!el) return;
+    if (isLimited) {
+        el.style.backgroundColor = "#ffebee";
+        el.style.color = "#c62828";
+        el.style.border = "1px solid #c62828";
+    } else {
+        el.style.backgroundColor = "";
+        el.style.color = "";
+        el.style.border = "1px solid #ddd";
+    }
+}
 
-    // A) RESET (Pokud už mám vybráno, nebo klikám před start)
-    if ((startDate && endDate) || (startDate && clickedDateStr < startDate)) {
-        startDate = clickedDateStr;
+// === 2. KLIKNUTÍ NA DEN ===
+function handleDayClick(dateStr) {
+    const timeStartVal = document.getElementById("inp-time").value || "09:00";
+    
+    // Pokud klikám na den, zkontroluji, zda v ten den už není pozdě na start
+    // (např. kliknu na dnešek 15:00, ale nastavím čas 10:00 -> to je minulost, nevadí, server to srovná, 
+    // ale pokud je tam rezervace od 12:00, tak už v 15:00 začít nemůžu).
+    
+    // Jednoduchá logika: První klik nastaví start a hned dopočítá konec (24h)
+    // Pokud uživatel chce víc dní, klikne podruhé na jiný den.
+
+    if (!startDate || (startDate && endDate && startDate !== endDate)) {
+        // Nový výběr startu
+        startDate = dateStr;
         endDate = null;
-        isSelectingEnd = true;
-        
-        // Okamžitá kontrola, jestli v den startu není zeď později týž den
-        // Příklad: Chci 7. v 8:00, ale 7. v 14:00 je rezervace.
-        recalculateSelection(); // Toto samo nastaví "limitHit" a případný auto-end
-    } 
-    // B) VÝBĚR KONCE
-    else if (startDate && !endDate) {
-        // Kontrola zdi při kliknutí
-        const wall = findNextWall(startDate, currentTime);
-        
-        if (wall) {
-            // Pokud klikl až za zeď nebo na den zdi
-            if (clickedDateStr >= wall.date) {
-                endDate = wall.date; // Zarazíme o zeď
-            } else {
-                endDate = clickedDateStr; // Je to před zdí, OK
-            }
-        } else {
-            endDate = clickedDateStr;
-        }
-        isSelectingEnd = false;
-    } 
-    // C) PRVNÍ KLIK (když je vše null)
-    else {
-        startDate = clickedDateStr;
-        isSelectingEnd = true;
-    }
-
-    // Vždy po kliku finální přepočet a překreslení
-    recalculateSelection();
-    renderSingleCalendar();
-}
-
-// === 4. HLAVNÍ VÝPOČETNÍ LOGIKA ===
-function recalculateSelection() {
-    if (!startDate) return updateSummaryUI(null);
-
-    const timeStartVal = document.getElementById("inp-time").value;
-    const timeEndEl = document.getElementById("inp-time-end");
-    
-    // Najdeme nejbližší zeď
-    const wall = findNextWall(startDate, timeStartVal);
-    
-    // Scénář 1: Uživatel zatím klikl jen na Start (nebo resetoval)
-    // Musíme navrhnout "Automatických 24h" nebo "Zkrácený termín po zeď"
-    if (!endDate) {
-        const proposedEndDay = getNextDay(startDate);
-        const proposedEndMs = new Date(`${proposedEndDay}T${timeStartVal}:00`).getTime();
-        
-        // Koliduje 24h návrh se zdí?
-        if (wall && proposedEndMs >= wall.ms) {
-            // ANO -> Musíme zkrátit termín přesně po zeď
-            // Příklad: Start 7. 8:00, Zeď 7. 14:00 -> Konec musí být 7. 14:00
-            
-            updateSummaryUI({
-                start: startDate,
-                end: wall.date,     // Konec v den zdi (může být stejný jako start!)
-                timeS: timeStartVal,
-                timeE: wall.time,   // Čas zdi
-                limitHit: true,
-                autoSnapped: true   // Indikátor, že jsme to "přicvakli" sami
-            });
-        } else {
-            // NE -> Klasických 24h
-            updateSummaryUI({
-                start: startDate,
-                end: proposedEndDay,
-                timeS: timeStartVal,
-                timeE: timeStartVal,
-                limitHit: false
-            });
-        }
-    } 
-    // Scénář 2: Máme Start i End (uživatel potvrdil druhý klik)
-    else {
-        let safeEndTime = timeEndEl ? timeEndEl.value : timeStartVal;
-        let limitHit = false;
-
-        // Pokud náš vybraný konec je přesně na dni zdi, musíme hlídat čas
-        if (wall && endDate === wall.date) {
-            // Pokud je čas v inputu větší než čas zdi, ořízneme ho
-            if (safeEndTime > wall.time) {
-                safeEndTime = wall.time;
-                limitHit = true;
-            }
-            // I když se rovná, je to limit
-            if (safeEndTime === wall.time) {
-                limitHit = true;
-            }
+        calculateSmartEndDate(); // Okamžitě dopočítá +24h nebo po zeď
+    } else {
+        // Uživatel už má start, teď klikl někam jinam -> chce prodloužit range
+        // Ověříme, jestli nepřeskakuje zeď
+        const potentialEnd = dateStr;
+        if (potentialEnd < startDate) {
+            // Klikl dozadu -> reset a nový start
+            startDate = potentialEnd;
+            endDate = null;
+            calculateSmartEndDate();
+            return;
         }
 
-        updateSummaryUI({
-            start: startDate,
-            end: endDate,
-            timeS: timeStartVal,
-            timeE: safeEndTime,
-            limitHit: limitHit
+        // Kontrola, zda mezi Start a PotentialEnd není zeď
+        const startMs = new Date(`${startDate}T${timeStartVal}:00`).getTime();
+        const endMsCheck = new Date(`${potentialEnd}T00:00:00`).getTime(); // Půlnoc cílového dne
+        
+        let wallHit = false;
+        cachedReservations.forEach(res => {
+            if (res.paymentStatus === 'CANCELED') return;
+            const rStartMs = new Date(`${res.startDate}T${res.time}:00`).getTime();
+            if (rStartMs > startMs && rStartMs < endMsCheck) {
+                wallHit = true;
+            }
         });
+
+        if (wallHit) {
+            alert("Nelze vybrat tento termín, v cestě je jiná rezervace.");
+            // Neprovedeme změnu
+        } else {
+            // Je to čisté, posuneme konec na vybraný den
+            // Čas necháme stejný jako start (uživatel si ho může upravit)
+            endDate = potentialEnd;
+            document.getElementById("inp-time-end").value = timeStartVal;
+            updateSummaryUI();
+            renderSingleCalendar();
+        }
     }
 }
 
-// === 5. UI UPDATE (Tabulka + Inputy) ===
-function updateSummaryUI(data) {
+// === 3. UPDATE UI A CENA ===
+function updateSummaryUI() {
     const startText = document.getElementById("date-start-text");
     const endText = document.getElementById("date-end-text");
     const countEl = document.getElementById("day-count");
     const priceEl = document.getElementById("total-price");
-    const timeEndInp = document.getElementById("inp-time-end");
     
-    // Reset stavu inputu
-    if (timeEndInp) {
-        // Pokud je limitHit, input zamkneme, jinak odemkneme
-        if (data && data.limitHit) {
-            timeEndInp.disabled = true;
-            timeEndInp.style.backgroundColor = "#ffebee"; // Červený podkres
-            timeEndInp.style.color = "#c62828";
-            timeEndInp.style.border = "1px solid #c62828";
-            timeEndInp.title = "Čas je fixní kvůli následující rezervaci";
-        } else {
-            timeEndInp.disabled = false;
-            timeEndInp.style.backgroundColor = "";
-            timeEndInp.style.color = "";
-            timeEndInp.style.border = "1px solid #ddd";
-            timeEndInp.title = "";
-        }
-    }
-
-    if (!data) {
+    if (!startDate || !endDate) {
         if(startText) startText.innerText = "-";
-        if(endText) endText.innerText = "-";
-        if(countEl) countEl.innerText = "0";
-        if(priceEl) priceEl.innerText = "0 Kč";
         return;
     }
 
-    // Nastavení hodnoty inputu (pouze pokud se liší, aby neblikal kurzor)
-    if (timeEndInp && timeEndInp.value !== data.timeE) {
-        timeEndInp.value = data.timeE;
-    }
+    const t1 = document.getElementById("inp-time").value;
+    const t2 = document.getElementById("inp-time-end").value;
 
-    // Formátování textů
-    if(startText) startText.innerText = `${formatCzDate(data.start)} (${data.timeS})`;
-    
-    let infoLabel = "";
-    if (data.limitHit) {
-        infoLabel = ` <div style="color:#d9534f;font-weight:bold;font-size:11px;margin-top:2px;">⚠️ ZKRÁCENÝ TERMÍN DO ${data.timeE}</div>`;
-    } else if (data.isPreview) {
-        infoLabel = ` <div style="color:#bfa37c;font-size:11px;margin-top:2px;">(náhled výběru)</div>`;
-    }
+    if(startText) startText.innerText = `${formatCzDate(startDate)} (${t1})`;
+    if(endText) endText.innerText = `${formatCzDate(endDate)} (${t2})`;
 
-    if(endText) endText.innerHTML = `${formatCzDate(data.end)} (${data.timeE})${infoLabel}`;
+    // Výpočet ceny přesně na milisekundy
+    const d1 = new Date(`${startDate}T${t1}:00`);
+    const d2 = new Date(`${endDate}T${t2}:00`);
+    
+    let diffMs = d2 - d1;
+    if (diffMs < 0) diffMs = 0;
 
-    // Výpočet ceny
-    const sMs = new Date(`${data.start}T${data.timeS}:00`).getTime();
-    const eMs = new Date(`${data.end}T${data.timeE}:00`).getTime();
-    
-    let diffMs = eMs - sMs;
-    // Pojistka proti záporu
-    if (diffMs < 0) diffMs = 0; 
-    
-    // Výpočet dní (každých započatých 24h)
+    // Logika ceny: Každých započatých 24 hodin
+    // 24h 1min = 2 dny
     let days = Math.ceil(diffMs / (24 * 60 * 60 * 1000));
-    if (days < 1) days = 1; // Minimum 1 den platby
+    if (days < 1) days = 1; // Minimum
 
     if(countEl) countEl.innerText = days === 1 ? "1 (24 hod.)" : days;
     if(priceEl) priceEl.innerText = (days * PRICE_PER_DAY).toLocaleString("cs-CZ") + " Kč";
 }
 
-// --- HELPERY & RENDER ---
-
-function getNextDay(dateStr) {
-    const d = new Date(dateStr); d.setDate(d.getDate() + 1);
-    return d.toISOString().split('T')[0];
-}
-
-function formatCzDate(iso) { 
-    if(!iso) return "";
-    const d = new Date(iso); 
-    return d.getDate() + "." + (d.getMonth() + 1) + "."; 
-}
+// --- STANDARDNÍ FUNKCE (Render, Fetch, atd.) ---
 
 function injectEndTimeInput() {
     const timeStart = document.getElementById("inp-time");
@@ -341,7 +230,7 @@ function injectEndTimeInput() {
         
         const timeEnd = document.createElement("input");
         timeEnd.type = "time"; timeEnd.id = "inp-time-end"; timeEnd.className = timeStart.className; 
-        timeEnd.value = "09:00"; 
+        timeEnd.value = timeStart.value; 
         container.appendChild(timeEnd);
     }
 }
@@ -351,7 +240,7 @@ async function updateCalendar() {
         const res = await fetch(`${API_BASE}/availability?t=${Date.now()}`);
         cachedReservations = await res.json();
         renderSingleCalendar();
-    } catch (e) { console.error("Chyba dat"); }
+    } catch (e) { console.error("Error loading data"); }
 }
 
 function renderSingleCalendar() {
@@ -372,20 +261,6 @@ function renderSingleCalendar() {
     const daysInMonth = new Date(viewStartYear, viewStartMonth + 1, 0).getDate();
     const todayStr = new Date().toLocaleDateString('en-CA');
 
-    // Určení vizuálního rozsahu pro render
-    // Pokud uživatel jen klikl start a nic víc, ukážeme mu "návrh"
-    // Pokud máme endDate, ukážeme ten.
-    let displayEnd = endDate;
-    if (startDate && !endDate) {
-         const timeStartVal = document.getElementById("inp-time").value;
-         const wall = findNextWall(startDate, timeStartVal);
-         const proposed = getNextDay(startDate);
-         const proposedMs = new Date(`${proposed}T${timeStartVal}:00`).getTime();
-         
-         if (wall && proposedMs >= wall.ms) displayEnd = wall.date;
-         else displayEnd = proposed;
-    }
-
     for (let d = 1; d <= daysInMonth; d++) {
         const dateObj = new Date(viewStartYear, viewStartMonth, d);
         const dateStr = dateObj.toLocaleDateString('en-CA'); 
@@ -398,29 +273,21 @@ function renderSingleCalendar() {
             if (bgStyle) dayEl.style.setProperty("background", bgStyle, "important");
             
             dayEl.onclick = () => handleDayClick(dateStr); 
-            // Přidán hover event pro live preview
-            dayEl.onmouseenter = () => handleDayHover(dateStr);
-            // Reset preview při odjetí myši z kalendáře se řeší samo dalším hoverem nebo klikem
         }
 
-        // Vykreslení výběru (fixní stavy)
         if (startDate === dateStr) dayEl.classList.add("range-start");
-        if (displayEnd === dateStr) dayEl.classList.add("range-end");
-        if (startDate && displayEnd && dateStr > startDate && dateStr < displayEnd) dayEl.classList.add("range");
+        if (endDate === dateStr) dayEl.classList.add("range-end");
+        if (startDate && endDate && dateStr > startDate && dateStr < endDate) dayEl.classList.add("range");
         
         grid.appendChild(dayEl);
     }
-    
-    // Listener pro opuštění kalendáře, aby zmizel "náhled" (volitelné)
-    grid.onmouseleave = () => {
-        if(startDate && !endDate) recalculateSelection(); // Vrátí se k "defaultnímu" návrhu
-    };
-
     wrapper.appendChild(grid);
+    
     const czMonth = new Date(viewStartYear, viewStartMonth, 1).toLocaleString("cs-CZ", { month: "long" });
     document.getElementById("currentMonthLabel").innerText = `${czMonth} ${viewStartYear}`.toUpperCase();
 }
 
+// Vylepšené barvení (Gradienty)
 function getDayBackgroundStyle(dateStr) {
     let overlaps = []; let hasInteraction = false;
     
@@ -445,7 +312,8 @@ function getDayBackgroundStyle(dateStr) {
     });
 
     if (!hasInteraction) return null;
-    const cBooked = "#e0e0e0"; const cFree = "#ffffff"; 
+    const cBooked = "#e0e0e0"; 
+    const cFree = "#ffffff"; 
 
     overlaps.sort((a,b) => a.start - b.start);
     
@@ -477,62 +345,38 @@ function changeMonth(delta) {
 function setNow() {
     const now = new Date();
     const h = String(now.getHours()).padStart(2,'0');
-    const m = String(now.getMinutes()).padStart(2,'0');
+    // Zaokrouhlíme minuty na čtvrthodiny nahoru pro lepší UX
+    let m = Math.ceil(now.getMinutes() / 15) * 15;
+    let addedH = 0;
+    if (m === 60) { m = 0; addedH = 1; }
     
-    const timeInp = document.getElementById("inp-time");
-    if(timeInp) {
-        timeInp.value = `${h}:${m}`;
-        // Spustíme event change, aby se chytila logika inputu
-        timeInp.dispatchEvent(new Event('change'));
-    }
-    
+    const finalH = String(now.getHours() + addedH).padStart(2,'0');
+    const finalM = String(m).padStart(2,'0');
+
+    document.getElementById("inp-time").value = `${finalH}:${finalM}`;
     startDate = now.toLocaleDateString('en-CA'); 
-    endDate = null;
     
-    recalculateSelection();
-    renderSingleCalendar();
+    calculateSmartEndDate();
+}
+
+function formatCzDate(iso) { 
+    if(!iso) return "";
+    const d = new Date(iso); 
+    return d.getDate() + "." + (d.getMonth() + 1) + "."; 
 }
 
 async function submitReservation() {
     if (isSubmitting) return;
-    
-    // Validace, zda máme vůbec data (pokud uživatel jen klikl start a spoléhá na auto-fill)
-    if (!startDate) {
-        alert("Vyberte prosím termín.");
-        return;
-    }
-    
-    // Získání aktuálně platných hodnot z UI (protože ty jsou "živé")
-    // Pokud endDate je null, musíme použít vypočítaný "návrh", který vidí uživatel v tabulce
-    let finalEnd = endDate;
-    let finalEndTime = document.getElementById("inp-time-end").value;
-    
-    if (!finalEnd) {
-         const timeStartVal = document.getElementById("inp-time").value;
-         const wall = findNextWall(startDate, timeStartVal);
-         const proposed = getNextDay(startDate);
-         const proposedMs = new Date(`${proposed}T${timeStartVal}:00`).getTime();
-         
-         if (wall && proposedMs >= wall.ms) {
-             finalEnd = wall.date;
-             finalEndTime = wall.time;
-         } else {
-             finalEnd = proposed;
-             // finalEndTime zůstává, jak je v inputu (buď user manual, nebo auto copy)
-         }
-    }
+    if (!startDate || !endDate) { alert("Vyberte prosím termín."); return; }
 
     const btn = document.getElementById("btn-submit");
-    isSubmitting = true; 
-    btn.innerText = "ČEKEJTE...";
-    btn.disabled = true;
+    isSubmitting = true; btn.innerText = "ČEKEJTE..."; btn.disabled = true;
 
     try {
         const body = {
-            startDate, 
-            endDate: finalEnd, 
+            startDate, endDate, 
             time: document.getElementById("inp-time").value, 
-            endTime: finalEndTime,
+            endTime: document.getElementById("inp-time-end").value,
             name: document.getElementById("inp-name").value, 
             email: document.getElementById("inp-email").value, 
             phone: document.getElementById("inp-phone").value,
@@ -540,26 +384,14 @@ async function submitReservation() {
         };
 
         const res = await fetch(`${API_BASE}/create-payment`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body)
+            method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
         });
         
         const result = await res.json();
-        if (result.success) {
-            window.location.href = result.redirectUrl;
-        } else { 
-            alert(result.error || "Chyba rezervace"); 
-            isSubmitting = false; 
-            btn.innerText = "REZERVOVAT A ZAPLATIT";
-            btn.disabled = false;
-        }
+        if (result.success) window.location.href = result.redirectUrl;
+        else { alert(result.error); isSubmitting = false; btn.innerText = "REZERVOVAT A ZAPLATIT"; btn.disabled = false; }
     } catch(e) { 
-        console.error(e);
-        alert("Chyba komunikace se serverem."); 
-        isSubmitting = false; 
-        btn.innerText = "REZERVOVAT A ZAPLATIT";
-        btn.disabled = false;
+        alert("Chyba spojení"); isSubmitting = false; btn.innerText = "REZERVOVAT A ZAPLATIT"; btn.disabled = false; 
     }
 }
 
