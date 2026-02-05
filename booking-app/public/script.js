@@ -31,7 +31,7 @@ async function init() {
     }
 }
 
-// Funkce pro zjištění, kde začíná další rezervace (aby se hover zastavil)
+// Najde nejbližší obsazený termín v daném směru (aby hover nešel "skrz")
 function getSafeLimit(fromStr, direction) {
     let limit = direction === 1 ? "9999-12-31" : "0000-01-01";
     cachedReservations.forEach(res => {
@@ -62,7 +62,6 @@ function handleHoverLogic(hoverDate) {
         const d = day.dataset.date;
         day.classList.remove('hover-range');
         if (d >= s && d <= e && d !== startDate && !day.classList.contains('past')) {
-            // Jen pokud den není úplně plný
             if (!day.style.background.includes("100%")) {
                 day.classList.add('hover-range');
             }
@@ -75,7 +74,6 @@ function handleDayClick(dateStr) {
     if (dayEl && dayEl.classList.contains('past')) return;
 
     if (startDate === dateStr && !endDate) {
-        // Klik na stejný den podruhé -> zkusíme 24h
         const limit = getSafeLimit(dateStr, 1);
         const nextDay = getNextDay(dateStr);
         endDate = (nextDay <= limit) ? nextDay : dateStr;
@@ -83,7 +81,6 @@ function handleDayClick(dateStr) {
         startDate = dateStr;
         endDate = null;
     } else {
-        // Výběr rozmezí s respektem k obsazeným dnům
         let direction = dateStr >= startDate ? 1 : -1;
         let limit = getSafeLimit(startDate, direction);
         let safeTarget = (direction === 1 && dateStr > limit) ? limit : (direction === -1 && dateStr < limit) ? limit : dateStr;
@@ -129,10 +126,9 @@ function updateSummaryUI(resetEndTime = false) {
             document.getElementById("btn-submit").disabled = true;
             return;
         } else {
-            // LIMITOVANÝ SLOT (Gap filling)
             forcedEndData = { date: conflict.dateStr, time: conflict.timeStr };
             activeEnd = conflict.dateStr;
-            timeEndVal = subtractMinutes(conflict.timeStr, 15); // Rezerva 15 min
+            timeEndVal = subtractMinutes(conflict.timeStr, 15);
             
             if (timeEndInp) {
                 timeEndInp.value = timeEndVal;
