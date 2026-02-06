@@ -7,6 +7,46 @@
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    
+    <style>
+        .flatpickr-calendar {
+            font-family: 'Montserrat', sans-serif;
+            border: none !important;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2) !important;
+            border-radius: 12px !important;
+        }
+        .flatpickr-day.selected, .flatpickr-day.startRange, .flatpickr-day.endRange, 
+        .flatpickr-day.selected.inRange, .flatpickr-day.startRange.inRange, .flatpickr-day.endRange.inRange, 
+        .flatpickr-day.selected:focus, .flatpickr-day.startRange:focus, .flatpickr-day.endRange:focus, 
+        .flatpickr-day.selected:hover, .flatpickr-day.startRange:hover, .flatpickr-day.endRange:hover {
+            background: #bfa37c !important;
+            border-color: #bfa37c !important;
+            color: white;
+            font-weight: bold;
+        }
+        .flatpickr-day:hover {
+            background: #f3e9d9 !important;
+            border-color: #f3e9d9 !important;
+        }
+        .flatpickr-months .flatpickr-month {
+            color: #333 !important;
+            fill: #333 !important;
+        }
+        .flatpickr-current-month .flatpickr-monthDropdown-months {
+            font-weight: bold;
+        }
+        .flatpickr-weekday {
+            color: #888 !important;
+            font-weight: bold !important;
+        }
+        /* Aby inputy vypadaly klikatelně */
+        #inp-date-start, #inp-date-end {
+            background-color: #fff; 
+            cursor: pointer;
+        }
+    </style>
 </head>
 
 <body>
@@ -23,7 +63,7 @@
             </button>
             <div id="lock-error" style="color: #ff4d4d; font-size: 12px; margin-top: 15px; display: none;">Neplatné heslo, zkuste to znovu.</div>
         </div>
-        <p style="position: absolute; bottom: 20px; font-size: 11px; color: #555;">&copy; 2026 Vozík 24/7 Mohelnice</p>
+        <p style="position: absolute; bottom: 20px; font-size: 11px; color: #555;">© 2026 Vozík 24/7 Mohelnice</p>
     </div>
 
     <script>
@@ -79,7 +119,7 @@
                     <div class="feature-item">
                         <div class="feature-default">
                             <i class="fa-solid fa-tag feature-icon"></i>
-                            <strong>230 Kč / den</strong>
+                            <strong>235 Kč / den</strong>
                             <span>Žádné skryté poplatky.</span>
                         </div>
                         <div class="feature-hover">
@@ -162,11 +202,27 @@
                 </div>
                 
                 <div class="form-group">
-                    <label>Čas vyzvednutí</label>
-                    <div class="time-row">
-                        <input type="time" id="inp-time" value="09:00">
-                        <button id="btn-now" class="btn-small">Teď</button>
+                    <div class="datetime-container">
+                        <div class="dt-box">
+                            <label><i class="fa-regular fa-calendar-check"></i> Vyzvednutí</label>
+                            <div class="dt-inputs">
+                                <input type="text" id="inp-date-start" placeholder="Vyberte datum" readonly>
+                                <input type="time" id="inp-time" value="06:00">
+                            </div>
+                        </div>
+
+                        <div class="dt-arrow"><i class="fa-solid fa-arrow-right"></i></div>
+
+                        <div class="dt-box">
+                            <label><i class="fa-solid fa-flag-checkered"></i> Vrácení</label>
+                            <div class="dt-inputs">
+                                <input type="text" id="inp-date-end" placeholder="Vyberte datum" readonly>
+                                <input type="time" id="inp-time-end" value="06:00">
+                            </div>
+                        </div>
                     </div>
+                    
+                    <button id="btn-now" class="btn-small" style="width: 100%; margin-top: 5px;">Nastavit na TEĎ</button>
                     <small id="time-hint" style="color: #d9534f; font-weight: bold; display: none; margin-top: 5px;"></small>
                 </div>
                 
@@ -283,6 +339,10 @@
         </div>
     </footer>
     <script src="https://gw.sandbox.gopay.com/gp-gw/js/embed.js"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.js"></script>
+    <script src="https://npmcdn.com/flatpickr/dist/l10n/cs.js"></script>
+    
     <script src="script.js"></script>
 </body>
 </html>
