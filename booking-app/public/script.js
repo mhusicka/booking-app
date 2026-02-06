@@ -12,6 +12,10 @@ let currentWall = null;
 let isSelectingRange = false; // Sleduje, zda právě vybíráme rozsah
 let tempHoverDate = null;     // Pomocná pro plynulý hover
 
+// Proměnné pro instance Flatpickr (hezčí kalendář)
+let fpStart = null;
+let fpEnd = null;
+
 // === NOVÉ: NAČTENÍ GLOBÁLNÍ CENY ZE SERVERU ===
 async function loadGlobalConfig() {
     try {
@@ -22,7 +26,6 @@ async function loadGlobalConfig() {
             PRICE_PER_DAY = config.dailyPrice;
             console.log("✅ Globální cena načtena: " + PRICE_PER_DAY + " Kč");
 
-            // Přepíše všechna místa v HTML, která mají class="current-price" (ceníky, texty)
             document.querySelectorAll('.current-price').forEach(el => {
                 el.innerText = PRICE_PER_DAY;
             });
@@ -33,12 +36,11 @@ async function loadGlobalConfig() {
 }
 
 async function init() {
-    // 1. Nejdříve načteme aktuální konfiguraci ze serveru
     await loadGlobalConfig();
     
     console.log("🚀 Vozík 24/7 - Final Hover & Logic with Dynamic Price");
     
-    injectEndTimeInput();
+    // injectEndTimeInput() odstraněno, inputy jsou nyní v HTML
     await updateCalendar();
 
     const priceDisplay = document.getElementById("price-per-day-display");
@@ -47,7 +49,6 @@ async function init() {
     document.getElementById("prev")?.addEventListener("click", () => changeMonth(-1));
     document.getElementById("next")?.addEventListener("click", () => changeMonth(1));
 
-    // Listenery pro změnu času
     const timeStart = document.getElementById("inp-time");
     if (timeStart) {
         timeStart.addEventListener("change", () => {
@@ -78,9 +79,37 @@ async function init() {
             this.value = this.value.replace(/[^0-9+\s]/g, ''); 
         });
     }
+
+    // --- INICIALIZACE FLATPICKR (HEZKÝ KALENDÁŘ) ---
+    // Nastavení: interně Y-m-d (pro výpočty), ale uživatel vidí d. m. Y
+    if (document.getElementById("inp-date-start")) {
+        fpStart = flatpickr("#inp-date-start", {
+            locale: "cs",
+            minDate: "today",
+            dateFormat: "Y-m-d", // Pro systém (např. 2026-05-15)
+            altInput: true,      // Povolí alternativní zobrazení
+            altFormat: "d. m. Y", // Pro lidi (např. 15. 05. 2026)
+            disableMobile: false, 
+            onChange: function(selectedDates, dateStr, instance) {
+                if(fpEnd) fpEnd.set("minDate", dateStr); // Nastavíme min. datum pro konec
+                manualDateChange();
+            }
+        });
+
+        fpEnd = flatpickr("#inp-date-end", {
+            locale: "cs",
+            minDate: "today",
+            dateFormat: "Y-m-d",
+            altInput: true,
+            altFormat: "d. m. Y",
+            disableMobile: false,
+            onChange: function(selectedDates, dateStr, instance) {
+                manualDateChange();
+            }
+        });
+    }
 }
 
-// === RYCHLÉ NAČTENÍ DAT ===
 async function refreshDataSilent() {
     try {
         const res = await fetch(`${API_BASE}/availability?t=${Date.now()}`);
@@ -88,7 +117,6 @@ async function refreshDataSilent() {
     } catch (e) { console.error("Data error"); }
 }
 
-// === POMOCNÁ FUNKCE: Zjistí, zda je vozík v daný čas obsazen a kdy končí ===
 function getOccupancyEnd(dateStr, timeStr) {
     const targetMs = new Date(`${dateStr}T${timeStr}:00`).getTime();
     let latestEnd = null;
@@ -102,14 +130,13 @@ function getOccupancyEnd(dateStr, timeStr) {
         if (targetMs >= resStartMs && targetMs < resEndMs) {
             const endStr = res.endTime || res.time;
             if (!latestEnd || resEndMs > latestEnd.ms) {
-                latestEnd = { ms: resEndMs, time: endStr };
+                latestEnd = { ms: resEndMs, time: endStr, date: res.endDate };
             }
         }
     });
     return latestEnd;
 }
 
-// === 1. FIND WALL ===
 function findNextWall(startIsoDate, startTimeStr) {
     let closestWall = null;
     const myStartMs = new Date(`${startIsoDate}T${startTimeStr}:00`).getTime();
@@ -126,24 +153,65 @@ function findNextWall(startIsoDate, startTimeStr) {
     return closestWall;
 }
 
-// === 2. AUTO SELECTION (Při prvním kliku) ===
+// Synchronizace inputů z proměnných - AKTUALIZOVÁNO PRO FLATPICKR
+function syncInputsFromVariables() {
+    if (startDate) {
+        // Nastavíme hodnotu do inputu (pro jistotu, interní hodnota Y-m-d)
+        document.getElementById("inp-date-start").value = startDate;
+        // Aktualizujeme Flatpickr kalendář (ten si sám zařídí zobrazení d. m. Y)
+        if(fpStart) fpStart.setDate(startDate, false);
+    }
+    if (endDate) {
+        document.getElementById("inp-date-end").value = endDate;
+        if(fpEnd) fpEnd.setDate(endDate, false);
+    }
+}
+
+// Funkce pro ruční změnu data v inputu
+async function manualDateChange() {
+    // Čteme .value, což díky Flatpickr vrací formát "Y-m-d" (interní), i když uživatel vidí český
+    const dStart = document.getElementById("inp-date-start").value;
+    const dEnd = document.getElementById("inp-date-end").value;
+
+    if (dStart) {
+        startDate = dStart;
+        // Pokud uživatel změnil start a nemáme konec, zkusíme automaticky dopočítat konec
+        if (!endDate) {
+             await performAutoSelection();
+        }
+    }
+
+    if (dEnd) {
+        endDate = dEnd;
+    }
+
+    // Přepnutí kalendáře na správný měsíc, pokud je vybrané datum jinde
+    if (startDate) {
+        const startD = new Date(startDate);
+        if (startD.getMonth() !== viewStartMonth || startD.getFullYear() !== viewStartYear) {
+            viewStartMonth = startD.getMonth();
+            viewStartYear = startD.getFullYear();
+        }
+    }
+    
+    validateAndCalc();
+    renderSingleCalendar();
+}
+
 async function performAutoSelection() {
     if (!startDate) return;
     await refreshDataSilent();
 
-    // Vždy začínáme prioritně s 06:00 (nebo s tím, co je aktuálně v inputu)
     let timeStartVal = document.getElementById("inp-time").value || "06:00";
     
-    // KONTROLA OBSAZENOSTI: Je vozík v 06:00 volný?
     const occupancy = getOccupancyEnd(startDate, timeStartVal);
     if (occupancy) {
-        // Pokud je obsazeno, posuneme start až na konec té rezervace (např. 08:00)
         timeStartVal = occupancy.time;
+        startDate = occupancy.date;
         document.getElementById("inp-time").value = timeStartVal;
     }
 
     const startMs = new Date(`${startDate}T${timeStartVal}:00`).getTime();
-    
     currentWall = findNextWall(startDate, timeStartVal);
     const idealEndMs = startMs + (24 * 60 * 60 * 1000);
     
@@ -162,11 +230,12 @@ async function performAutoSelection() {
     endDate = finalEndDate;
     document.getElementById("inp-time-end").value = finalEndTime;
 
+    syncInputsFromVariables(); // Synchronizace inputů
+
     validateAndCalc(); 
     renderSingleCalendar();
 }
 
-// === 3. VALIDACE A VÝPOČET ===
 function validateAndCalc() {
     if (!startDate || !endDate) return;
 
@@ -206,17 +275,13 @@ function validateAndCalc() {
     updateSummaryUI(isError, errorMsg);
 }
 
-// === 4. HOVER (OPRAVENO: Půldenní vizualizace) ===
 function handleDayHover(hoverDateStr) {
     if (!startDate || (startDate && endDate && !isSelectingRange)) {
         tempHoverDate = null;
         return;
     }
-
-    // Reset hoveru
     document.querySelectorAll('.day').forEach(d => d.classList.remove('hover-range'));
 
-    // Zastavení hoveru o zeď
     if (currentWall && hoverDateStr > currentWall.date) {
         tempHoverDate = currentWall.date;
     } else if (hoverDateStr < startDate) {
@@ -224,65 +289,50 @@ function handleDayHover(hoverDateStr) {
     } else {
         tempHoverDate = hoverDateStr;
     }
-
-    renderSingleCalendar(); // Překreslíme, aby gradient reagoval na myš
+    renderSingleCalendar();
 }
 
-// === 5. KLIKÁNÍ (FIX: Reset času při novém startu) ===
 async function handleDayClick(clickedDateStr) {
     await refreshDataSilent(); 
-
-    // RESET: Pokud už máme hotový rozsah a klikneme potřetí, začneme od nuly
     if (startDate && endDate && !isSelectingRange) {
         startDate = clickedDateStr;
         endDate = null;
         isSelectingRange = true;
-        
-        // DŮLEŽITÉ: Při novém výběru vrátíme čas na výchozích 06:00
         const timeInp = document.getElementById("inp-time");
         if (timeInp) timeInp.value = "06:00";
-        
         await performAutoSelection();
         return;
     }
-
-    // PRVNÍ KLIK
     if (!startDate || clickedDateStr < startDate) {
         startDate = clickedDateStr;
         endDate = null;
         isSelectingRange = true;
-        
-        // DŮLEŽITÉ: I zde vrátíme čas na 06:00
         const timeInp = document.getElementById("inp-time");
         if (timeInp) timeInp.value = "06:00";
-        
         await performAutoSelection();
         return;
     }
-
-    // DRUHÝ KLIK - POTVRZENÍ KONCE
     if (isSelectingRange) {
         const timeInp = document.getElementById("inp-time");
         currentWall = findNextWall(startDate, timeInp.value);
-
         if (currentWall && clickedDateStr > currentWall.date) {
             alert(`⛔ Cesta je blokována jinou rezervací (${formatCzDate(currentWall.date)}).`);
             return;
         }
-
         endDate = clickedDateStr;
         if (currentWall && clickedDateStr === currentWall.date) {
             document.getElementById("inp-time-end").value = currentWall.time;
         }
-        
-        isSelectingRange = false; // Rozsah je nyní pevný
+        isSelectingRange = false; 
         tempHoverDate = null;
+        
+        syncInputsFromVariables(); // Synchronizace inputů po dokončení výběru
+
         validateAndCalc();
         renderSingleCalendar();
     }
 }
 
-// === UI VÝPIS ===
 function updateSummaryUI(isError = false, msg = null) {
     const startText = document.getElementById("date-start-text");
     const endText = document.getElementById("date-end-text");
@@ -299,19 +349,14 @@ function updateSummaryUI(isError = false, msg = null) {
     const t2 = document.getElementById("inp-time-end").value;
 
     if(startText) startText.innerText = `${formatCzDate(startDate)} (${t1})`;
-    
     let warning = "";
-    if (isError) {
-        warning = ` <br><span style="color:#c62828;font-weight:bold;font-size:11px;">⛔ ${msg}</span>`;
-    }
-
+    if (isError) warning = ` <br><span style="color:#c62828;font-weight:bold;font-size:11px;">⛔ ${msg}</span>`;
     if(endText) endText.innerHTML = `${formatCzDate(endDate)} (${t2})${warning}`;
 
     const d1 = new Date(`${startDate}T${t1}:00`);
     const d2 = new Date(`${endDate}T${t2}:00`);
     let diffMs = d2 - d1;
     if (diffMs < 0) diffMs = 0;
-
     let days = Math.ceil(diffMs / (24 * 60 * 60 * 1000));
     if (days < 1) days = 1;
 
@@ -326,11 +371,8 @@ function updateSummaryUI(isError = false, msg = null) {
     }
 }
 
-// === VIZUALIZACE (GRADIENTY S PODPOROU HOVERU) ===
 function getDayBackgroundStyle(dateStr) {
     let timeline = [];
-    
-    // 1. Obsazené termíny (ŠEDÁ)
     cachedReservations.forEach(res => {
         if (res.paymentStatus === 'CANCELED') return;
         if (dateStr >= res.startDate && dateStr <= res.endDate) {
@@ -341,13 +383,11 @@ function getDayBackgroundStyle(dateStr) {
         }
     });
 
-    // 2. Výběr / Hover (ZLATÁ)
     const activeEnd = isSelectingRange ? tempHoverDate : endDate;
     if (startDate && activeEnd && dateStr >= startDate && dateStr <= activeEnd) {
         let sP = 0, eP = 100;
         const t1 = document.getElementById("inp-time").value;
         const t2 = document.getElementById("inp-time-end").value;
-
         if (dateStr === startDate) sP = (parseInt(t1.split(':')[0]) + parseInt(t1.split(':')[1])/60)/24*100;
         if (dateStr === activeEnd) {
             if (isSelectingRange && currentWall && dateStr === currentWall.date) {
@@ -359,46 +399,18 @@ function getDayBackgroundStyle(dateStr) {
         }
         timeline.push({ s: sP, e: eP, type: 'selection' });
     }
-
     if (timeline.length === 0) return null;
     timeline.sort((a,b) => a.s - b.s);
-
-    const cBooked = "#e0e0e0"; 
-    const cSelect = "#f3e9d9"; 
-    const cFree = "#ffffff";   
+    const cBooked = "#e0e0e0"; const cSelect = "#f3e9d9"; const cFree = "#ffffff";   
     let stops = []; let currentPos = 0;
-
     timeline.forEach(block => {
-        if (block.s > currentPos) {
-            stops.push(`${cFree} ${currentPos}%`);
-            stops.push(`${cFree} ${block.s}%`);
-        }
+        if (block.s > currentPos) { stops.push(`${cFree} ${currentPos}%`); stops.push(`${cFree} ${block.s}%`); }
         const color = block.type === 'booked' ? cBooked : cSelect;
-        stops.push(`${color} ${block.s}%`);
-        stops.push(`${color} ${block.e}%`);
+        stops.push(`${color} ${block.s}%`); stops.push(`${color} ${block.e}%`);
         currentPos = block.e;
     });
-    if (currentPos < 100) {
-        stops.push(`${cFree} ${currentPos}%`);
-        stops.push(`${cFree} 100%`);
-    }
+    if (currentPos < 100) { stops.push(`${cFree} ${currentPos}%`); stops.push(`${cFree} 100%`); }
     return `linear-gradient(90deg, ${stops.join(", ")})`;
-}
-
-// --- STANDARD ---
-function injectEndTimeInput() {
-    const timeStart = document.getElementById("inp-time");
-    if (timeStart && !document.getElementById("inp-time-end")) {
-        const container = document.createElement("div");
-        container.style.display = "flex"; container.style.gap = "10px"; container.style.alignItems = "center";
-        timeStart.parentNode.insertBefore(container, timeStart);
-        container.appendChild(timeStart);
-        const arrow = document.createElement("span"); arrow.innerText = "➝"; arrow.style.color = "#888"; container.appendChild(arrow);
-        const timeEnd = document.createElement("input");
-        timeEnd.type = "time"; timeEnd.id = "inp-time-end"; timeEnd.className = timeStart.className; 
-        timeEnd.value = timeStart.value; 
-        container.appendChild(timeEnd);
-    }
 }
 
 async function updateCalendar() {
@@ -421,19 +433,27 @@ function renderSingleCalendar() {
     let startDay = monthDate.getDay(); 
     const adjust = startDay === 0 ? 6 : startDay - 1;
     for (let i = 0; i < adjust; i++) grid.appendChild(document.createElement("div")).className = "empty";
+    
     const daysInMonth = new Date(viewStartYear, viewStartMonth + 1, 0).getDate();
     const todayStr = new Date().toLocaleDateString('en-CA');
+    const isMobile = window.innerWidth <= 768; // Detekce mobilu
+
     for (let d = 1; d <= daysInMonth; d++) {
         const dateObj = new Date(viewStartYear, viewStartMonth, d);
         const dateStr = dateObj.toLocaleDateString('en-CA'); 
         const dayEl = document.createElement("div");
         dayEl.className = "day"; dayEl.innerText = d; dayEl.dataset.date = dateStr;
+        
         if (dateStr < todayStr) dayEl.classList.add("past");
         else {
             const bgStyle = getDayBackgroundStyle(dateStr);
             if (bgStyle) dayEl.style.setProperty("background", bgStyle, "important");
+            
             dayEl.onclick = () => handleDayClick(dateStr); 
-            dayEl.onmouseenter = () => handleDayHover(dateStr); 
+            // Hover efekt jen na PC
+            if (!isMobile) {
+                dayEl.onmouseenter = () => handleDayHover(dateStr); 
+            }
         }
         if (startDate === dateStr) dayEl.classList.add("range-start");
         if (endDate === dateStr) dayEl.classList.add("range-end");
@@ -452,18 +472,44 @@ function changeMonth(delta) {
     renderSingleCalendar();
 }
 
-function setNow() {
+// === OPRAVENÁ FUNKCE SET NOW SE SMYČKOU ===
+async function setNow() {
+    await refreshDataSilent();
     const now = new Date();
     let m = Math.ceil(now.getMinutes() / 15) * 15;
     let addedH = 0;
     if (m === 60) { m = 0; addedH = 1; }
-    const finalH = String(now.getHours() + addedH).padStart(2,'0');
-    const finalM = String(m).padStart(2,'0');
-    document.getElementById("inp-time").value = `${finalH}:${finalM}`;
-    startDate = now.toLocaleDateString('en-CA'); 
+    
+    let checkDate = now.toLocaleDateString('en-CA');
+    let checkTime = `${String(now.getHours() + addedH).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+
+    let isOccupied = true;
+    let iterations = 0;
+
+    // Smyčka pro skákání po navazujících rezervacích
+    while (isOccupied && iterations < 10) { // Safety limit 10 skoků
+        const occupancy = getOccupancyEnd(checkDate, checkTime);
+        if (occupancy) {
+            checkDate = occupancy.date;
+            checkTime = occupancy.time;
+            iterations++;
+        } else {
+            isOccupied = false;
+        }
+    }
+    
+    if (iterations > 0) {
+        const dateFormatted = formatCzDate(checkDate);
+        alert(`ℹ️ Vozík je aktuálně vypůjčen.\n\nNejbližší možný čas vyzvednutí je ${dateFormatted} v ${checkTime}. Systém jej automaticky nastavil.`);
+    }
+
+    startDate = checkDate; 
+    document.getElementById("inp-time").value = checkTime;
+
     endDate = null;
     isSelectingRange = true;
-    performAutoSelection();
+    
+    await performAutoSelection();
 }
 
 function formatCzDate(iso) { 
@@ -498,29 +544,4 @@ async function submitReservation() {
     }
 }
 
-// === VYHLEDÁVÁNÍ ===
-window.closeModal = function() { document.querySelectorAll('.modal-overlay').forEach(m => m.style.display = 'none'); document.body.style.overflow = 'auto'; }
-window.openModal = function(id) { const m = document.getElementById(id); if(m) { m.style.display = 'flex'; document.body.style.overflow = 'hidden'; } }
-window.onclick = function(event) { if (event.target.classList.contains('modal-overlay')) window.closeModal(); }
-function quickCheckRedirect() {
-    const input = document.getElementById("quick-check-input");
-    const code = input.value.trim().toUpperCase();
-    if (code.length < 3) { input.style.border = "1px solid red"; setTimeout(() => input.style.border = "none", 1000); input.focus(); return; }
-    window.location.href = `check.html?id=${code}`;
-}
-function handleEnter(e) { if (e.key === "Enter") quickCheckRedirect(); }
-function scrollToCheck() {
-    const searchBox = document.querySelector('.mini-search-box');
-    const input = document.getElementById('quick-check-input');
-    if (searchBox) {
-        searchBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        searchBox.style.transition = "box-shadow 0.3s, transform 0.3s";
-        searchBox.style.boxShadow = "0 0 20px #bfa37c";
-        searchBox.style.transform = "scale(1.1)";
-        setTimeout(() => { searchBox.style.boxShadow = ""; searchBox.style.transform = "scale(1)"; }, 800);
-    }
-    if (input) setTimeout(() => { input.focus(); }, 500);
-}
-
 document.addEventListener("DOMContentLoaded", init);
-
