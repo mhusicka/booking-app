@@ -1,5 +1,5 @@
 const API_BASE = ""; 
-let PRICE_PER_DAY = 230; // Změněno na let, aby šla cena přepsat ze serveru
+let PRICE_PER_DAY = 235; // Změněno na let, aby šla cena přepsat ze serveru
 
 let viewStartMonth = new Date().getMonth();
 let viewStartYear = new Date().getFullYear();
@@ -28,7 +28,7 @@ async function loadGlobalConfig() {
             });
         }
     } catch (e) {
-        console.error("Chyba při načítání globální ceny, zůstává výchozích 230 Kč.");
+        console.error("Chyba při načítání globální ceny, zůstává výchozích 235 Kč.");
     }
 }
 
@@ -523,3 +523,4 @@ function scrollToCheck() {
 }
 
 document.addEventListener("DOMContentLoaded", init);
+
