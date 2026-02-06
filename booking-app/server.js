@@ -17,7 +17,22 @@ app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 
-// KONFIGURACE
+// KONFIGURACE CESTY PRO NASTAVENÍ
+const settingsPath = path.join(__dirname, 'settings.json');
+
+// Pomocná funkce pro načtení globálního nastavení
+function getGlobalSettings() {
+    if (!fs.existsSync(settingsPath)) {
+        return { dailyPrice: 230, taxRate: 15 }; // Výchozí hodnoty, pokud soubor neexistuje
+    }
+    try {
+        return JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+    } catch (e) {
+        return { dailyPrice: 230, taxRate: 15 };
+    }
+}
+
+// KONFIGURACE Z ENV
 const MONGO_URI = process.env.MONGO_URI;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
@@ -41,6 +56,7 @@ const ReservationSchema = new mongoose.Schema({
     reservationCode: String,
     startDate: String,
     endDate: String,
+    originalEndDate: String, 
     time: String,
     endTime: String,
     name: String,
@@ -74,33 +90,24 @@ function generateResCode() { return Math.random().toString(36).substring(2, 8).t
 function generatePin() { return Array.from({ length: 6 }, () => Math.floor(Math.random() * 10)).join(""); }
 function hashPassword(password) { return crypto.createHash("md5").update(password).digest("hex"); }
 
-// --- KONTROLA PŘEKRYVU (S tolerancí na dotyk) ---
+// --- KONTROLA PŘEKRYVU ---
 async function checkOverlap(startStr, endStr, excludeId = null) {
     const newStart = new Date(startStr).getTime();
     const newEnd = new Date(endStr).getTime();
-
     const query = { 
         paymentStatus: { $in: ['PAID', 'PENDING'] },
         _id: { $ne: excludeId } 
     };
-
     const existing = await Reservation.find(query);
-
     for (const r of existing) {
         if (r.paymentStatus === 'PENDING') {
             const diff = Date.now() - new Date(r.created).getTime();
             if (diff > 20 * 60 * 1000) continue; 
         }
-
         const rStart = new Date(`${r.startDate}T${r.time}:00`).getTime();
         const rEndTimeStr = r.endTime || r.time;
         const rEnd = new Date(`${r.endDate}T${rEndTimeStr}:00`).getTime();
-
-        // Kolize nastává pouze při SKUTEČNÉM průniku.
-        // Pokud jedna končí v 15:00 a druhá začíná v 15:00 -> NENÍ to kolize (díky < a >).
-        if (newStart < rEnd && newEnd > rStart) {
-            return true; 
-        }
+        if (newStart < rEnd && newEnd > rStart) return true;
     }
     return false;
 }
@@ -111,7 +118,6 @@ async function sendReservationEmail(data, pdfBuffer, isUpdate = false, paymentLi
     const startF = formatDateCz(data.startDate);
     const endF = formatDateCz(data.endDate);
     const endTimeDisplay = data.endTime || data.time;
-
     let subject, title, msg, pinSection;
 
     if (paymentLink) {
@@ -139,7 +145,7 @@ async function sendReservationEmail(data, pdfBuffer, isUpdate = false, paymentLi
     <tr><td align="center" style="padding:10px;"><h1 style="font-size:28px;color:#333;margin:0;text-transform:uppercase;">${title}</h1><p style="color:#666;margin-top:10px;">${msg}</p></td></tr>
     <tr><td align="center" style="padding:30px 20px;">${pinSection}</td></tr>
     <tr><td align="center"><div style="background:#f8f9fa;border-radius:12px;padding:25px;text-align:left;">
-    <p><strong>Nový termín:</strong><br>${startF} ${data.time} — ${endF} ${endTimeDisplay}</p>
+    <p><strong>Termín:</strong><br>${startF} ${data.time} — ${endF} ${endTimeDisplay}</p>
     <p><strong>Telefon:</strong><br>${data.phone}</p>
     <p><strong>ID rezervace:</strong><br><b>${data.reservationCode}</b></p>
     </div></td></tr>
@@ -167,10 +173,7 @@ function createInvoicePdf(data) {
             if (fs.existsSync(fontPath)) doc.font(fontPath);
             doc.on('data', buffers.push.bind(buffers));
             doc.on('end', () => resolve(Buffer.concat(buffers)));
-
             const endTimeDisplay = data.endTime || data.time;
-            const finalPrice = data.price;
-
             doc.strokeColor('#bfa37c').lineWidth(4).moveTo(50, 40).lineTo(545, 40).stroke();
             doc.fillColor('#333333').fontSize(24).text('FAKTURA', 50, 60);
             doc.fontSize(10).fillColor('#666666').text('DAŇOVÝ DOKLAD', 50, 85);
@@ -200,11 +203,11 @@ function createInvoicePdf(data) {
             doc.text('Cena', 450, tableTop + 7, { align: 'right', width: 80 });
             const itemY = tableTop + 35;
             doc.text(`Pronájem vozíku (${formatDateCz(data.startDate)} ${data.time} - ${formatDateCz(data.endDate)} ${endTimeDisplay})`, 60, itemY);
-            doc.text(`${finalPrice} Kč`, 450, itemY, { align: 'right', width: 80 });
+            doc.text(`${data.price} Kč`, 450, itemY, { align: 'right', width: 80 });
             doc.strokeColor('#eeeeee').lineWidth(1).moveTo(50, itemY + 20).lineTo(545, itemY + 20).stroke();
             const totalY = itemY + 40;
             doc.fontSize(12).fillColor('#333333').text('Celkem k úhradě:', 300, totalY, { align: 'right', width: 130 });
-            doc.fontSize(14).fillColor('#bfa37c').text(`${finalPrice} Kč`, 450, totalY - 2, { align: 'right', width: 80, bold: true });
+            doc.fontSize(14).fillColor('#bfa37c').text(`${data.price} Kč`, 450, totalY - 2, { align: 'right', width: 80, bold: true });
             doc.end();
         } catch (e) { reject(e); }
     });
@@ -256,6 +259,11 @@ app.get("/availability", async (req, res) => {
     res.json(data);
 });
 
+// === NOVÉ: GLOBÁLNÍ NASTAVENÍ ===
+app.get("/api/settings", (req, res) => {
+    res.json(getGlobalSettings());
+});
+
 async function getGoPayToken() {
     const params = new URLSearchParams({ grant_type: 'client_credentials', scope: 'payment-create' });
     const response = await axios.post(`${GOPAY_API_URL}/api/oauth2/token`, params, {
@@ -270,11 +278,7 @@ app.post("/create-payment", async (req, res) => {
         const reqStartStr = `${startDate}T${time}:00`;
         const reqEndStr = `${endDate}T${endTime || time}:00`;
         const overlap = await checkOverlap(reqStartStr, reqEndStr);
-        
-        if (overlap) {
-            return res.status(409).json({ error: "Termín je již obsazen (kolize)." });
-        }
-
+        if (overlap) return res.status(409).json({ error: "Termín je již obsazen (kolize)." });
         const rCode = generateResCode();
         const reservation = new Reservation({ reservationCode: rCode, startDate, endDate, time, endTime, name, email, phone, price, paymentStatus: 'PENDING' });
         await reservation.save();
@@ -296,20 +300,11 @@ app.get("/payment-return", async (req, res) => {
     const { id } = req.query;
     let r = await Reservation.findOne({ gopayId: id });
     let isExtension = false;
-
-    if (!r) {
-        r = await Reservation.findOne({ "pendingExtension.gopayId": id });
-        isExtension = true;
-    }
-
+    if (!r) { r = await Reservation.findOne({ "pendingExtension.gopayId": id }); isExtension = true; }
     if (!r) return res.redirect("/?error=not_found");
-
     if (r.paymentStatus === 'PAID' && !isExtension) return res.redirect(`/check.html?id=${r.reservationCode}`);
-    if (isExtension && r.pendingExtension.active === false) return res.redirect(`/check.html?id=${r.reservationCode}`);
-
     const token = await getGoPayToken();
     const statusRes = await axios.get(`${GOPAY_API_URL}/api/payments/payment/${id}`, { headers: { 'Authorization': `Bearer ${token}` } });
-    
     if (statusRes.data.state === 'PAID') {
         if (isExtension) {
             if (r.keyboardPwdId) await deletePinFromLock(r.keyboardPwdId);
@@ -325,17 +320,11 @@ app.get("/payment-return", async (req, res) => {
             await r.save();
             const pdf = await createInvoicePdf(r);
             await sendReservationEmail(r, pdf, true);
-        } else {
-            await finalizeReservation(r);
-        }
+        } else { await finalizeReservation(r); }
         res.redirect(`/check.html?id=${r.reservationCode}`);
     } else {
-        if (!isExtension) {
-            r.paymentStatus = 'CANCELED'; await r.save();
-            res.redirect("/?error=payment_failed");
-        } else {
-            res.redirect("/?error=extension_failed");
-        }
+        if (!isExtension) { r.paymentStatus = 'CANCELED'; await r.save(); res.redirect("/?error=payment_failed"); } 
+        else { res.redirect("/?error=extension_failed"); }
     }
 });
 
@@ -347,6 +336,14 @@ const checkAdmin = (req, res, next) => {
 
 app.get("/admin/reservations", checkAdmin, async (req, res) => {
     res.json(await Reservation.find().sort({ created: -1 }));
+});
+
+// NOVÉ: Ukládání nastavení z Admina
+app.post("/admin/settings", checkAdmin, (req, res) => {
+    const { dailyPrice, taxRate } = req.body;
+    const newSettings = { dailyPrice: parseInt(dailyPrice), taxRate: parseInt(taxRate) };
+    fs.writeFileSync(settingsPath, JSON.stringify(newSettings));
+    res.json({ success: true });
 });
 
 app.post("/admin/reservations/:id/resend-email", checkAdmin, async (req, res) => {
@@ -370,6 +367,7 @@ app.post("/admin/reservations/:id/archive", checkAdmin, async (req, res) => {
     if (r) {
         if (r.keyboardPwdId) await deletePinFromLock(r.keyboardPwdId);
         r.keyboardPwdId = null;
+        r.originalEndDate = r.endDate;
         r.endDate = new Date().toISOString().split('T')[0];
         await r.save();
     }
@@ -377,6 +375,11 @@ app.post("/admin/reservations/:id/archive", checkAdmin, async (req, res) => {
 });
 
 app.post("/reserve-range", checkAdmin, async (req, res) => {
+    const { startDate, endDate, time } = req.body;
+    const reqStartStr = `${startDate}T${time}:00`;
+    const reqEndStr = `${endDate}T${time}:00`;
+    const overlap = await checkOverlap(reqStartStr, reqEndStr);
+    if (overlap) return res.status(409).json({ error: "Termín je již obsazen (kolize)." });
     const rCode = generateResCode();
     const r = new Reservation({ ...req.body, reservationCode: rCode, paymentStatus: 'PAID' });
     await finalizeReservation(r);
@@ -390,32 +393,19 @@ app.post("/admin/reservations/:id/create-extension", checkAdmin, async (req, res
         if (!r) return res.status(404).json({ error: "Nenalezeno" });
         const surcharge = Math.round((newTotalPrice - r.price) * 100);
         if (surcharge <= 0) return res.status(400).json({ error: "Cena musí být vyšší." });
-
         const reqStartStr = `${startDate}T${time}:00`;
         const reqEndStr = `${endDate}T${endTime || time}:00`;
         const overlap = await checkOverlap(reqStartStr, reqEndStr, r._id); 
-        if (overlap) return res.status(409).json({ error: "Kolize s jinou rezervací." });
-
+        if (overlap) return res.status(409).json({ error: "Kolize." });
         const token = await getGoPayToken();
         const gpRes = await axios.post(`${GOPAY_API_URL}/api/payments/payment`, {
             payer: { contact: { first_name: r.name, email: r.email, phone_number: r.phone } },
-            amount: surcharge, currency: "CZK", 
-            order_number: `EXT-${r.reservationCode}-${Date.now().toString().slice(-4)}`,
+            amount: surcharge, currency: "CZK", order_number: `EXT-${r.reservationCode}`,
             target: { type: "ACCOUNT", goid: GOPAY_GOID },
             callback: { return_url: `${BASE_URL}/payment-return`, notification_url: `${BASE_URL}/api/payment-notify` },
             lang: "CS"
         }, { headers: { 'Authorization': `Bearer ${token}` } });
-
-        r.pendingExtension = {
-            active: true,
-            newStartDate: startDate,
-            newEndDate: endDate,
-            newTime: time,
-            newEndTime: endTime || time,
-            newTotalPrice: newTotalPrice,
-            surcharge: (surcharge / 100),
-            gopayId: gpRes.data.id
-        };
+        r.pendingExtension = { active: true, newStartDate: startDate, newEndDate: endDate, newTime: time, newEndTime: endTime || time, newTotalPrice, surcharge: (surcharge / 100), gopayId: gpRes.data.id };
         await r.save();
         await sendReservationEmail(r, null, false, gpRes.data.gw_url);
         res.json({ success: true, paymentUrl: gpRes.data.gw_url });
@@ -424,37 +414,52 @@ app.post("/admin/reservations/:id/create-extension", checkAdmin, async (req, res
 
 app.put("/admin/reservations/:id", checkAdmin, async (req, res) => {
     try {
-        const { startDate, endDate, time, endTime, price } = req.body;
+        const isRestore = req.body.restore === true;
         const r = await Reservation.findById(req.params.id);
         if (!r) return res.status(404).json({ error: "Nenalezeno" });
-        if (r.keyboardPwdId) await deletePinFromLock(r.keyboardPwdId);
-
-        r.startDate = startDate;
-        r.endDate = endDate;
-        r.time = time;
-        r.endTime = endTime || time;
-        r.price = price; 
+        if (!isRestore) {
+            const { startDate, endDate, time, endTime } = req.body;
+            const overlap = await checkOverlap(`${startDate}T${time}:00`, `${endDate}T${endTime || time}:00`, r._id);
+            if (overlap) return res.status(409).json({ error: "Kolize." });
+        }
+        if (r.keyboardPwdId) { try { await deletePinFromLock(r.keyboardPwdId); } catch(e) {} }
+        if (isRestore) { if (r.originalEndDate) r.endDate = r.originalEndDate; r.paymentStatus = 'PAID'; } 
+        else { 
+            const { startDate, endDate, time, endTime, price } = req.body;
+            r.startDate = startDate; r.endDate = endDate; r.time = time; r.endTime = endTime || time; r.price = price;
+            if (r.paymentStatus === 'CANCELED') r.paymentStatus = 'PAID';
+        }
         r.pendingExtension = { active: false };
-
         const lockData = await addPinToLock(r);
-        r.passcode = lockData.pin;
-        r.keyboardPwdId = lockData.keyboardPwdId;
-        
+        r.passcode = lockData.pin; r.keyboardPwdId = lockData.keyboardPwdId;
         await r.save();
-        const pdf = await createInvoicePdf(r);
-        await sendReservationEmail(r, pdf, true);
+        if (!isRestore) { const pdf = await createInvoicePdf(r); await sendReservationEmail(r, pdf, true); }
         res.json({ success: true, newPin: r.passcode });
     } catch (e) { res.status(500).json({ error: "Chyba" }); }
 });
 
 app.post("/retrieve-booking", async (req, res) => {
-    const { code } = req.body;
-    const r = await Reservation.findOne({ reservationCode: code.toUpperCase() });
-    if (r) {
-        const diff = Math.max(1, Math.ceil(Math.abs(new Date(r.endDate) - new Date(r.startDate)) / 86400000));
-        const endTimeDisplay = r.endTime || r.time;
-        res.json({ success: true, pin: r.passcode, start: formatDateCz(r.startDate) + " " + r.time, end: formatDateCz(r.endDate) + " " + endTimeDisplay, car: "Vozík č. 1", price: diff * 230 + " Kč", status: "AKTIVNÍ", orderId: r.reservationCode });
-    } else res.json({ success: false });
+    try {
+        const { code } = req.body;
+        if (!code) return res.json({ success: false });
+        const r = await Reservation.findOne({ reservationCode: code.toUpperCase() });
+        if (r) {
+            const d1 = new Date(r.startDate);
+            const d2 = new Date(r.endDate);
+            const diffDays = Math.ceil(Math.abs(d2 - d1) / (1000 * 60 * 60 * 24)) || 1;
+            const currentPrice = getGlobalSettings().dailyPrice; // Dynamická cena z nastavení
+            res.json({ 
+                success: true, 
+                pin: r.passcode, 
+                start: formatDateCz(r.startDate) + " " + r.time, 
+                end: formatDateCz(r.endDate) + " " + (r.endTime || r.time), 
+                car: "Vozík č. 1", 
+                price: (diffDays * currentPrice) + " Kč", 
+                status: r.paymentStatus === 'PAID' ? "AKTIVNÍ" : "NEZAPLACENO/ZRUŠENO", 
+                orderId: r.reservationCode 
+            });
+        } else { res.json({ success: false }); }
+    } catch (e) { res.status(500).json({ success: false }); }
 });
 
 const PORT = process.env.PORT || 3000;
