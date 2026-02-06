@@ -14,7 +14,9 @@
         
         table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 13px; }
         th, td { padding: 12px 10px; text-align: left; border-bottom: 1px solid #eee; }
-        th { background: #f8f9fa; color: #555; font-weight: 600; text-transform: uppercase; font-size: 11px; }
+        th { background: #f8f9fa; color: #555; font-weight: 600; text-transform: uppercase; font-size: 11px; cursor: pointer; user-select: none; }
+        th:hover { background: #e9ecef; color: #333; }
+        th i { margin-left: 5px; color: #aaa; }
         tr:hover { background: #fafafa; }
         
         .badge { padding: 4px 8px; border-radius: 20px; font-size: 10px; font-weight: bold; text-transform: uppercase; }
@@ -22,23 +24,39 @@
         .b-pending { background: #fff3cd; color: #856404; }
         .b-canceled { background: #f8d7da; color: #721c24; }
 
+        .pin-stat { font-weight: 700; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .pin-active { color: #28a745; } 
+        .pin-wait { color: #fd7e14; }
+        .pin-end { color: #aaa; }
+        .pin-manual { color: #333; text-decoration: line-through; }
+
         .btn { padding: 6px 10px; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; margin-right: 3px; transition: 0.2s; }
         .btn-del { background: #ffebee; color: #c62828; }
         .btn-del:hover { background: #ffcdd2; }
-        .btn-arch { background: #e3f2fd; color: #1565c0; }
+        .btn-arch { background: #e3f2fd; color: #1565c0; } 
         .btn-arch:hover { background: #bbdefb; }
+        
+        .btn-restore { background: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; }
+        .btn-restore:hover { background: #c8e6c9; }
+
         .btn-resend { background: #fff3e0; color: #ef6c00; }
         .btn-resend:hover { background: #ffe0b2; }
+        .btn-pay-link { background: #e3f2fd; color: #0d47a1; }
+        .btn-pay-link:hover { background: #bbdefb; }
         .btn-edit { background: #e8f5e9; color: #2e7d32; }
         .btn-edit:hover { background: #c8e6c9; }
         
         .btn-export { background: #28a745; color: white; padding: 8px 16px; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; }
         .btn-export:hover { background: #218838; }
 
+        /* NOVÉ TLAČÍTKO PRO KONTAKTY */
+        .btn-save-contact { background: #333; color: white; padding: 8px 12px; font-size: 11px; border-radius: 4px; margin-top: 10px; width: 100%; border: none; cursor: pointer; font-weight: 600; text-transform: uppercase; }
+        .btn-save-contact:hover { background: #555; }
+
         .input-group { margin-bottom: 15px; }
         .input-group label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 13px; }
         .input-group input, .input-group select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
-        .btn-main { background: #bfa37c; color: white; padding: 12px 20px; font-size: 16px; width: 100%; font-weight: bold; }
+        .btn-main { background: #bfa37c; color: white; padding: 12px 20px; font-size: 16px; width: 100%; font-weight: bold; border: none; cursor: pointer; border-radius: 6px; }
         .btn-main:hover { background: #a68b68; }
 
         .dashboard-stats { display: flex; gap: 15px; margin-bottom: 20px; align-items: stretch; flex-wrap: wrap; }
@@ -60,17 +78,38 @@
         .filter-btn:hover { border-color: #bfa37c; color: #bfa37c; }
         .filter-btn.active { background: #bfa37c; color: white; border-color: #bfa37c; }
 
-        .settings-bar { display: flex; align-items: center; gap: 15px; background: #e9ecef; padding: 10px 15px; border-radius: 8px; margin-bottom: 20px; font-size: 13px; }
-        .settings-bar input { width: 60px; padding: 5px; border: 1px solid #ccc; border-radius: 4px; text-align: center; font-weight: bold; }
+        .settings-bar { display: flex; align-items: center; gap: 10px; background: #f1f3f5; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 13px; border: 1px solid #dee2e6; flex-wrap: wrap; }
+        .settings-bar div { display: flex; align-items: center; gap: 8px; }
+        .settings-bar input { width: 80px; padding: 6px; border: 1px solid #ccc; border-radius: 4px; text-align: center; font-weight: bold; }
+        .btn-save-settings { background: #333; color: white; padding: 8px 15px; border-radius: 6px; font-weight: bold; margin-left: auto; border: none; cursor: pointer; }
 
         tr.active-now { background: #e8f5e9; border-left: 4px solid #28a745; }
-        .col-id { font-family: monospace; font-weight: bold; color: #bfa37c; font-size: 14px; }
+        .col-id { font-family: monospace; font-weight: bold; color: #bfa37c; font-size: 14px; text-decoration: none; border-bottom: 1px dashed #bfa37c; }
+        .col-id:hover { color: #a68b68; border-bottom-style: solid; }
 
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999; display: none; justify-content: center; align-items: center; }
-        .modal-box { background: white; padding: 30px; border-radius: 12px; width: 400px; max-width: 90%; box-shadow: 0 10px 40px rgba(0,0,0,0.3); }
+        .modal-box { background: white; padding: 30px; border-radius: 12px; width: 400px; max-width: 90%; box-shadow: 0 10px 40px rgba(0,0,0,0.3); max-height: 90vh; overflow-y: auto; }
         .modal-box h2 { margin-top: 0; color: #333; border-bottom: 2px solid #bfa37c; display: inline-block; padding-bottom: 5px; }
         .btn-pay { background: #007bff; color: white; }
         .btn-pay:hover { background: #0056b3; }
+
+        .manual-container { display: flex; gap: 30px; flex-wrap: wrap; align-items: flex-start; }
+        .manual-form { flex: 1; min-width: 320px; }
+        .manual-calendar { flex: 1.5; min-width: 350px; background: #f8f9fa; padding: 20px; border-radius: 12px; border: 1px solid #eee; }
+
+        .cal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+        .cal-weekday { text-align: center; font-size: 10px; font-weight: bold; color: #aaa; padding-bottom: 5px; }
+        .cal-day { background: white; aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid #ddd; position: relative; transition: 0.2s; }
+        .cal-day:hover { border-color: #bfa37c; }
+        .cal-day.empty { background: transparent; border: none; cursor: default; }
+        .cal-day.past { color: #ccc; cursor: not-allowed; background: #f9f9f9; }
+        .cal-day.selected { border: 2px solid #333; }
+        .cal-day.today { font-weight: 800; color: #333; border: 2px solid #bfa37c; }
+        
+        /* Edit sekce pro zákazníka */
+        .customer-edit-section { border-top: 1px solid #eee; margin-top: 20px; padding-top: 10px; }
+        .customer-edit-section h3 { font-size: 14px; text-transform: uppercase; color: #888; margin-bottom: 10px; }
     </style>
 </head>
 <body>
@@ -86,6 +125,14 @@
             <div class="input-group"><label>Čas:</label><input type="time" id="edit-time"></div>
             <div class="input-group"><label>Čas vrácení (nepovinné):</label><input type="time" id="edit-endtime"></div>
             
+            <div class="customer-edit-section">
+                <h3>Údaje zákazníka</h3>
+                <div class="input-group"><label>Jméno:</label><input type="text" id="edit-name"></div>
+                <div class="input-group"><label>Email:</label><input type="text" id="edit-email"></div>
+                <div class="input-group"><label>Telefon:</label><input type="text" id="edit-phone"></div>
+                <button onclick="saveContactInfoOnly()" class="btn-save-contact"><i class="fa-solid fa-floppy-disk"></i> ULOŽIT JEN KONTAKTY</button>
+            </div>
+
             <div class="input-group" style="background: #f9f9f9; padding: 10px; border-radius: 5px;">
                 <label>Nová celková cena (Kč):</label>
                 <input type="number" id="edit-price" oninput="calcDiff()">
@@ -93,8 +140,8 @@
             </div>
 
             <p style="font-size:12px; color:#666;">
-                <strong>Možnost A (Uložit zdarma):</strong> Změní data hned a pošle nový PIN.<br>
-                <strong>Možnost B (Vyžádat doplatek):</strong> Pošle klientovi odkaz na platbu. PIN se změní až po zaplacení.
+                <strong>Možnost A (Uložit zdarma):</strong> Změní data hned a pošle nový PIN (i na nový email).<br>
+                <strong>Možnost B (Vyžádat doplatek):</strong> Pošle klientovi odkaz na platbu.
             </p>
             
             <div style="display:flex; flex-direction: column; gap:10px;">
@@ -123,10 +170,17 @@
             </h1>
 
             <div class="settings-bar">
-                <i class="fa-solid fa-calculator"></i>
-                <label>Sazba daně z příjmu:</label>
-                <input type="number" id="tax-rate" value="15" onchange="recalculateAll()"> %
-                <span style="color:#666; margin-left: 10px;">(Tato daň se odečte z hrubé tržby pro výpočet čistého zisku)</span>
+                <div>
+                    <i class="fa-solid fa-calculator"></i>
+                    <label>Daň z příjmu:</label>
+                    <input type="number" id="tax-rate" value="15" onchange="recalculateAll()"> %
+                </div>
+                <div style="margin-left: 20px;">
+                    <i class="fa-solid fa-tag"></i>
+                    <label>Základní cena (24h):</label>
+                    <input type="number" id="daily-price" value="230" onchange="updateManualPriceHint()"> Kč
+                </div>
+                <button onclick="saveGlobalSettings()" class="btn btn-save-settings"><i class="fa-solid fa-floppy-disk"></i> ULOŽIT GLOBÁLNÍ NASTAVENÍ</button>
             </div>
 
             <div class="month-filters" id="month-filters-container"></div>
@@ -158,16 +212,19 @@
             <table id="res-table">
                 <thead>
                     <tr>
-                        <th>Vytvořeno</th>
-                        <th>ID</th>
-                        <th>Jméno</th>
-                        <th>Termín</th>
-                        <th>Cena (Klient)</th>
+                        <th onclick="sortData('created')">Vytvořeno <i class="fa-solid fa-sort"></i></th>
+                        <th onclick="sortData('reservationCode')">ID <i class="fa-solid fa-sort"></i></th>
+                        <th onclick="sortData('name')">Jméno <i class="fa-solid fa-sort"></i></th>
+                        <th onclick="sortData('email')">Email <i class="fa-solid fa-sort"></i></th>
+                        <th>Telefon</th>
+                        <th onclick="sortData('startDate')">Termín <i class="fa-solid fa-sort"></i></th>
+                        <th onclick="sortData('price')">Cena <i class="fa-solid fa-sort"></i></th>
                         <th style="color:#dc3545">GoPay</th>
                         <th style="color:#fd7e14">Daň</th>
                         <th style="color:#28a745">Čistý zisk</th>
                         <th>PIN</th>
-                        <th>Stav</th>
+                        <th>Stav PINu</th>
+                        <th onclick="sortData('paymentStatus')">Stav <i class="fa-solid fa-sort"></i></th>
                         <th>Akce</th>
                     </tr>
                 </thead>
@@ -175,18 +232,39 @@
             </table>
         </div>
 
-        <div class="admin-box" style="max-width: 600px;">
-            <h2><i class="fa-solid fa-plus-circle"></i> Ruční vytvoření rezervace</h2>
-            <div class="input-group"><label>Jméno</label><input id="admin-name" type="text"></div>
-            <div class="input-group"><label>Email</label><input id="admin-email" type="email"></div>
-            <div class="input-group"><label>Telefon</label><input id="admin-phone" type="text" value="+420 "></div>
-            <div class="input-group" style="display: flex; gap: 10px;">
-                <div style="flex:1"><label>Od</label><input id="admin-start" type="date"></div>
-                <div style="flex:1"><label>Do</label><input id="admin-end" type="date"></div>
+        <div class="admin-box">
+            <div class="manual-container">
+                <div class="manual-form">
+                    <h2><i class="fa-solid fa-plus-circle"></i> Ruční vytvoření rezervace</h2>
+                    <div class="input-group"><label>Jméno</label><input id="admin-name" type="text" autocomplete="off"></div>
+                    <div class="input-group"><label>Email</label><input id="admin-email" type="email" autocomplete="off"></div>
+                    <div class="input-group"><label>Telefon</label><input id="admin-phone" type="text" value="+420 " autocomplete="off"></div>
+                    <div class="input-group" style="display: flex; gap: 10px;">
+                        <div style="flex:1"><label>Od</label><input id="admin-start" type="date" onchange="updateManualPriceHint()"></div>
+                        <div style="flex:1"><label>Do</label><input id="admin-end" type="date" onchange="updateManualPriceHint()"></div>
+                    </div>
+                    <div class="input-group"><label>Čas vyzvednutí</label><input id="admin-time" type="time" value="06:00"></div>
+                    <div class="input-group">
+                        <label>Cena (Kč)</label>
+                        <input id="admin-price" type="number" value="235">
+                        <small id="price-hint" style="color: #888; display: block; margin-top: 4px;"></small>
+                    </div>
+                    <button onclick="manualReserve()" class="btn btn-main">Vytvořit a poslat PIN</button>
+                </div>
+
+                <div class="manual-calendar">
+                    <div class="cal-header">
+                        <button onclick="changeAdminMonth(-1)" class="btn"><i class="fa-solid fa-chevron-left"></i></button>
+                        <h3 id="admin-cal-month" style="margin:0; text-transform:uppercase; font-size:14px; letter-spacing:1px;">...</h3>
+                        <button onclick="changeAdminMonth(1)" class="btn"><i class="fa-solid fa-chevron-right"></i></button>
+                    </div>
+                    <div class="cal-grid" id="admin-cal-grid"></div>
+                    <div style="margin-top:15px; font-size:11px; color:#666; display:flex; gap:15px; flex-wrap:wrap;">
+                        <span><i class="fa-solid fa-square" style="color:#bfa37c"></i> Obsazeno</span>
+                        <span><i class="fa-solid fa-mouse-pointer"></i> Kliknutím vyberete termín</span>
+                    </div>
+                </div>
             </div>
-            <div class="input-group"><label>Čas</label><input id="admin-time" type="time" value="08:00"></div>
-            <div class="input-group"><label>Cena (Kč)</label><input id="admin-price" type="number"></div>
-            <button onclick="manualReserve()" class="btn btn-main">Vytvořit a poslat PIN</button>
         </div>
     </div>
 
@@ -194,6 +272,12 @@
         let allReservations = []; 
         let currentFilteredData = [];
         let computedDataMap = {}; 
+        
+        let sortConfig = { key: 'created', dir: 'desc' };
+        
+        let viewMonth = new Date().getMonth();
+        let viewYear = new Date().getFullYear();
+
         const STANDARD_PERCENT = 0.01;
         const STANDARD_FIXED = 1;
         const CPK_LIMIT = 50000;
@@ -208,16 +292,56 @@
         async function checkAuth() {
             const pass = localStorage.getItem("adminPass");
             if (!pass) return;
-            const res = await fetch("/admin/reservations", { headers: { "x-admin-password": pass } });
-            if (res.status === 403) { alert("Špatné heslo"); localStorage.removeItem("adminPass"); return; }
-            allReservations = await res.json(); 
-            document.getElementById("login-section").style.display = "none";
-            document.getElementById("admin-content").style.display = "block";
-            const savedTax = localStorage.getItem("taxRate");
-            if (savedTax) document.getElementById("tax-rate").value = savedTax;
-            calculateFeesGlobal();
-            generateFilters();
-            filterData('ALL', null);
+            try {
+                const res = await fetch("/admin/reservations", { headers: { "x-admin-password": pass } });
+                if (res.status === 403) { alert("Špatné heslo"); localStorage.removeItem("adminPass"); return; }
+                allReservations = await res.json(); 
+                
+                document.getElementById("login-section").style.display = "none";
+                document.getElementById("admin-content").style.display = "block";
+                
+                const savedTax = localStorage.getItem("taxRate");
+                if (savedTax) document.getElementById("tax-rate").value = savedTax;
+                
+                const savedPrice = localStorage.getItem("dailyPrice") || "235";
+                document.getElementById("daily-price").value = savedPrice;
+
+                calculateFeesGlobal();
+                generateFilters();
+                renderAdminCalendar();
+                
+                const activeBtn = document.querySelector('.filter-btn.active');
+                filterData(activeBtn ? activeBtn.getAttribute('data-month') : 'ALL', activeBtn);
+            } catch(e) {
+                console.error("Chyba načítání dat:", e);
+                document.getElementById("login-section").style.display = "none";
+                document.getElementById("admin-content").style.display = "block";
+            }
+        }
+
+        async function saveGlobalSettings() {
+            const tax = document.getElementById("tax-rate").value;
+            const price = document.getElementById("daily-price").value;
+            localStorage.setItem("taxRate", tax);
+            localStorage.setItem("dailyPrice", price);
+            try {
+                await fetch("/admin/settings", {
+                    method: "POST", headers: { "Content-Type": "application/json", "x-admin-password": localStorage.getItem("adminPass") },
+                    body: JSON.stringify({ taxRate: tax, dailyPrice: price })
+                });
+                alert("Uloženo."); recalculateAll();
+            } catch(e) { alert("Chyba."); }
+        }
+
+        function updateManualPriceHint() {
+            const start = document.getElementById("admin-start").value;
+            const end = document.getElementById("admin-end").value;
+            const daily = parseFloat(document.getElementById("daily-price").value) || 0;
+            if (start && end) {
+                const diff = Math.ceil((new Date(end) - new Date(start)) / (1000 * 60 * 60 * 24)) || 1;
+                document.getElementById("admin-price").value = diff * daily;
+                document.getElementById("price-hint").innerText = `Výpočet: ${diff} den/dny x ${daily} Kč = ${diff * daily} Kč`;
+            }
         }
 
         function getMonthName(mIndex) {
@@ -234,153 +358,364 @@
                 const mKey = r.startDate.substring(0, 7);
                 if (!monthlyRevenue[mKey]) monthlyRevenue[mKey] = 0;
                 let price = r.price || 0;
-                let fee = 0;
-                if (monthlyRevenue[mKey] < CPK_LIMIT) {
-                    let freeSpace = CPK_LIMIT - monthlyRevenue[mKey];
-                    if (price <= freeSpace) fee = 0; 
-                    else fee = Math.round((price - freeSpace) * STANDARD_PERCENT + STANDARD_FIXED);
-                } else fee = Math.round(price * STANDARD_PERCENT + STANDARD_FIXED);
-                
+                let fee = (monthlyRevenue[mKey] < CPK_LIMIT) ? 0 : Math.round(price * STANDARD_PERCENT + STANDARD_FIXED);
                 const taxRate = parseFloat(document.getElementById("tax-rate").value) || 0;
                 let tax = Math.round(price * (taxRate / 100));
-                let net = price - fee - tax;
+                computedDataMap[r._id] = { fee, tax, net: price - fee - tax };
                 monthlyRevenue[mKey] += price;
-                computedDataMap[r._id] = { fee, tax, net };
             });
         }
 
-        function recalculateAll() {
-            localStorage.setItem("taxRate", document.getElementById("tax-rate").value);
-            calculateFeesGlobal();
-            const activeBtn = document.querySelector('.filter-btn.active');
-            if (activeBtn) activeBtn.click(); else filterData('ALL', null);
-        }
+        function recalculateAll() { calculateFeesGlobal(); const activeBtn = document.querySelector('.filter-btn.active'); if (activeBtn) activeBtn.click(); else filterData('ALL', null); }
 
         function generateFilters() {
             const container = document.getElementById('month-filters-container');
-            container.innerHTML = `<button class="filter-btn active" onclick="filterData('ALL', this)">VŠE</button>`;
+            container.innerHTML = `<button class="filter-btn active" data-month="ALL" onclick="filterData('ALL', this)">VŠE</button>`;
             const months = new Set();
             allReservations.forEach(r => { if(r.startDate) months.add(r.startDate.substring(0, 7)); });
             Array.from(months).sort().reverse().forEach(m => {
                 const [year, month] = m.split('-');
                 const label = `${getMonthName(parseInt(month) - 1)} ${year}`;
-                container.innerHTML += `<button class="filter-btn" onclick="filterData('${m}', this)">${label}</button>`;
+                container.innerHTML += `<button class="filter-btn" data-month="${m}" onclick="filterData('${m}', this)">${label}</button>`;
             });
         }
 
-        function filterData(monthKey, btnElement) {
-            if(btnElement) {
-                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-                btnElement.classList.add('active');
+        function sortData(key) {
+            if (sortConfig.key === key) {
+                sortConfig.dir = sortConfig.dir === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortConfig.key = key;
+                sortConfig.dir = 'asc';
             }
+            applySortAndRender();
+        }
+
+        function applySortAndRender() {
+            currentFilteredData.sort((a, b) => {
+                let valA = a[sortConfig.key];
+                let valB = b[sortConfig.key];
+                if (valA === undefined || valA === null) valA = "";
+                if (valB === undefined || valB === null) valB = "";
+                if (['created', 'startDate'].includes(sortConfig.key)) {
+                    valA = valA ? new Date(valA).getTime() : 0;
+                    valB = valB ? new Date(valB).getTime() : 0;
+                }
+                if (sortConfig.key === 'price') {
+                    valA = Number(valA) || 0;
+                    valB = Number(valB) || 0;
+                }
+                if (valA < valB) return sortConfig.dir === 'asc' ? -1 : 1;
+                if (valA > valB) return sortConfig.dir === 'asc' ? 1 : -1;
+                return 0;
+            });
+            renderTable(currentFilteredData);
+        }
+
+        function filterData(monthKey, btnElement) {
+            if(btnElement) { document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active')); btnElement.classList.add('active'); }
             const titleEl = document.getElementById('revenue-title');
             if (monthKey === 'ALL') {
-                currentFilteredData = allReservations;
+                currentFilteredData = [...allReservations];
                 titleEl.innerText = "Celková tržba (Hrubá)";
             } else {
                 currentFilteredData = allReservations.filter(r => r.startDate.startsWith(monthKey));
                 const [year, month] = monthKey.split('-');
                 titleEl.innerText = `Tržba: ${getMonthName(parseInt(month) - 1)} ${year}`;
             }
-            renderTable(currentFilteredData);
+            applySortAndRender();
         }
 
         function renderTable(data) {
             const tbody = document.querySelector("#res-table tbody");
             tbody.innerHTML = "";
-            let totalRev = 0, totalFees = 0, totalTax = 0, totalNet = 0;
-            data.sort((a,b) => new Date(b.created) - new Date(a.created));
+            let tRev = 0, tFee = 0, tTax = 0, tNet = 0;
+            
             data.forEach(r => {
                 let statusClass = "b-pending", statusText = "Čeká";
                 let vals = computedDataMap[r._id] || { fee: 0, tax: 0, net: 0 };
-                let price = r.price || 0;
                 
+                let pendingInfoHtml = "";
                 if (r.pendingExtension && r.pendingExtension.active) {
                     statusText = "Doplatek...";
                     statusClass = "b-pending";
+                    const pendingDate = `${new Date(r.pendingExtension.newStartDate).toLocaleDateString("cs-CZ")} - ${new Date(r.pendingExtension.newEndDate).toLocaleDateString("cs-CZ")}`;
+                    pendingInfoHtml = `<div style="font-size:9px; margin-top:3px; color:#d35400;">Návrh: ${pendingDate}<br>+${r.pendingExtension.surcharge} Kč</div>`;
                 } else if (r.paymentStatus === 'PAID') { 
                     statusClass = "b-paid"; statusText = "Zaplaceno"; 
-                    totalRev += price; totalFees += vals.fee; totalTax += vals.tax; totalNet += vals.net;
-                } else if (r.paymentStatus === 'CANCELED') { statusClass = "b-canceled"; statusText = "Zrušeno"; }
+                    tRev += (r.price || 0); tFee += vals.fee; tTax += vals.tax; tNet += vals.net;
+                } else if (r.paymentStatus === 'CANCELED') { 
+                    statusClass = "b-canceled"; statusText = "Zrušeno"; 
+                }
 
                 const todayStr = new Date().toISOString().split('T')[0];
                 const isActive = (r.startDate <= todayStr && r.endDate >= todayStr && r.paymentStatus === 'PAID');
                 
-                // Formátování vytvořeno
-                const createdDateObj = new Date(r.created);
-                const createdStr = `${createdDateObj.toLocaleDateString("cs-CZ")}<br><small style="color:#888">${createdDateObj.toLocaleTimeString("cs-CZ", {hour: '2-digit', minute:'2-digit'})}</small>`;
-                
-                // Formátování termínu
+                const d = new Date(r.created);
+                const dateStr = d.toLocaleDateString("cs-CZ");
+                const timeStr = d.toLocaleTimeString("cs-CZ", {hour: '2-digit', minute:'2-digit'});
+                const createdHtml = `${dateStr}<br><small style="color:#888">${timeStr}</small>`;
+
                 const endTimeDisplay = r.endTime || r.time;
                 const termStr = `<span style="color:#555">${new Date(r.startDate).toLocaleDateString("cs-CZ")}</span> <b>${r.time}</b><br><small>do</small> <span style="color:#555">${new Date(r.endDate).toLocaleDateString("cs-CZ")}</span> <b>${endTimeDisplay}</b>`;
 
+                const now = new Date();
+                const startDt = new Date(r.startDate + 'T' + r.time);
+                const endDt = new Date(r.endDate + 'T' + endTimeDisplay);
+                
+                let pinHtml = (now < startDt) ? '<span class="pin-stat pin-wait">⏳ Čeká</span>' : (now <= endDt && r.paymentStatus === 'PAID') ? '<span class="pin-stat pin-active">🟢 Aktivní</span>' : '<span class="pin-stat pin-end">⚫ Ukončen</span>';
+                if (r.paymentStatus === 'CANCELED') pinHtml = '<span class="pin-stat pin-end">Zrušeno</span>';
+                if (!r.keyboardPwdId && r.paymentStatus !== 'CANCELED') pinHtml = '<span class="pin-stat pin-manual">⚫ Ručně</span>';
+
                 const tr = document.createElement("tr");
                 tr.className = isActive ? 'active-now' : '';
+                const checkLink = `<a href="/check.html?id=${r.reservationCode}" target="_blank" class="col-id" title="Zobrazit jako zákazník">${r.reservationCode || '???'}</a>`;
+
+                // Logika tlačítka zámečku
+                let actionBtn = "";
+                if (r.keyboardPwdId && r.paymentStatus === 'PAID') {
+                     // PIN je aktivní -> Tlačítko UKONČIT (odemčený zámek)
+                     actionBtn = `<button onclick="archiveRes('${r._id}')" class="btn btn-arch" title="Ukončit rezervaci"><i class="fa-solid fa-lock-open"></i></button>`;
+                } else if (!r.keyboardPwdId && r.paymentStatus === 'PAID') {
+                     // PIN není, ale je zaplaceno -> Tlačítko OBNOVIT (zamčený zámek)
+                     actionBtn = `<button onclick="renewRes('${r._id}')" class="btn btn-restore" title="Obnovit PIN"><i class="fa-solid fa-lock"></i></button>`;
+                }
+
                 tr.innerHTML = `
-                    <td style="font-size:11px">${createdStr}</td>
-                    <td class="col-id">${r.reservationCode}</td>
-                    <td><b>${r.name}</b></td>
+                    <td>${createdHtml}</td>
+                    <td>${checkLink}</td>
+                    <td><b>${r.name || '-'}</b></td>
+                    <td style="font-size:11px">${r.email || '-'}</td>
+                    <td style="font-size:11px">${r.phone || '-'}</td>
                     <td style="font-size:12px">${termStr}</td>
-                    <td style="font-weight:bold">${price} Kč</td>
-                    <td style="color:${vals.fee===0?'#ccc':'#dc3545'}">-${vals.fee} Kč</td>
+                    <td style="font-weight:bold">${r.price} Kč</td>
+                    <td style="color:#dc3545">-${vals.fee} Kč</td>
                     <td style="color:#fd7e14">-${vals.tax} Kč</td>
                     <td style="color:#28a745; font-weight:bold">${vals.net} Kč</td>
-                    <td style="font-family:monospace;">${r.passcode}</td>
-                    <td><span class="badge ${statusClass}">${statusText}</span></td>
-                    <td style="display:flex; gap:3px; flex-wrap:wrap;">
-                        <button onclick='openEditModal(${JSON.stringify(r)})' class="btn btn-edit" title="Editovat"><i class="fa-solid fa-pen-to-square"></i></button>
-                        <button onclick="resendEmail('${r._id}')" class="btn btn-resend" title="Přeposlat"><i class="fa-regular fa-envelope"></i></button>
-                        <button onclick="archiveRes('${r._id}')" class="btn btn-arch" title="Ukončit"><i class="fa-solid fa-lock-open"></i></button>
-                        <button onclick="deleteRes('${r._id}')" class="btn btn-del" title="Smazat"><i class="fa-solid fa-trash"></i></button>
+                    <td style="font-family:monospace;">${r.passcode || '-'}</td>
+                    <td>${pinHtml}</td>
+                    <td>
+                        <span class="badge ${statusClass}">${statusText}</span>
+                        ${pendingInfoHtml}
+                    </td>
+                    <td style="display:flex; gap:3px;">
+                        <button onclick='openEditModal(${JSON.stringify(r)})' class="btn btn-edit"><i class="fa-solid fa-pen"></i></button>
+                        ${(r.pendingExtension && r.pendingExtension.active) 
+                           ? `<button onclick="resendPaymentLink('${r._id}')" class="btn btn-pay-link" title="Znovu poslat výzvu k platbě"><i class="fa-solid fa-money-bill-wave"></i></button>`
+                           : `<button onclick="resendEmail('${r._id}')" class="btn btn-resend"><i class="fa-regular fa-envelope"></i></button>`
+                        }
+                        ${actionBtn}
+                        <button onclick="deleteRes('${r._id}')" class="btn btn-del"><i class="fa-solid fa-trash"></i></button>
                     </td>
                 `;
                 tbody.appendChild(tr);
             });
-            document.getElementById("total-revenue").innerText = totalRev.toLocaleString("cs-CZ") + " Kč";
-            document.getElementById("total-fees").innerText = "-" + totalFees.toLocaleString("cs-CZ") + " Kč";
-            document.getElementById("total-tax").innerText = "-" + totalTax.toLocaleString("cs-CZ") + " Kč";
-            document.getElementById("total-net").innerText = totalNet.toLocaleString("cs-CZ") + " Kč";
+            document.getElementById("total-revenue").innerText = tRev.toLocaleString() + " Kč";
+            document.getElementById("total-fees").innerText = "-" + tFee.toLocaleString() + " Kč";
+            document.getElementById("total-tax").innerText = "-" + tTax.toLocaleString() + " Kč";
+            document.getElementById("total-net").innerText = tNet.toLocaleString() + " Kč";
             document.getElementById("res-count").innerText = data.length;
         }
 
-        // --- EDIT MODAL ---
+        function changeAdminMonth(delta) {
+            viewMonth += delta;
+            if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+            else if (viewMonth < 0) { viewMonth = 11; viewYear--; }
+            renderAdminCalendar();
+        }
+
+        function renderAdminCalendar() {
+            const grid = document.getElementById("admin-cal-grid");
+            const label = document.getElementById("admin-cal-month");
+            grid.innerHTML = "";
+
+            const monthNames = ["Leden", "Únor", "Březen", "Duben", "Květen", "Červen", "Červenec", "Srpen", "Září", "Říjen", "Listopad", "Prosinec"];
+            label.innerText = `${monthNames[viewMonth]} ${viewYear}`;
+
+            ["PO","ÚT","ST","ČT","PÁ","SO","NE"].forEach(d => {
+                grid.innerHTML += `<div class="cal-weekday">${d}</div>`;
+            });
+
+            const firstDay = new Date(viewYear, viewMonth, 1).getDay();
+            const shift = (firstDay === 0) ? 6 : firstDay - 1;
+            const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+
+            for (let i = 0; i < shift; i++) grid.innerHTML += `<div class="cal-day empty"></div>`;
+
+            const todayStr = new Date().toLocaleDateString('en-CA');
+            const startVal = document.getElementById("admin-start").value;
+            const endVal = document.getElementById("admin-end").value;
+
+            for (let d = 1; d <= daysInMonth; d++) {
+                const dateStr = new Date(viewYear, viewMonth, d).toLocaleDateString('en-CA');
+                const dayEl = document.createElement("div");
+                dayEl.className = "cal-day";
+                dayEl.innerText = d;
+                
+                if (dateStr === todayStr) dayEl.classList.add("today");
+
+                if (dateStr === startVal || dateStr === endVal || (startVal && endVal && dateStr > startVal && dateStr < endVal)) {
+                    dayEl.classList.add("selected");
+                }
+                
+                const bg = getDayOccupancyStyle(dateStr);
+                if (bg) dayEl.style.background = bg;
+
+                if (dateStr < todayStr) dayEl.classList.add("past");
+                else {
+                    dayEl.onclick = () => {
+                        const s = document.getElementById("admin-start");
+                        const e = document.getElementById("admin-end");
+                        if (!s.value || (s.value && e.value)) { s.value = dateStr; e.value = ""; }
+                        else { if (dateStr < s.value) s.value = dateStr; else e.value = dateStr; }
+                        updateManualPriceHint(); renderAdminCalendar();
+                    };
+                }
+                grid.appendChild(dayEl);
+            }
+        }
+
+        function getDayOccupancyStyle(dateStr) {
+            let timeline = [];
+            allReservations.forEach(res => {
+                if (res.paymentStatus === 'CANCELED') return;
+                if (dateStr >= res.startDate && dateStr <= res.endDate) {
+                    let sP = 0, eP = 100;
+                    if (res.startDate === dateStr) sP = Math.round((parseInt(res.time.split(':')[0]) / 24) * 100);
+                    if (res.endDate === dateStr) eP = Math.round((parseInt((res.endTime || res.time).split(':')[0]) / 24) * 100);
+                    timeline.push({ s: sP, e: eP });
+                }
+            });
+            if (timeline.length === 0) return null;
+            let stops = [];
+            timeline.forEach(t => { 
+                if(t.s === 0 && t.e === 100) return stops.push(`#bfa37c 0%`, `#bfa37c 100%`);
+                stops.push(`white 0%`, `white ${t.s}%`, `#bfa37c ${t.s}%`, `#bfa37c ${t.e}%`, `white ${t.e}%`, `white 100%`);
+            });
+            return `linear-gradient(90deg, ${stops.join(", ")})`;
+        }
+
+        // UKONČENÍ REZERVACE S DŮVODEM
+        async function archiveRes(id) {
+            const reason = prompt("Zadejte důvod ukončení PINu (bude odeslán zákazníkovi):", "Ukončeno po dohodě");
+            if (reason !== null) { 
+                await fetch(`/admin/reservations/${id}/archive`, { 
+                    method: "POST", 
+                    headers: { "x-admin-password": localStorage.getItem("adminPass"), "Content-Type": "application/json" },
+                    body: JSON.stringify({ reason: reason }) 
+                });
+                alert("Ukončeno a email odeslán.");
+                checkAuth();
+            }
+        }
+
+        async function deleteRes(id) { if(confirm("Smazat?")) { await fetch(`/admin/reservations/${id}`, { method: "DELETE", headers: { "x-admin-password": localStorage.getItem("adminPass") } }); checkAuth(); } }
+
+        async function resendEmail(id) { await fetch(`/admin/reservations/${id}/resend-email`, { method: "POST", headers: { "x-admin-password": localStorage.getItem("adminPass") } }); alert("Odesláno"); }
+        
+        async function renewRes(id) {
+            if(!confirm("Obnovit původní termín a vygenerovat nový PIN?")) return;
+            const res = await fetch("/admin/reservations/" + id, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json", "x-admin-password": localStorage.getItem("adminPass") },
+                body: JSON.stringify({ restore: true })
+            });
+
+            if(res.ok) { alert("Obnoveno."); checkAuth(); } 
+            else if (res.status === 409) { alert("CHYBA: Nelze obnovit! Termín je již obsazen jinou rezervací."); } 
+            else { alert("Chyba při obnovování."); }
+        }
+
+        async function resendPaymentLink(id) {
+            if(!confirm("Znovu poslat email s odkazem na platbu?")) return;
+            const res = await fetch(`/admin/reservations/${id}/resend-extension-email`, { method: "POST", headers: { "x-admin-password": localStorage.getItem("adminPass") } });
+            if(res.ok) alert("Odesláno"); else alert("Chyba");
+        }
+
+        async function manualReserve() {
+            const body = {
+                startDate: document.getElementById("admin-start").value,
+                endDate: document.getElementById("admin-end").value,
+                time: document.getElementById("admin-time").value,
+                name: document.getElementById("admin-name").value,
+                email: document.getElementById("admin-email").value,
+                phone: document.getElementById("admin-phone").value,
+                price: document.getElementById("admin-price").value
+            };
+            const res = await fetch("/reserve-range", { 
+                method: "POST", headers: { "Content-Type": "application/json", "x-admin-password": localStorage.getItem("adminPass") }, 
+                body: JSON.stringify(body) 
+            });
+            if (res.ok) { alert("Vytvořeno."); checkAuth(); } else { alert("Chyba."); }
+        }
+
         function openEditModal(r) {
             document.getElementById('edit-id').value = r._id;
             document.getElementById('edit-start').value = r.startDate;
             document.getElementById('edit-end').value = r.endDate;
             document.getElementById('edit-time').value = r.time;
-            document.getElementById('edit-endtime').value = r.endTime || "";
-            document.getElementById('edit-original-price').value = r.price || 0;
-            document.getElementById('edit-price').value = r.price || 0;
+            document.getElementById('edit-original-price').value = r.price;
+            document.getElementById('edit-price').value = r.price;
+            
+            // Vyplnění údajů zákazníka
+            document.getElementById('edit-name').value = r.name || "";
+            document.getElementById('edit-email').value = r.email || "";
+            document.getElementById('edit-phone').value = r.phone || "";
+
             document.getElementById('edit-modal').style.display = 'flex';
-            calcDiff();
         }
         function closeEditModal() { document.getElementById('edit-modal').style.display = 'none'; }
         
-        function calcDiff() {
-            const oldP = parseFloat(document.getElementById('edit-original-price').value) || 0;
-            const newP = parseFloat(document.getElementById('edit-price').value) || 0;
-            const diff = newP - oldP;
-            const el = document.getElementById('price-diff');
-            if(diff > 0) { el.innerText = `Doplatek: ${diff} Kč`; el.style.color = "red"; }
-            else if(diff < 0) { el.innerText = `Přeplatek: ${Math.abs(diff)} Kč`; el.style.color = "green"; }
-            else { el.innerText = "Cena beze změny"; el.style.color = "black"; }
+        // NOVÁ FUNKCE: ULOŽIT JEN KONTAKTY
+        async function saveContactInfoOnly() {
+            const id = document.getElementById('edit-id').value;
+            const payload = {
+                startDate: document.getElementById('edit-start').value,
+                endDate: document.getElementById('edit-end').value,
+                time: document.getElementById('edit-time').value,
+                price: document.getElementById('edit-original-price').value, // Neměníme cenu
+                name: document.getElementById('edit-name').value,
+                email: document.getElementById('edit-email').value,
+                phone: document.getElementById('edit-phone').value
+            };
+            try {
+                const res = await fetch("/admin/reservations/" + id, { method: "PUT", headers: { "Content-Type": "application/json", "x-admin-password": localStorage.getItem("adminPass") }, body: JSON.stringify(payload) });
+                if(res.ok) { alert("✅ Kontaktní údaje uloženy."); checkAuth(); } 
+                else { const d = await res.json(); alert("❌ Chyba: " + (d.error || "Neznámá")); }
+            } catch(e) { alert("Chyba: " + e.message); }
         }
 
+        // ULOŽIT ZDARMA (včetně jména, emailu, telefonu)
         async function saveEditFree() {
-            if(!confirm("Opravdu uložit změny hned a změnit PIN?")) return;
-            sendEdit("/admin/reservations/" + document.getElementById('edit-id').value, "PUT");
+            const res = await fetch("/admin/reservations/" + document.getElementById('edit-id').value, {
+                method: "PUT", headers: { "Content-Type": "application/json", "x-admin-password": localStorage.getItem("adminPass") },
+                body: JSON.stringify({
+                    startDate: document.getElementById('edit-start').value,
+                    endDate: document.getElementById('edit-end').value,
+                    time: document.getElementById('edit-time').value,
+                    price: document.getElementById('edit-price').value,
+                    // Nové položky
+                    name: document.getElementById('edit-name').value,
+                    email: document.getElementById('edit-email').value,
+                    phone: document.getElementById('edit-phone').value
+                })
+            });
+            if(res.ok) { alert("Uloženo."); closeEditModal(); checkAuth(); }
         }
-
+        
         async function saveEditPayment() {
             const oldP = parseFloat(document.getElementById('edit-original-price').value) || 0;
             const newP = parseFloat(document.getElementById('edit-price').value) || 0;
-            if (newP <= oldP) { alert("Pro výzvu k platbě musí být nová cena vyšší než původní."); return; }
-            if(!confirm(`Odeslat klientovi výzvu k úhradě ${newP - oldP} Kč? PIN se změní až po zaplacení.`)) return;
+            if (newP <= oldP) { alert("Pro výzvu k platbě musí být nová cena vyšší."); return; }
+            if(!confirm(`Odeslat výzvu k úhradě ${newP - oldP} Kč?`)) return;
             
             const id = document.getElementById('edit-id').value;
-            const body = getFormBody();
-            body.newTotalPrice = body.price; 
+            const body = {
+                startDate: document.getElementById('edit-start').value,
+                endDate: document.getElementById('edit-end').value,
+                time: document.getElementById('edit-time').value,
+                endTime: document.getElementById('edit-endtime').value,
+                newTotalPrice: newP
+            };
             
             try {
                 const res = await fetch(`/admin/reservations/${id}/create-extension`, {
@@ -393,35 +728,23 @@
             } catch(e) { alert("Chyba."); }
         }
 
-        function getFormBody() {
-            return {
-                startDate: document.getElementById('edit-start').value,
-                endDate: document.getElementById('edit-end').value,
-                time: document.getElementById('edit-time').value,
-                endTime: document.getElementById('edit-endtime').value,
-                price: document.getElementById('edit-price').value
-            };
-        }
-
-        async function sendEdit(url, method) {
-            try {
-                const res = await fetch(url, {
-                    method: method,
-                    headers: { "Content-Type": "application/json", "x-admin-password": localStorage.getItem("adminPass") },
-                    body: JSON.stringify(getFormBody())
-                });
-                if(res.ok) { alert("Uloženo."); closeEditModal(); checkAuth(); }
-                else alert("Chyba.");
-            } catch(e) { alert("Chyba."); }
+        function calcDiff() {
+            const oldP = parseFloat(document.getElementById('edit-original-price').value) || 0;
+            const newP = parseFloat(document.getElementById('edit-price').value) || 0;
+            const diff = newP - oldP;
+            const el = document.getElementById('price-diff');
+            if(diff > 0) { el.innerText = `Doplatek: ${diff} Kč`; el.style.color = "red"; }
+            else if(diff < 0) { el.innerText = `Přeplatek: ${Math.abs(diff)} Kč`; el.style.color = "green"; }
+            else { el.innerText = "Cena beze změny"; el.style.color = "black"; }
         }
 
         function downloadCSV() {
             if (!currentFilteredData || currentFilteredData.length === 0) { alert("Žádná data."); return; }
-            let csv = "\uFEFFID Rezervace;Jméno;Email;Vytvořeno;Termín Od;Termín Do;Cena (Kč);Poplatek GoPay;Daň;Čistý Zisk;Stav;PIN\n";
+            let csv = "\uFEFFID Rezervace;Jméno;Email;Telefon;Vytvořeno;Termín Od;Termín Do;Cena (Kč);Poplatek GoPay;Daň;Čistý Zisk;Stav;PIN\n";
             currentFilteredData.forEach(r => {
                 let vals = computedDataMap[r._id] || { fee: 0, tax: 0, net: 0 };
                 let row = [
-                    r.reservationCode, `"${r.name}"`, r.email,
+                    r.reservationCode, `"${r.name}"`, r.email, r.phone,
                     new Date(r.created).toLocaleDateString("cs-CZ"),
                     new Date(r.startDate).toLocaleDateString("cs-CZ") + " " + r.time,
                     new Date(r.endDate).toLocaleDateString("cs-CZ") + " " + (r.endTime || r.time),
@@ -429,30 +752,11 @@
                 ];
                 csv += row.join(";") + "\n";
             });
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement("a");
-            link.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
-            link.download = `Export_Vozik_${new Date().toISOString().slice(0,10)}.csv`;
-            document.body.appendChild(link); link.click(); document.body.removeChild(link);
-        }
-
-        async function resendEmail(id) { if(confirm("Odeslat znovu?")) fetch(`/admin/reservations/${id}/resend-email`, { method: "POST", headers: { "x-admin-password": localStorage.getItem("adminPass") } }).then(()=>alert("OK")); }
-        async function deleteRes(id) { if(confirm("Smazat?")) { await fetch(`/admin/reservations/${id}`, { method: "DELETE", headers: { "x-admin-password": localStorage.getItem("adminPass") } }); checkAuth(); } }
-        async function archiveRes(id) { if(confirm("Ukončit a smazat PIN?")) { await fetch(`/admin/reservations/${id}/archive`, { method: "POST", headers: { "x-admin-password": localStorage.getItem("adminPass") } }); checkAuth(); } }
-        
-        async function manualReserve() {
-             const start = document.getElementById("admin-start").value;
-             const end = document.getElementById("admin-end").value;
-             if (!start || !end) { alert("Vyplňte obě data."); return; }
-             const body = {
-                startDate: start, endDate: end,
-                time: document.getElementById("admin-time").value,
-                name: document.getElementById("admin-name").value,
-                email: document.getElementById("admin-email").value,
-                phone: document.getElementById("admin-phone").value,
-                price: document.getElementById("admin-price").value
-            };
-            await fetch("/reserve-range", { method: "POST", headers: { "Content-Type": "application/json", "x-admin-password": localStorage.getItem("adminPass") }, body: JSON.stringify(body) });
-            alert("Vytvořeno"); checkAuth();
+            link.href = URL.createObjectURL(blob);
+            link.download = "rezervace_vozik.csv";
+            link.click();
         }
 
         window.onload = checkAuth;
