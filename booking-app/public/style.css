@@ -40,8 +40,35 @@ h2 { font-size: 1.2rem; margin-top: 0; margin-bottom: 0; border-bottom: 2px soli
 .nav-btn { background: white; border: 1px solid #ddd; padding: 8px 15px; cursor: pointer; border-radius: 4px; font-weight: bold; }
 #currentMonthLabel { font-weight: 800; font-size: 1.1rem; text-transform: uppercase; }
 
-.days-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; text-align: center; }
-.day { padding: 15px 10px; background: #fff; border: 1px solid #eee; cursor: pointer; border-radius: 4px; transition: 0.2s; }
+/* UPDATED KALENDÁŘ GRID */
+.days-grid { 
+    display: grid; 
+    grid-template-columns: repeat(7, 1fr); 
+    gap: 5px; /* Menší mezera pro lepší vzhled */
+    text-align: center; 
+    margin-top: 15px;
+}
+.weekday {
+    text-align: center;
+    font-size: 11px;
+    color: #888;
+    padding-bottom: 5px;
+}
+.day { 
+    aspect-ratio: 1 / 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fff; 
+    border: 1px solid #eee; 
+    cursor: pointer; 
+    border-radius: 8px; /* Kulatější rohy */
+    transition: 0.2s; 
+    font-weight: bold;
+    font-size: 14px;
+}
+.day:active { transform: scale(0.95); } /* Efekt kliku na mobilu */
+
 .day.range-start, .day.range-end { background: #bfa37c !important; color: white; }
 .day.range, .day.hover-range { background: #f3e9d9; }
 
@@ -56,9 +83,32 @@ h2 { font-size: 1.2rem; margin-top: 0; margin-bottom: 0; border-bottom: 2px soli
 /* 4. FORMULÁŘ A HLAVIČKA */
 .form-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: nowrap; gap: 10px; }
 
-.time-row { display: flex; gap: 10px; align-items: stretch; margin-top: 5px; }
-.time-row input[type="time"] { flex: 3; }
-#btn-now { flex: 1; white-space: nowrap; padding: 0 15px; background: #eee; border: 1px solid #ddd; border-radius: 6px; font-weight: 600; cursor: pointer; transition: 0.3s; }
+/* NOVÝ STYL PRO DATETIME INPUTS */
+.datetime-container {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 5px;
+    background: #fff;
+    padding: 15px;
+    border-radius: 12px;
+    border: 1px solid #eee;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+}
+
+.dt-box { flex: 1; display: flex; flex-direction: column; gap: 5px; }
+.dt-box label { font-size: 12px; font-weight: 700; color: #888; text-transform: uppercase; margin-bottom: 0; }
+
+.dt-inputs { display: flex; gap: 5px; }
+.dt-inputs input { padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-family: 'Montserrat', sans-serif; font-weight: 600; color: #333; outline: none; transition: 0.2s; }
+.dt-inputs input[type="date"] { flex: 2; }
+.dt-inputs input[type="time"] { flex: 1; }
+.dt-inputs input:focus { border-color: #bfa37c; box-shadow: 0 0 0 3px rgba(191, 163, 124, 0.1); }
+
+.dt-arrow { color: #bfa37c; font-size: 18px; }
+
+/* TLAČÍTKO TEĎ */
+#btn-now { background: #eee; border: 1px solid #ddd; border-radius: 6px; font-weight: 600; cursor: pointer; transition: 0.3s; padding: 10px; font-size: 13px; color: #555; }
 #btn-now:hover { background: #bfa37c; color: white; border-color: #bfa37c; }
 
 .summary-box { background: white; border: 1px solid #eee; padding: 20px; border-radius: 8px; margin-bottom: 25px; }
@@ -66,7 +116,7 @@ h2 { font-size: 1.2rem; margin-top: 0; margin-bottom: 0; border-bottom: 2px soli
 
 .form-group { margin-bottom: 20px; }
 label { display: block; margin-bottom: 8px; font-weight: 700; font-size: 0.85rem; color: #444; text-transform: uppercase; }
-input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-family: inherit; transition: 0.3s; }
+input:not([type="checkbox"]), select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-family: inherit; transition: 0.3s; }
 
 /* VALIDACE CHYB */
 .error-message { color: #d63031; font-size: 12px; margin-top: 5px; font-weight: 600; display: none; }
@@ -114,7 +164,7 @@ input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radiu
     .calendar-section, #booking-form { width: 100%; min-width: 100%; flex: none; }
     #booking-form { padding: 0; border: none; background: transparent; }
     .summary-box { border: 1px solid #ddd; background: #fdfdfd; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-    input, select, .btn-pay { padding: 14px; font-size: 1rem; }
+    input:not([type="checkbox"]), select, .btn-pay { padding: 14px; font-size: 1rem; }
     .nav-btn { padding: 10px 20px; }
     .btn-pay { max-width: 100%; margin-top: 20px; }
     .process-section, .map-section { margin: 50px auto; }
@@ -126,6 +176,16 @@ input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radiu
     .mini-search-box { width: 140px; }
     .mini-search-box input { font-size: 11px; }
     .form-header-row h2 { font-size: 1rem; }
+
+    /* KALENDÁŘ - MOBIL */
+    .days-grid { gap: 8px; }
+    .day { font-size: 16px; border: 1px solid #ddd; }
+
+    /* DATETIME INPUTS - MOBIL */
+    .datetime-container { flex-direction: column; gap: 15px; padding: 15px; }
+    .dt-arrow { display: none; }
+    .dt-box { width: 100%; }
+    .dt-inputs input { font-size: 16px; padding: 12px; }
 }
 
 /* 8. MODÁLNÍ OKNA */
