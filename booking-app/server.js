@@ -35,6 +35,9 @@ const BASE_URL = process.env.BASE_URL || "https://www.vozik247.cz";
 // EMAIL PRO NOTIFIKACE ADMINA
 const ADMIN_NOTIFICATION_EMAIL = "martinhusicka@centrum.cz";
 
+// TVOJE TELEFONNÍ ČÍSLO PRO KONTAKT
+const ADMIN_PHONE = "+420 702 024 786";
+
 const TTLOCK_CLIENT_ID = process.env.TTLOCK_CLIENT_ID;
 const TTLOCK_CLIENT_SECRET = process.env.TTLOCK_CLIENT_SECRET;
 const TTLOCK_USERNAME = process.env.TTLOCK_USERNAME;
@@ -225,12 +228,16 @@ async function sendReservationEmail(data, pdfBuffer, isUpdate = false, paymentLi
     <p><strong>ID rezervace:</strong><br><b>${data.reservationCode}</b></p>
     </div></td></tr>
     <tr><td style="padding:30px;text-align:left;"><h3 style="margin:0 0 10px;">Jak odemknout?</h3><ol style="color:#555;padding-left:20px;line-height:1.8;"><li>Probuďte klávesnici dotykem.</li><li>Zadejte PIN: <strong>${data.passcode}</strong></li><li>Potvrďte tlačítkem 🔑 (vpravo dole).</li></ol></td></tr>
-    <tr><td align="center" style="background:#333;padding:30px;color:#fff;border-radius:0 0 12px 12px;"><p style="font-weight:bold;margin:0;">Přívěsný vozík 24/7 Mohelnice</p><p style="font-size:11px;color:#aaa;margin-top:10px;">Automatická zpráva. info@vozik247.cz</p></td></tr>
+    <tr><td align="center" style="background:#333;padding:30px;color:#fff;border-radius:0 0 12px 12px;">
+    <p style="font-weight:bold;margin:0;">Přívěsný vozík 24/7 Mohelnice</p>
+    <p style="margin-top: 10px; font-size: 13px;">Potřebujete prodloužit nebo zrušit rezervaci? Volejte: <strong>${ADMIN_PHONE}</strong></p>
+    <p style="font-size:11px;color:#aaa;margin-top:15px;">Automatická zpráva. info@vozik247.cz</p></td></tr>
     </table></td></tr></table></body></html>`;
 
     const emailData = {
         sender: { name: "Vozík 24/7", email: SENDER_EMAIL },
         to: [{ email: data.email, name: data.name }],
+        replyTo: { email: SENDER_EMAIL },
         subject: subject,
         htmlContent: htmlContent
     };
@@ -260,6 +267,7 @@ async function sendAdminNewReservationEmail(data) {
     const emailData = {
         sender: { name: "Vozík 24/7 System", email: SENDER_EMAIL },
         to: [{ email: ADMIN_NOTIFICATION_EMAIL, name: "Martin Husicka" }],
+        replyTo: { email: data.email },
         subject: `NOVÁ REZERVACE: ${data.name} (${data.price} Kč)`,
         htmlContent: htmlContent
     };
@@ -277,13 +285,14 @@ async function sendTerminationEmail(data, reason) {
     <p>Dobrý den, <strong>${data.name}</strong>,</p>
     <p>Váš přístupový kód (PIN) k vozíku pro rezervaci <strong>${data.reservationCode}</strong> byl právě ukončen.</p>
     <p style="background:#ffebee; padding:15px; border-left: 5px solid #c62828; color: #c62828;"><strong>Důvod ukončení:</strong><br>${reason}</p>
-    <p>Pokud máte otázky, kontaktujte nás.</p>
+    <p>Pokud máte otázky, kontaktujte nás na čísle: <strong>${ADMIN_PHONE}</strong></p>
     <p>Vozík 24/7</p>
     `;
 
     const emailData = {
         sender: { name: "Vozík 24/7", email: SENDER_EMAIL },
         to: [{ email: data.email, name: data.name }],
+        replyTo: { email: SENDER_EMAIL },
         subject: `Ukončení PIN kódu - ${data.reservationCode}`,
         htmlContent: htmlContent
     };
