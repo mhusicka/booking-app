@@ -8,10 +8,13 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body { font-family: 'Montserrat', sans-serif; background: #f0f2f5; margin: 0; padding: 20px; color: #333; }
-        .admin-box { max-width: 1600px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); margin-bottom: 30px; }
+        
+        /* Box na celou šířku */
+        .admin-box { max-width: 100%; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); margin-bottom: 30px; }
         .login-screen { max-width: 400px; margin: 100px auto; text-align: center; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
         h1 { color: #bfa37c; margin-top: 0; display: flex; justify-content: space-between; align-items: center; }
         
+        /* --- STANDARDNÍ TABULKA (DESKTOP) --- */
         table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 13px; }
         th, td { padding: 12px 10px; text-align: left; border-bottom: 1px solid #eee; }
         th { background: #f8f9fa; color: #555; font-weight: 600; text-transform: uppercase; font-size: 11px; cursor: pointer; user-select: none; }
@@ -49,8 +52,7 @@
         .btn-export { background: #28a745; color: white; padding: 8px 16px; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; }
         .btn-export:hover { background: #218838; }
 
-        /* NOVÉ TLAČÍTKO PRO KONTAKTY */
-        .btn-save-contact { background: #333; color: white; padding: 8px 12px; font-size: 11px; border-radius: 4px; margin-top: 10px; width: 100%; border: none; cursor: pointer; font-weight: 600; text-transform: uppercase; }
+        .btn-save-contact { background: #333; color: white; padding: 12px; font-size: 11px; border-radius: 4px; margin-top: 10px; width: 100%; border: none; cursor: pointer; font-weight: 600; text-transform: uppercase; }
         .btn-save-contact:hover { background: #555; }
 
         .input-group { margin-bottom: 15px; }
@@ -87,34 +89,111 @@
         .col-id { font-family: monospace; font-weight: bold; color: #bfa37c; font-size: 14px; text-decoration: none; border-bottom: 1px dashed #bfa37c; }
         .col-id:hover { color: #a68b68; border-bottom-style: solid; }
 
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999; display: none; justify-content: center; align-items: center; }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999; display: flex; justify-content: center; align-items: center; }
         .modal-box { background: white; padding: 30px; border-radius: 12px; width: 400px; max-width: 90%; box-shadow: 0 10px 40px rgba(0,0,0,0.3); max-height: 90vh; overflow-y: auto; }
         .modal-box h2 { margin-top: 0; color: #333; border-bottom: 2px solid #bfa37c; display: inline-block; padding-bottom: 5px; }
         .btn-pay { background: #007bff; color: white; }
         .btn-pay:hover { background: #0056b3; }
 
-        .manual-container { display: flex; gap: 30px; flex-wrap: wrap; align-items: flex-start; }
-        .manual-form { flex: 1; min-width: 320px; }
-        .manual-calendar { flex: 1.5; min-width: 350px; background: #f8f9fa; padding: 20px; border-radius: 12px; border: 1px solid #eee; }
+        /* --- DESKTOP ROZLOŽENÍ --- */
+        .manual-container { display: flex; gap: 20px; flex-wrap: wrap; align-items: stretch; width: 100%; }
+        .manual-form { flex: 1; min-width: 320px; display: flex; flex-direction: column; }
+        .manual-calendar { flex: 1; background: #f8f9fa; padding: 15px; border-radius: 12px; border: 1px solid #eee; box-sizing: border-box; display: flex; flex-direction: column; }
 
-        .cal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
-        .cal-weekday { text-align: center; font-size: 10px; font-weight: bold; color: #aaa; padding-bottom: 5px; }
-        .cal-day { background: white; aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid #ddd; position: relative; transition: 0.2s; }
+        .cal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .cal-header h3 { font-size: 12px; margin: 0; }
+        
+        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); grid-auto-rows: 1fr; gap: 2px; flex-grow: 1; min-height: 0; }
+        .cal-weekday { text-align: center; font-size: 10px; font-weight: bold; color: #aaa; padding-bottom: 4px; display: flex; align-items: flex-end; justify-content: center; }
+        
+        .cal-day { background: white; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; border: 1px solid #ddd; transition: 0.2s; }
         .cal-day:hover { border-color: #bfa37c; }
         .cal-day.empty { background: transparent; border: none; cursor: default; }
         .cal-day.past { color: #ccc; cursor: not-allowed; background: #f9f9f9; }
         .cal-day.selected { border: 2px solid #333; }
         .cal-day.today { font-weight: 800; color: #333; border: 2px solid #bfa37c; }
         
-        /* Edit sekce pro zákazníka */
         .customer-edit-section { border-top: 1px solid #eee; margin-top: 20px; padding-top: 10px; }
         .customer-edit-section h3 { font-size: 14px; text-transform: uppercase; color: #888; margin-bottom: 10px; }
+
+        /* --- MOBILNÍ OPTIMALIZACE (RESPONZIVITA) --- */
+        @media (max-width: 768px) {
+            body { padding: 10px; }
+            .admin-box { padding: 15px; }
+            
+            h1 { flex-direction: column; align-items: flex-start; gap: 10px; }
+            h1 span { font-size: 18px; }
+            h1 div { width: 100%; display: flex; gap: 5px; }
+            h1 button { flex: 1; justify-content: center; }
+
+            /* Zmenšení paddingu kalendáře, aby nepřečuhoval */
+            .manual-calendar { padding: 8px; min-width: 100%; min-height: 350px; }
+            .cal-day { font-size: 10px; }
+
+            .manual-container { flex-direction: column; }
+            .manual-form { min-width: 100%; }
+
+            .settings-bar { flex-direction: column; align-items: stretch; }
+            .settings-bar div { justify-content: space-between; margin-left: 0 !important; margin-bottom: 10px; }
+            .btn-save-settings { width: 100%; margin-top: 10px; }
+
+            .modal-box { padding: 20px; width: 95%; }
+
+            /* --- KARTY MÍSTO TABULKY (CARD VIEW) --- */
+            table, thead, tbody, th, td, tr { display: block; }
+            thead tr { position: absolute; top: -9999px; left: -9999px; } /* Skrytí hlavičky */
+            
+            tr {
+                margin-bottom: 15px;
+                background: white;
+                border: 1px solid #ddd;
+                border-radius: 8px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+                padding: 10px;
+            }
+            
+            td {
+                border: none;
+                border-bottom: 1px solid #eee;
+                position: relative;
+                padding-left: 40%; /* Místo pro popisek */
+                padding-top: 8px;
+                padding-bottom: 8px;
+                text-align: right; /* Hodnoty vpravo */
+                min-height: 25px;
+                display: flex;
+                align-items: center;
+                justify-content: flex-end;
+            }
+            
+            td:last-child { border-bottom: none; justify-content: center; padding-left: 0; padding-top: 15px; }
+
+            /* Pomocí pseudo-elementu přidáme název sloupce před hodnotu */
+            td:before {
+                position: absolute;
+                top: 50%;
+                left: 10px;
+                transform: translateY(-50%);
+                width: 35%;
+                white-space: nowrap;
+                content: attr(data-label); /* Zde si vezme text z atributu data-label */
+                font-weight: 700;
+                color: #888;
+                font-size: 11px;
+                text-transform: uppercase;
+                text-align: left;
+            }
+            
+            /* Specifické úpravy pro vzhled v kartě */
+            .col-id { font-size: 16px; border: none; }
+            td[data-label="Akce"] { gap: 10px; }
+            .btn { padding: 8px 12px; font-size: 14px; }
+        }
     </style>
 </head>
 <body>
 
-    <div id="edit-modal" class="modal-overlay">
+    <div id="edit-modal" class="modal-overlay" style="display: none;">
         <div class="modal-box">
             <h2>Upravit rezervaci</h2>
             <input type="hidden" id="edit-id">
@@ -259,9 +338,8 @@
                         <button onclick="changeAdminMonth(1)" class="btn"><i class="fa-solid fa-chevron-right"></i></button>
                     </div>
                     <div class="cal-grid" id="admin-cal-grid"></div>
-                    <div style="margin-top:15px; font-size:11px; color:#666; display:flex; gap:15px; flex-wrap:wrap;">
+                    <div style="margin-top:10px; font-size:10px; color:#666; display:flex; gap:10px; flex-wrap:wrap;">
                         <span><i class="fa-solid fa-square" style="color:#bfa37c"></i> Obsazeno</span>
-                        <span><i class="fa-solid fa-mouse-pointer"></i> Kliknutím vyberete termín</span>
                     </div>
                 </div>
             </div>
@@ -470,38 +548,36 @@
                 tr.className = isActive ? 'active-now' : '';
                 const checkLink = `<a href="/check.html?id=${r.reservationCode}" target="_blank" class="col-id" title="Zobrazit jako zákazník">${r.reservationCode || '???'}</a>`;
 
-                // Logika tlačítka zámečku
                 let actionBtn = "";
                 if (r.keyboardPwdId && r.paymentStatus === 'PAID') {
-                     // PIN je aktivní -> Tlačítko UKONČIT (odemčený zámek)
                      actionBtn = `<button onclick="archiveRes('${r._id}')" class="btn btn-arch" title="Ukončit rezervaci"><i class="fa-solid fa-lock-open"></i></button>`;
                 } else if (!r.keyboardPwdId && r.paymentStatus === 'PAID') {
-                     // PIN není, ale je zaplaceno -> Tlačítko OBNOVIT (zamčený zámek)
                      actionBtn = `<button onclick="renewRes('${r._id}')" class="btn btn-restore" title="Obnovit PIN"><i class="fa-solid fa-lock"></i></button>`;
                 }
 
+                // ZDE JSOU PŘIDÁNY ATRIBUTY DATA-LABEL PRO MOBILNÍ ZOBRAZENÍ
                 tr.innerHTML = `
-                    <td>${createdHtml}</td>
-                    <td>${checkLink}</td>
-                    <td><b>${r.name || '-'}</b></td>
-                    <td style="font-size:11px">${r.email || '-'}</td>
-                    <td style="font-size:11px">${r.phone || '-'}</td>
-                    <td style="font-size:12px">${termStr}</td>
-                    <td style="font-weight:bold">${r.price} Kč</td>
-                    <td style="color:#dc3545">-${vals.fee} Kč</td>
-                    <td style="color:#fd7e14">-${vals.tax} Kč</td>
-                    <td style="color:#28a745; font-weight:bold">${vals.net} Kč</td>
-                    <td style="font-family:monospace;">${r.passcode || '-'}</td>
-                    <td>${pinHtml}</td>
-                    <td>
+                    <td data-label="Vytvořeno">${createdHtml}</td>
+                    <td data-label="ID">${checkLink}</td>
+                    <td data-label="Jméno"><b>${r.name || '-'}</b></td>
+                    <td data-label="Email" style="font-size:11px">${r.email || '-'}</td>
+                    <td data-label="Telefon" style="font-size:11px">${r.phone || '-'}</td>
+                    <td data-label="Termín" style="font-size:12px">${termStr}</td>
+                    <td data-label="Cena" style="font-weight:bold">${r.price} Kč</td>
+                    <td data-label="GoPay" style="color:#dc3545">-${vals.fee} Kč</td>
+                    <td data-label="Daň" style="color:#fd7e14">-${vals.tax} Kč</td>
+                    <td data-label="Čistý zisk" style="color:#28a745; font-weight:bold">${vals.net} Kč</td>
+                    <td data-label="PIN" style="font-family:monospace;">${r.passcode || '-'}</td>
+                    <td data-label="Stav PINu">${pinHtml}</td>
+                    <td data-label="Stav">
                         <span class="badge ${statusClass}">${statusText}</span>
                         ${pendingInfoHtml}
                     </td>
-                    <td style="display:flex; gap:3px;">
+                    <td data-label="Akce" style="display:flex; gap:3px;">
                         <button onclick='openEditModal(${JSON.stringify(r)})' class="btn btn-edit"><i class="fa-solid fa-pen"></i></button>
                         ${(r.pendingExtension && r.pendingExtension.active) 
-                           ? `<button onclick="resendPaymentLink('${r._id}')" class="btn btn-pay-link" title="Znovu poslat výzvu k platbě"><i class="fa-solid fa-money-bill-wave"></i></button>`
-                           : `<button onclick="resendEmail('${r._id}')" class="btn btn-resend"><i class="fa-regular fa-envelope"></i></button>`
+                            ? `<button onclick="resendPaymentLink('${r._id}')" class="btn btn-pay-link" title="Znovu poslat výzvu k platbě"><i class="fa-solid fa-money-bill-wave"></i></button>`
+                            : `<button onclick="resendEmail('${r._id}')" class="btn btn-resend"><i class="fa-regular fa-envelope"></i></button>`
                         }
                         ${actionBtn}
                         <button onclick="deleteRes('${r._id}')" class="btn btn-del"><i class="fa-solid fa-trash"></i></button>
@@ -594,7 +670,6 @@
             return `linear-gradient(90deg, ${stops.join(", ")})`;
         }
 
-        // UKONČENÍ REZERVACE S DŮVODEM
         async function archiveRes(id) {
             const reason = prompt("Zadejte důvod ukončení PINu (bude odeslán zákazníkovi):", "Ukončeno po dohodě");
             if (reason !== null) { 
@@ -656,7 +731,6 @@
             document.getElementById('edit-original-price').value = r.price;
             document.getElementById('edit-price').value = r.price;
             
-            // Vyplnění údajů zákazníka
             document.getElementById('edit-name').value = r.name || "";
             document.getElementById('edit-email').value = r.email || "";
             document.getElementById('edit-phone').value = r.phone || "";
@@ -665,14 +739,13 @@
         }
         function closeEditModal() { document.getElementById('edit-modal').style.display = 'none'; }
         
-        // NOVÁ FUNKCE: ULOŽIT JEN KONTAKTY
         async function saveContactInfoOnly() {
             const id = document.getElementById('edit-id').value;
             const payload = {
                 startDate: document.getElementById('edit-start').value,
                 endDate: document.getElementById('edit-end').value,
                 time: document.getElementById('edit-time').value,
-                price: document.getElementById('edit-original-price').value, // Neměníme cenu
+                price: document.getElementById('edit-original-price').value,
                 name: document.getElementById('edit-name').value,
                 email: document.getElementById('edit-email').value,
                 phone: document.getElementById('edit-phone').value
@@ -684,7 +757,6 @@
             } catch(e) { alert("Chyba: " + e.message); }
         }
 
-        // ULOŽIT ZDARMA (včetně jména, emailu, telefonu)
         async function saveEditFree() {
             const res = await fetch("/admin/reservations/" + document.getElementById('edit-id').value, {
                 method: "PUT", headers: { "Content-Type": "application/json", "x-admin-password": localStorage.getItem("adminPass") },
@@ -693,7 +765,6 @@
                     endDate: document.getElementById('edit-end').value,
                     time: document.getElementById('edit-time').value,
                     price: document.getElementById('edit-price').value,
-                    // Nové položky
                     name: document.getElementById('edit-name').value,
                     email: document.getElementById('edit-email').value,
                     phone: document.getElementById('edit-phone').value
