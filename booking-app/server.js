@@ -361,6 +361,38 @@ app.get("/availability", async (req, res) => {
     res.json(data);
 });
 
+// --- VEŘEJNÉ API PRO KONTROLU REZERVACE (NOVÉ PRO check.html) ---
+app.get('/api/check/:code', async (req, res) => {
+    try {
+        // ZDE JE OPRAVA: PŘEVOD NA VELKÁ PÍSMENA PRO SERVER + TRIM
+        const rawCode = req.params.code || "";
+        const searchCode = rawCode.trim().toUpperCase();
+        
+        const r = await Reservation.findOne({ reservationCode: searchCode });
+        
+        if (!r) {
+            return res.status(404).json({ error: "Rezervace nenalezena" });
+        }
+
+        // Z bezpečnostních důvodů posíláme jen to, co zákazník potřebuje vidět
+        res.json({
+            reservationCode: r.reservationCode,
+            startDate: r.startDate,
+            endDate: r.endDate,
+            time: r.time,
+            endTime: r.endTime || r.time,
+            price: r.price,
+            paymentStatus: r.paymentStatus,
+            passcode: (r.paymentStatus === 'PAID') ? r.passcode : null, // PIN ukážeme jen když je zaplaceno
+            name: r.name,
+            pendingExtension: r.pendingExtension
+        });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: "Chyba serveru" });
+    }
+});
+
 app.get("/api/settings", (req, res) => { res.json(getGlobalSettings()); });
 
 app.post("/create-payment", async (req, res) => {
@@ -424,11 +456,16 @@ app.get("/payment-return", async (req, res) => {
     }
 });
 
+// ZDE BYL PROBLÉM - chyběl trim() u code z body
 app.post("/retrieve-booking", async (req, res) => {
     try {
         const { code } = req.body;
-        if (!code) return res.json({ success: false });
-        const r = await Reservation.findOne({ reservationCode: code.toUpperCase() });
+        // Bezpečně ořízneme mezery, pokud code existuje
+        if (!code || typeof code !== 'string') return res.json({ success: false });
+        
+        const searchCode = code.trim().toUpperCase();
+        
+        const r = await Reservation.findOne({ reservationCode: searchCode });
         if (r) {
             const d1 = new Date(r.startDate);
             const d2 = new Date(r.endDate);
