@@ -618,8 +618,29 @@ nastavil.`);
     el.style.border = "1px solid #ddd";
     el.style.backgroundColor = "";
 
-    // Kontrola prázdnoty
-    if (!el.value.trim()) {
+    // 1. Získání hodnoty a oříznutí mezer
+    let val = el.value.trim();
+    let isValid = true;
+
+    // 2. Základní kontrola prázdnoty
+    if (!val) {
+        isValid = false;
+    }
+
+    // 3. Specifická kontrola pro telefon
+    // Musí obsahovat více než jen předvolbu "+420" (nebo "+420 ")
+    // Očekáváme alespoň 9 číslic (bez mezer a bez +)
+    if (id === "inp-phone") {
+        // Odstraníme vše co není číslo
+        const digits = val.replace(/\D/g, ''); 
+        // Pokud je délka méně než 9 (bez předvolby) nebo 12 (s předvolbou), je to chyba
+        // Protože tam je defaultně "+420 ", digits bude mít délku 3, pokud uživatel nic nenapíše.
+        if (digits.length < 9) {
+            isValid = false;
+        }
+    }
+
+    if (!isValid) {
         el.style.border = "2px solid #c62828";
         el.style.backgroundColor = "#ffebee";
         
@@ -649,7 +670,14 @@ nastavil.`);
     let isValid = true;
     if (!validateInput("inp-name", "Vyplňte jméno")) isValid = false;
     if (!validateInput("inp-email", "Vyplňte email")) isValid = false;
-    if (!validateInput("inp-phone", "Vyplňte telefon")) isValid = false;
+    if (!validateInput("inp-phone", "Vyplňte telefonní číslo")) isValid = false;
+
+    // 3. Kontrola souhlasu s podmínkami (NOVÉ)
+    const agreeCheckbox = document.getElementById("inp-agree");
+    if (!agreeCheckbox.checked) {
+        alert("Pro dokončení rezervace musíte souhlasit se smluvními podmínkami a ochranou údajů.");
+        isValid = false;
+    }
 
     if (!isValid) return; // Pokud něco chybí, nepokračovat
 
