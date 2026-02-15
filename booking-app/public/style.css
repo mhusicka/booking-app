@@ -211,3 +211,17 @@ input:not([type="checkbox"]), select { width: 100%; padding: 12px; border: 1px s
 .mini-search-box input::placeholder { text-transform: none; color: #999; }
 .mini-search-box button { background: none; border: none; cursor: pointer; color: #bfa37c; padding: 6px 10px; font-size: 14px; border-radius: 50%; transition: background 0.2s; }
 .mini-search-box button:hover { background: #f0f0f0; color: #333; }
+
+/* ANIMACE PRO ZVÝRAZNĚNÍ VYHLEDÁVÁNÍ */
+@keyframes attention-pulse {
+    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(191, 163, 124, 0.7); }
+    50% { transform: scale(1.15); box-shadow: 0 0 20px 10px rgba(191, 163, 124, 0.3); border-color: #bfa37c; }
+    100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(191, 163, 124, 0); }
+}
+
+.highlight-active {
+    animation: attention-pulse 0.6s ease-in-out;
+    z-index: 10;
+    position: relative;
+    border-color: #bfa37c !important; /* Zlatý rámeček během efektu */
+}
