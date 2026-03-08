@@ -71,13 +71,17 @@
                     <span id="out-end" class="info-val">--.--. --:--</span>
                 </div>
                 <div class="info-row">
+                    <span class="info-label">Doba pronájmu:</span>
+                    <span id="out-duration" class="info-val">--</span>
+                </div>
+                <div class="info-row">
                     <span class="info-label">Vozík:</span>
                     <span class="info-val">Vozík č. 1 (Agados)</span>
                 </div>
             </div>
 
             <div class="action-grid">
-                <a href="https://www.google.com/maps/search/?api=1&query=Dubová+1490/2,+Mohelnice" target="_blank" class="btn-side btn-nav">
+                <a href="https://www.google.com/maps/search/?api=1&query=Dubová+1490/2,+Mohelnice" target="_blank" class="btn-action btn-map">
                     <i class="fa-solid fa-location-arrow"></i> Navigovat
                 </a>
                 <a href="tel:+420702024786" class="btn-action btn-sos">
@@ -109,11 +113,9 @@
         const urlParams = new URLSearchParams(window.location.search);
         const urlId = urlParams.get('id');
         
-        // 1. Pokud máme ID, hledáme
         if (urlId) {
             fetchBooking(urlId);
         } else {
-            // 2. Pokud ID nemáme, nemá tu uživatel co dělat -> Zpět na hlavní web
             goHome();
         }
     };
@@ -124,52 +126,84 @@
 
     async function fetchBooking(code) {
         try {
-            const res = await fetch(`${API_BASE}/retrieve-booking`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ code })
-            });
-            const data = await res.json();
-
-            if (data.success) {
-                document.getElementById('loader').style.display = "none";
-                showDetail(data);
-            } else {
-                alert("Rezervace nebyla nalezena. Zkuste to znovu.");
-                goHome(); // Při chybě zpět na vyhledávání
+            const res = await fetch(`${API_BASE}/api/check/${code.trim()}`);
+            
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => null);
+                alert("Rezervace nebyla nalezena: " + (errorData?.error || 'Zkuste to znovu.'));
+                goHome();
+                return;
             }
+
+            const data = await res.json();
+            document.getElementById('loader').style.display = "none";
+            showDetail(data);
+
         } catch (e) {
             console.error(e);
-            alert("Chyba připojení.");
+            alert("Chyba připojení k serveru.");
             goHome();
         }
+    }
+
+    function formatCzDate(isoDate) {
+        if (!isoDate) return "";
+        const [year, month, day] = isoDate.split('-');
+        return `${day}.${month}.${year}`;
+    }
+
+    function getCzechNoun(count, one, few, many) {
+        if (count === 1) return one;
+        if (count >= 2 && count <= 4) return few;
+        return many;
     }
 
     function showDetail(data) {
         document.getElementById('detail-section').style.display = 'block';
 
-        document.getElementById('out-id').innerText = data.orderId;
-        document.getElementById('out-pin').innerText = data.pin;
-        document.getElementById('out-start').innerText = data.start;
-        document.getElementById('out-end').innerText = data.end;
+        document.getElementById('out-id').innerText = data.reservationCode;
+        document.getElementById('out-pin').innerText = data.passcode || '---';
 
-        const statusEl = document.getElementById('status-bar');
+        const startDate = data.startDate;
+        const endDate = data.endDate;
+        const startTime = data.time;
+        const endTime = data.endTime;
+
+        document.getElementById('out-start').innerText = `${formatCzDate(startDate)} ${startTime}`;
+        document.getElementById('out-end').innerText = `${formatCzDate(endDate)} ${endTime}`;
+
+        const d1 = new Date(`${startDate}T${startTime}:00`);
+        const d2 = new Date(`${endDate}T${endTime}:00`);
+        let diffMs = d2 - d1;
+        if (diffMs < 0) diffMs = 0;
         
-        if (data.status === "UKONČENO") {
+        const totalHours = Math.ceil(diffMs / (1000 * 60 * 60));
+        let days = Math.ceil(diffMs / (24 * 60 * 60 * 1000));
+        if (totalHours > 0 && days < 1) days = 1;
+        
+        const dayStr = getCzechNoun(days, "den", "dny", "dní");
+        const hourStr = getCzechNoun(totalHours, "hodina", "hodiny", "hodin");
+        document.getElementById('out-duration').innerText = `${days} ${dayStr} (${totalHours} ${hourStr})`;
+        
+        const statusEl = document.getElementById('status-bar');
+        const now = new Date();
+
+        if (data.paymentStatus !== 'PAID') {
+            statusEl.innerText = "ČEKÁ NA PLATBU / ZRUŠENO";
+            statusEl.className = "status-header bg-ended";
+            document.getElementById('out-pin').innerText = "---";
+        } else if (now > d2) {
             statusEl.innerText = "REZERVACE UKONČENA";
             statusEl.className = "status-header bg-ended";
-            document.getElementById('out-pin').style.textDecoration = "line-through";
-            document.getElementById('out-pin').style.color = "#ccc";
+        } else if (now < d1) {
+            statusEl.innerText = "REZERVACE BUDE AKTIVNÍ";
+            statusEl.className = "status-header bg-future";
         } else {
-            statusEl.innerText = "REZERVACE AKTIVNÍ";
+            statusEl.innerText = "REZERVACE JE AKTIVNÍ";
             statusEl.className = "status-header bg-active";
-            document.getElementById('out-pin').style.textDecoration = "none";
-            document.getElementById('out-pin').style.color = "#333";
         }
     }
 </script>
 
 </body>
 </html>
-
-
