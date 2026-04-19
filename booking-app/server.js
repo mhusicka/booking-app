@@ -22,16 +22,23 @@ app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'adm
 const settingsPath = path.join(__dirname, 'settings.json');
 
 function getGlobalSettings() {
-    if (!fs.existsSync(settingsPath)) return { dailyPrice: 230, taxRate: 15 };
+    const defaultSettings = { dailyPrice: 230, taxRate: 15, webLocked: true };
+    if (!fs.existsSync(settingsPath)) return defaultSettings;
     try {
-        return JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+        const data = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+        return { ...defaultSettings, ...data };
     } catch (e) {
-        return { dailyPrice: 230, taxRate: 15 };
+        return defaultSettings;
     }
+}
+
+function saveGlobalSettings(settings) {
+    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 }
 
 const MONGO_URI = process.env.MONGO_URI;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+const DEBUG_PASSWORD = process.env.DEBUG_PASSWORD; // Heslo pro web
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const SENDER_EMAIL = process.env.SENDER_EMAIL || "info@vozik247.cz";
 const BASE_URL = process.env.BASE_URL || "https://www.vozik247.cz";
@@ -47,7 +54,44 @@ const MY_LOCK_ID = parseInt(process.env.MY_LOCK_ID);
 const GOPAY_GOID = process.env.GOPAY_GOID;
 const GOPAY_CLIENT_ID = process.env.GOPAY_CLIENT_ID;
 const GOPAY_CLIENT_SECRET = process.env.GOPAY_CLIENT_SECRET;
-const GOPAY_API_URL = "https://gw.sandbox.gopay.com"; // Pro produkci změnit na https://gw.gopay.com
+const GOPAY_API_URL = "https://gw.sandbox.gopay.com";
+
+// --- API PRO ZÁMEK WEBU ---
+app.get("/api/lock-status", (req, res) => {
+    const settings = getGlobalSettings();
+    res.json({ isLocked: settings.webLocked });
+});
+
+app.post("/api/verify-password", (req, res) => {
+    const { password } = req.body;
+    if (password === DEBUG_PASSWORD) {
+        res.json({ success: true });
+    } else {
+        res.status(401).json({ success: false });
+    }
+});
+
+app.post("/admin/toggle-lock", (req, res) => {
+    try {
+        const adminPwd = req.headers["x-admin-password"];
+        if (adminPwd !== ADMIN_PASSWORD) {
+            console.log("❌ Zámek webu: Neplatné heslo admina.");
+            return res.status(403).json({ error: "Neplatné heslo admina." });
+        }
+
+        const { locked } = req.body;
+        const settings = getGlobalSettings();
+        settings.webLocked = !!locked;
+        
+        saveGlobalSettings(settings);
+        console.log(`✅ Zámek webu byl ${locked ? "ZAPNUT" : "VYPNUT"}.`);
+        
+        res.json({ success: true, isLocked: settings.webLocked });
+    } catch (err) {
+        console.error("❌ Kritická chyba při ukládání do settings.json:", err);
+        res.status(500).json({ error: "Nepodařilo se zapsat do souboru settings.json na serveru." });
+    }
+});
 
 // --- DB ---
 mongoose.connect(MONGO_URI)
@@ -237,7 +281,6 @@ async function sendReservationEmail(data, pdfBuffer, isUpdate = false, paymentLi
     let subject, title, msg, pinSection;
 
     if (paymentLink) {
-        // Logika pro odkaz na platbu (buď doplatek nebo celá nová rezervace)
         const isExtension = (data.pendingExtension && data.pendingExtension.active);
         const amount = isExtension ? data.pendingExtension.surcharge : data.price;
         
@@ -410,7 +453,7 @@ async function getTTLockToken() {
 }
 
 async function addPinToLock(r, existingPin = null) {
-    const pin = existingPin || generatePin(); // Use existing PIN or generate a new one
+    const pin = existingPin || generatePin(); 
     try {
         const token = await getTTLockToken();
         const startMs = new Date(`${r.startDate}T${r.time}:00`).getTime();
@@ -435,14 +478,13 @@ async function addPinToLock(r, existingPin = null) {
         if (res.data && res.data.keyboardPwdId) {
             return { pin, keyboardPwdId: res.data.keyboardPwdId };
         } else {
-            // Handle cases where API returns success but no ID
             console.error("TTLock API Error: keyboardPwdId missing in response.", res.data);
             return { pin, keyboardPwdId: null };
         }
 
     } catch (err) {
         console.error("TTLock API Error in addPinToLock:", err.response ? JSON.stringify(err.response.data) : err.message);
-        return { pin, keyboardPwdId: null }; // Return the same PIN that failed
+        return { pin, keyboardPwdId: null }; 
     }
 }
 
@@ -457,10 +499,9 @@ async function deletePinFromLock(keyboardPwdId) {
 
 async function finalizeReservation(reservation) {
     const MAX_RETRIES = 3;
-    const RETRY_DELAY = 30000; // 30 seconds
+    const RETRY_DELAY = 30000; 
     let lockData;
 
-    // Generate a single PIN for all attempts
     const pinToTry = generatePin();
 
     for (let i = 0; i < MAX_RETRIES; i++) {
@@ -469,19 +510,19 @@ async function finalizeReservation(reservation) {
         
         if (lockData.keyboardPwdId) {
             console.log(`PIN set successfully on attempt ${i + 1}`);
-            break; // Success, exit the loop
+            break; 
         }
         
         if (i < MAX_RETRIES - 1) {
             console.log(`PIN set failed. Retrying in ${RETRY_DELAY / 1000} seconds...`);
-            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY)); // Wait for 30 seconds
+            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY)); 
         } else {
             console.log(`All ${MAX_RETRIES} PIN set retries have failed for reservation ${reservation.reservationCode}.`);
         }
     }
 
-    reservation.passcode = pinToTry; // Always save the pin that was tried
-    reservation.keyboardPwdId = lockData.keyboardPwdId; // This will be null if all retries failed
+    reservation.passcode = pinToTry; 
+    reservation.keyboardPwdId = lockData.keyboardPwdId; 
     reservation.paymentStatus = 'PAID';
     await reservation.save();
     
@@ -621,8 +662,6 @@ app.get("/payment-return", async (req, res) => {
             res.redirect(`/check.html?id=${r.reservationCode}`);
         } else {
             if (!isExtension) {
-                // Pokud to nebyla extension, tak to možná jen zákazník nedokončil, ale rezervaci chceme možná nechat chvíli viset
-                // Nebo ji zrušíme. Zde to necháváme na CANCELED.
                 r.paymentStatus = 'CANCELED';
                 await r.save();
                 res.redirect("/?error=payment_failed");
@@ -727,23 +766,19 @@ app.post("/admin/reservations/:id/archive", checkAdmin, async (req, res) => {
     res.json({ success: true });
 });
 
-// --- UPDATED: RESERVE RANGE (s logikou pro Výzvu k platbě) ---
 app.post("/reserve-range", checkAdmin, async (req, res) => {
     const { startDate, endDate, time, endTime, requestPayment, ...rest } = req.body;
     const finalEndTime = endTime || time;
     const reqStartStr = `${startDate}T${time}:00`;
     const reqEndStr = `${endDate}T${finalEndTime}:00`;
     
-    // 1. Kontrola kolize
     const overlap = await checkOverlap(reqStartStr, reqEndStr);
     if (overlap) return res.status(409).json({ error: "Termín je již obsazen." });
     
     const rCode = generateResCode();
 
     if (requestPayment === true) {
-        // --- MOŽNOST B: Vytvořit nezaplacenou (PENDING) a poslat odkaz ---
         try {
-            // Vytvoříme PENDING rezervaci
             const r = new Reservation({ 
                 ...rest, 
                 startDate, endDate, time, endTime: finalEndTime, 
@@ -752,7 +787,6 @@ app.post("/reserve-range", checkAdmin, async (req, res) => {
             });
             await r.save();
 
-            // Vytvoříme platbu na GoPay
             const token = await getGoPayToken();
             const gpRes = await axios.post(`${GOPAY_API_URL}/api/payments/payment`, {
                 payer: { contact: { first_name: rest.name, email: rest.email, phone_number: rest.phone } },
@@ -770,7 +804,6 @@ app.post("/reserve-range", checkAdmin, async (req, res) => {
             r.gopayId = gpRes.data.id;
             await r.save();
 
-            // Pošleme email s odkazem (použijeme sendReservationEmail s odkazem)
             await sendReservationEmail(r, null, false, gpRes.data.gw_url);
 
             res.json({ success: true, mode: 'payment_link', paymentUrl: gpRes.data.gw_url });
@@ -781,7 +814,6 @@ app.post("/reserve-range", checkAdmin, async (req, res) => {
         }
 
     } else {
-        // --- MOŽNOST A: Vytvořit ZAPLACENOU (PAID) a poslat PIN (Standard) ---
         const r = new Reservation({ 
             ...rest, 
             startDate, endDate, time, endTime: finalEndTime, 
@@ -880,13 +912,11 @@ app.post("/admin/reservations/:id/retry-pin", checkAdmin, async (req, res) => {
         if (!r) return res.status(404).json({ error: "Rezervace nenalezena." });
         if (!r.passcode) return res.status(400).json({ error: "Rezervace nemá existující PIN kód pro opakování." });
 
-        // Call addPinToLock, but provide the existing PIN
         const lockData = await addPinToLock(r, r.passcode);
 
         if (lockData.keyboardPwdId) {
             r.keyboardPwdId = lockData.keyboardPwdId;
             await r.save();
-            // PIN has not changed, so no need to re-send the email. The admin gets confirmation.
             res.json({ success: true, message: "PIN byl úspěšně nastaven v zámku." });
         } else {
             res.status(500).json({ error: "Nastavení PINu v zámku se znovu nezdařilo." });
