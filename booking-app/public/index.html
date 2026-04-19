@@ -50,7 +50,7 @@
 </head>
 
 <body>
-    <div id="testing-lock" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #1a1a1a; z-index: 999999; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: 'Montserrat', sans-serif; color: white; text-align: center; padding: 20px; box-sizing: border-box;">
+    <div id="testing-lock" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #1a1a1a; z-index: 999999; display: none; flex-direction: column; align-items: center; justify-content: center; font-family: 'Montserrat', sans-serif; color: white; text-align: center; padding: 20px; box-sizing: border-box;">
         <div style="max-width: 400px; width: 100%; background: #222; padding: 40px; border-radius: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); border: 1px solid #333;">
             <form id="unlock-form" style="width: 100%; display: contents;">
             <i class="fa-solid fa-screwdriver-wrench" style="font-size: 50px; color: #bfa37c; margin-bottom: 20px;"></i>
@@ -59,7 +59,7 @@
             
             <input type="password" id="test-pass" name="password" autocomplete="current-password" placeholder="Zadejte heslo" style="width: 100%; padding: 15px; border-radius: 10px; border: 1px solid #444; background: #111; color: white; margin-bottom: 20px; text-align: center; font-size: 16px; outline: none; box-sizing: border-box;">
             
-            <button type="submit" style="width: 100%; padding: 15px; border-radius: 10px; border: none; background: #bfa37c; color: white; font-weight: bold; cursor: pointer; text-transform: uppercase; transition: 0.3s;" onmouseover="this.style.background='#a68d6a'" onmouseout="this.style.background='#bfa37c'">
+            <button type="submit" id="unlock-btn" style="width: 100%; padding: 15px; border-radius: 10px; border: none; background: #bfa37c; color: white; font-weight: bold; cursor: pointer; text-transform: uppercase; transition: 0.3s;" onmouseover="this.style.background='#a68d6a'" onmouseout="this.style.background='#bfa37c'">
                 Odemknout
             </button>
             <div id="lock-error" style="color: #ff4d4d; font-size: 12px; margin-top: 15px; display: none;">Neplatné heslo, zkuste to znovu.</div>
@@ -71,29 +71,65 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('unlock-form').addEventListener('submit', unlockWeb);
+            checkLock();
         });
 
-        function unlockWeb(event) {
-            if(event) event.preventDefault();
-            const pass = document.getElementById('test-pass').value;
-            const correctPass = '3C1a4d88*'; 
-            
-            if (pass === correctPass) {
-                document.getElementById('testing-lock').style.opacity = '0';
-                setTimeout(() => {
-                    document.getElementById('testing-lock').style.display = 'none';
-                }, 300);
-                localStorage.setItem('vozik_debug_access', 'true');
-            } else {
-                const err = document.getElementById('lock-error');
-                err.style.display = 'block';
-                document.getElementById('test-pass').value = '';
-                document.getElementById('test-pass').style.borderColor = '#ff4d4d';
+        async function checkLock() {
+            const overlay = document.getElementById('testing-lock');
+            const isAlreadyUnlocked = localStorage.getItem('vozik_debug_access') === 'true';
+
+            try {
+                const res = await fetch('/api/lock-status');
+                const data = await res.json();
+
+                if (data.isLocked && !isAlreadyUnlocked) {
+                    overlay.style.display = 'flex';
+                } else {
+                    overlay.style.display = 'none';
+                }
+            } catch (e) {
+                console.error("Chyba při kontrole zámku", e);
+                // Fallback pro jistotu
+                if (!isAlreadyUnlocked) overlay.style.display = 'flex';
             }
         }
-        /* if (localStorage.getItem('vozik_debug_access') === 'true') {
-            document.getElementById('testing-lock').style.display = 'none';
-        } */
+
+        async function unlockWeb(event) {
+            if(event) event.preventDefault();
+            const pass = document.getElementById('test-pass').value;
+            const err = document.getElementById('lock-error');
+            const btn = document.getElementById('unlock-btn');
+            
+            btn.disabled = true;
+            btn.innerText = 'Ověřuji...';
+
+            try {
+                const res = await fetch('/api/verify-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password: pass })
+                });
+
+                if (res.ok) {
+                    document.getElementById('testing-lock').style.opacity = '0';
+                    setTimeout(() => {
+                        document.getElementById('testing-lock').style.display = 'none';
+                    }, 300);
+                    localStorage.setItem('vozik_debug_access', 'true');
+                } else {
+                    err.style.display = 'block';
+                    err.textContent = 'Neplatné heslo, zkuste to znovu.';
+                    document.getElementById('test-pass').value = '';
+                    document.getElementById('test-pass').style.borderColor = '#ff4d4d';
+                }
+            } catch (error) {
+                err.style.display = 'block';
+                err.textContent = 'Chyba serveru. Zkuste to za chvíli.';
+            } finally {
+                btn.disabled = false;
+                btn.innerText = 'Odemknout';
+            }
+        }
     </script>
     <div class="main-container">
         
