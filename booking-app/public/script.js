@@ -213,6 +213,21 @@ async function init() {
             }
         });
     }
+
+    // --- NOVÝ KÓD PRO AUTOMATICKÉ TLAČÍTKO "TEĎ" Z QR KÓDU ---
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('action') === 'now') {
+        // Počkáme půl vteřiny, než se plně inicializuje kalendář, a pak klikneme za uživatele
+        setTimeout(() => {
+            setNow();
+            
+            // Posune obrazovku na formulář pro rychlejší dokončení
+            const formEl = document.getElementById("booking-form") || document.getElementById("reservation-form");
+            if (formEl) {
+                formEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }, 500); 
+    }
 }
 
 async function refreshDataSilent() {
@@ -467,7 +482,6 @@ async function handleDayClick(clickedDateStr) {
     const instrEl = document.getElementById("calendar-instruction");
 
     if (isSelectingRange) {
-        // --- DRUHÝ KLIK (KONEC) - LOGIKA ZŮSTÁVÁ STEJNÁ ---
         let firstDate = startDate;
         let secondDate = clickedDateStr;
 
@@ -509,7 +523,6 @@ async function handleDayClick(clickedDateStr) {
         }
 
     } else {
-        // --- PRVNÍ KLIK (ZAČÁTEK) - NOVÁ LOGIKA ---
         const dayStart = new Date(`${clickedDateStr}T00:00:00`);
         const dayEnd = new Date(`${clickedDateStr}T23:59:59`);
 
