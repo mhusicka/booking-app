@@ -777,12 +777,9 @@ function changeMonth(delta) {
 async function setNow() { 
     await refreshDataSilent(); 
     const now = new Date(); 
-    let m = Math.ceil(now.getMinutes() / 15) * 15; 
-    let addedH = 0; 
-    if (m === 60) { m = 0; addedH = 1; } 
      
     let checkDate = now.toLocaleDateString('en-CA'); 
-    let checkTime = `${String(now.getHours() + addedH).padStart(2,'0')}:${String(m).padStart(2,'0')}`; 
+    let checkTime = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`; 
 
     let isOccupied = true; 
     let iterations = 0; 
