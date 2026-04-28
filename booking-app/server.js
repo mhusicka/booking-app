@@ -142,6 +142,12 @@ function formatDateCz(dateStr) {
     return `${day}.${month}.${d.getFullYear()}`;
 }
 
+function getCzechNoun(count, one, few, many) {
+    if (count === 1) return one;
+    if (count >= 2 && count <= 4) return few;
+    return many;
+}
+
 function generateResCode() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
@@ -256,7 +262,7 @@ function createInvoicePdf(data) {
     });
 }
 
-// --- EMAILY ---
+// --- EMAILY (UPRAVENO PŘESNĚ PODLE WEBOVÉHO DESIGNU) ---
 async function sendReservationEmail(data, pdfBuffer, isUpdate = false, paymentLink = null) {
     if (!BREVO_API_KEY) {
         console.log("⚠️ Chybí BREVO_API_KEY, email se neodeslal.");
@@ -278,26 +284,78 @@ async function sendReservationEmail(data, pdfBuffer, isUpdate = false, paymentLi
     const startF = formatDateCz(displayStartDate);
     const endF = formatDateCz(displayEndDate);
     
-    let subject, title, msg, pinSection;
+    // Výpočet délky rezervace jako v check.html
+    const d1 = new Date(`${displayStartDate}T${displayTime}:00`);
+    const d2 = new Date(`${displayEndDate}T${displayEndTime}:00`);
+    let diffMs = d2 - d1;
+    if (diffMs < 0) diffMs = 0;
+    
+    const totalHours = Math.ceil(diffMs / (1000 * 60 * 60));
+    let days = Math.ceil(diffMs / (24 * 60 * 60 * 1000));
+    if (totalHours > 0 && days < 1) days = 1;
+    
+    const dayStr = getCzechNoun(days, "den", "dny", "dní");
+    const hourStr = getCzechNoun(totalHours, "hodina", "hodiny", "hodin");
+    const durationText = `${days} ${dayStr} (${totalHours} ${hourStr})`;
+    
+    let subject, statusText, statusColor, pinBlock, actionContent;
 
     if (paymentLink) {
         const isExtension = (data.pendingExtension && data.pendingExtension.active);
         const amount = isExtension ? data.pendingExtension.surcharge : data.price;
-        
         subject = `PLATBA REZERVACE - ${data.reservationCode}`;
-        title = "Výzva k platbě";
-        msg = `Byla vytvořena rezervace vozíku, která čeká na úhradu.<br>Částka k úhradě: <strong>${amount} Kč</strong>.<br><br>Po zaplacení Vám automaticky přijde PIN k zámku.`;
-        pinSection = `<a href="${paymentLink}" class="payment-button">ZAPLATIT ${amount} Kč</a>`;
+        statusText = "VÝZVA K PLATBĚ";
+        statusColor = "#0d47a1"; // Modrá
+        
+        pinBlock = `<div style="margin: 20px 0; color: #555;">Kód k zámku Vám zašleme ihned po zaplacení.</div>`;
+        actionContent = `
+            <a href="${paymentLink}" style="background-color: #0d47a1; color: white; padding: 15px; border-radius: 8px; text-decoration: none; font-weight: bold; display: block; text-align: center; margin-bottom: 10px;">ZAPLATIT ONLINE (${amount} Kč)</a>
+        `;
     } else if (isUpdate) {
         subject = `ZMĚNA REZERVACE - ${data.reservationCode}`;
-        title = "Rezervace byla upravena";
-        msg = `Vaše rezervace byla upravena/obnovena. Zde je Váš <strong>NOVÝ PIN</strong>.`;
-        pinSection = `<div class="pin-wrapper"><span class="pin-label">VÁŠ NOVÝ KÓD K ZÁMKU</span><span class="pin-value">${data.passcode}</span></div>`;
+        statusText = "REZERVACE UPRAVENA";
+        statusColor = "#17a2b8"; // Modrozelená (bg-future)
+        
+        pinBlock = `
+            <div style="background: #fffdfa; border: 2px dashed #bfa37c; padding: 20px; border-radius: 10px; margin: 20px 0;">
+                <span style="font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 2px; display: block; margin-bottom: 5px;">NOVÝ PIN K ZÁMKU</span>
+                <span style="font-size: 48px; font-weight: 800; color: #333; letter-spacing: 8px; line-height: 1;">${data.passcode}</span>
+            </div>`;
     } else {
         subject = `Potvrzení rezervace - ${data.reservationCode}`;
-        title = "Rezervace úspěšná!";
-        msg = `Děkujeme, <strong>${data.name}</strong>.<br>Váš přívěsný vozík je rezervován a zaplacen.`;
-        pinSection = `<div class="pin-wrapper"><span class="pin-label">VÁŠ KÓD K ZÁMKU</span><span class="pin-value">${data.passcode}</span></div>`;
+        statusText = "REZERVACE ÚSPĚŠNÁ";
+        statusColor = "#28a745"; // Zelená (bg-active)
+        
+        pinBlock = `
+            <div style="background: #fffdfa; border: 2px dashed #bfa37c; padding: 20px; border-radius: 10px; margin: 20px 0;">
+                <span style="font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 2px; display: block; margin-bottom: 5px;">PIN K ZÁMKU</span>
+                <span style="font-size: 48px; font-weight: 800; color: #333; letter-spacing: 8px; line-height: 1;">${data.passcode}</span>
+            </div>`;
+    }
+
+    if (!paymentLink) {
+        actionContent = `
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin-top: 20px;">
+                <tr>
+                    <td width="48%" style="text-align: center;">
+                        <a href="https://www.google.com/maps/search/?api=1&query=Dubová+1490/2,+Mohelnice" style="background: #f0f0f0; color: #333; padding: 12px; border-radius: 8px; text-decoration: none; font-weight: bold; display: block; font-size: 13px;">📍 Navigovat</a>
+                    </td>
+                    <td width="4%"></td>
+                    <td width="48%" style="text-align: center;">
+                        <a href="tel:+420702024786" style="background: #ffebeb; color: #d63031; padding: 12px; border-radius: 8px; text-decoration: none; font-weight: bold; display: block; font-size: 13px;">📞 Pomoc</a>
+                    </td>
+                </tr>
+            </table>
+            <a href="${BASE_URL}/check.html?id=${data.reservationCode}" style="background-color: #bfa37c; color: white; padding: 12px; border-radius: 8px; text-decoration: none; font-weight: bold; display: block; text-align: center; margin-top: 10px; font-size: 13px;">Zobrazit webový detail</a>
+            
+            ${data.passcode ? `
+            <div style="margin-top: 25px; background: #f8f9fa; padding: 15px; border-radius: 8px; text-align: left; font-size: 13px; color: #555;">
+                <strong style="display:block; margin-bottom:10px; color:#333;">ℹ️ Jak odemknout?</strong>
+                <p style="margin: 0 0 8px 0;">👉 1. Probuďte zámek dotykem na klávesnici.</p>
+                <p style="margin: 0 0 8px 0;">⌨️ 2. Zadejte PIN a stiskněte 🔑 (klíček).</p>
+                <p style="margin: 0;">🔓 3. Zámek se odemkne do 2 vteřin.</p>
+            </div>` : ''}
+        `;
     }
 
     const htmlContent = `
@@ -305,63 +363,51 @@ async function sendReservationEmail(data, pdfBuffer, isUpdate = false, paymentLi
     <html lang="cs">
     <head>
         <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
-        <style>
-            body { background: #f4f4f4; font-family: 'Montserrat', sans-serif; display: flex; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box; margin: 0;}
-            .email-container { max-width: 550px; width: 100%; background: #ffffff; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); overflow: hidden; }
-            .status-header { padding: 15px; text-align: center; font-weight: 800; color: white; text-transform: uppercase; font-size: 14px; letter-spacing: 1px; }
-            .bg-active { background: #28a745; }
-            .bg-pending { background: #0d47a1; }
-            .bg-update { background: #17a2b8; }
-            .email-body { padding: 30px; text-align: center; }
-            p { color: #666; margin-top: 0; line-height: 1.6; font-size: 14px; }
-            .pin-wrapper { background: #fffdfa; border: 2px dashed #bfa37c; padding: 20px; border-radius: 10px; margin: 25px 0; text-align: center; }
-            .pin-label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 2px; display: block; margin-bottom: 5px; }
-            .pin-value { font-size: 48px; font-weight: 800; color: #333; letter-spacing: 8px; line-height: 1; }
-            .payment-button { background:#0d47a1; color:white; padding:15px 30px; text-decoration:none; font-weight:bold; border-radius:5px; display:inline-block; font-size:18px; }
-            .details-box { background:#f8f9fa; border-radius:12px; padding:20px; text-align: left; margin-top: 25px; font-size: 14px; }
-            .details-box p { margin: 0 0 10px 0; }
-            .details-box strong { color: #333; }
-            .instructions-box { padding: 20px 0; text-align:left; font-size: 14px; }
-            .instructions-box h3 { margin:0 0 10px; color: #333; }
-            .instructions-box ol { color:#555; padding-left:20px; line-height:1.8; margin: 0; }
-            .footer { background:#333; padding:25px; color:#fff; text-align: center; }
-            .footer p { color: #eee; margin: 0; font-size: 13px; }
-            .footer strong { color: white; }
-            .footer .sub-text { font-size:11px; color:#aaa; margin-top:15px; }
-        </style>
+        <title>${statusText}</title>
     </head>
-    <body>
-    <table width="100%" cellpadding="0" cellspacing="0" style="padding:20px; background-color:#f4f4f4;"><tr><td align="center">
-    <div class="email-container">
-        <div class="status-header ${paymentLink ? 'bg-pending' : (isUpdate ? 'bg-update' : 'bg-active')}">${title}</div>
-        <div class="email-body">
-            <p>${msg}</p>
-            <div style="margin: 25px 0;">${pinSection}</div>
-            <div class="details-box">
-                <p><strong>Termín:</strong><br>${startF} ${displayTime} — ${endF} ${displayEndTime}</p>
-                <p><strong>Telefon:</strong><br>${data.phone}</p>
-                <p style="margin:0;"><strong>ID rezervace:</strong><br><b>${data.reservationCode}</b></p>
+    <body style="background-color: #f4f4f4; font-family: Arial, sans-serif; margin: 0; padding: 40px 20px;">
+        <div style="max-width: 500px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; border: 1px solid #e0e0e0; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
+            
+            <div style="padding: 15px; text-align: center; font-weight: bold; color: white; text-transform: uppercase; font-size: 14px; letter-spacing: 1px; background-color: ${statusColor};">
+                ${statusText}
             </div>
-            ${data.passcode ? `
-            <div class="instructions-box">
-                <h3>Jak odemknout?</h3>
-                <ol>
-                    <li>Probuďte klávesnici dotykem.</li>
-                    <li>Zadejte PIN: <strong>${data.passcode}</strong></li>
-                    <li>Potvrďte tlačítkem &#128477; (vpravo dole).</li>
-                </ol>
-            </div>` : ''}
+            
+            <div style="padding: 30px 20px; text-align: center;">
+                <p style="margin: 0; color: #aaa; font-size: 12px; text-transform: uppercase;">ID Rezervace</p>
+                <h1 style="margin: 5px 0 20px 0; color: #333; letter-spacing: 2px; font-size: 26px;">${data.reservationCode}</h1>
+
+                ${pinBlock}
+
+                <table width="100%" cellpadding="0" cellspacing="0" style="margin: 20px 0; font-size: 14px;">
+                    <tr>
+                        <td style="padding: 15px 0; border-bottom: 1px solid #f0f0f0; color: #888; text-align: left;">Vyzvednutí:</td>
+                        <td style="padding: 15px 0; border-bottom: 1px solid #f0f0f0; color: #333; font-weight: 600; text-align: right;">${startF} ${displayTime}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 15px 0; border-bottom: 1px solid #f0f0f0; color: #888; text-align: left;">Vrácení:</td>
+                        <td style="padding: 15px 0; border-bottom: 1px solid #f0f0f0; color: #333; font-weight: 600; text-align: right;">${endF} ${displayEndTime}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 15px 0; border-bottom: 1px solid #f0f0f0; color: #888; text-align: left;">Doba pronájmu:</td>
+                        <td style="padding: 15px 0; border-bottom: 1px solid #f0f0f0; color: #333; font-weight: 600; text-align: right;">${durationText}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 15px 0; color: #888; text-align: left;">Vozík:</td>
+                        <td style="padding: 15px 0; color: #333; font-weight: 600; text-align: right;">Vozík č. 1 (Agados)</td>
+                    </tr>
+                </table>
+
+                ${actionContent}
+
+            </div>
         </div>
-        <div class="footer">
-            <p style="font-weight:bold;">Přívěsný vozík 24/7 Mohelnice</p>
-            <p style="margin-top: 10px;">Potřebujete prodloužit nebo zrušit rezervaci? Volejte: <strong>${ADMIN_PHONE}</strong></p>
-            <p class="sub-text">Automatická zpráva. info@vozik247.cz</p>
+        
+        <div style="text-align: center; margin-top: 20px; font-size: 12px; color: #aaa;">
+            © 2026 Vozík 24/7 Mohelnice<br>
+            Toto je automatická zpráva, v příloze naleznete fakturu.
         </div>
-    </div>
-    </td></tr></table>
-    </body></html>`;
+    </body>
+    </html>`;
 
     const emailData = {
         sender: { name: "Vozík 24/7", email: SENDER_EMAIL },
@@ -379,6 +425,7 @@ async function sendReservationEmail(data, pdfBuffer, isUpdate = false, paymentLi
         await axios.post("https://api.brevo.com/v3/smtp/email", emailData, {
             headers: { "api-key": BREVO_API_KEY, "Content-Type": "application/json" }
         });
+        console.log("Email s potvrzením odeslán.");
     } catch (e) {
         console.error("❌ Email error:", e.response ? e.response.data : e.message);
     }
