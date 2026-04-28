@@ -390,239 +390,333 @@
     <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.js"></script>
     <script src="https://npmcdn.com/flatpickr/dist/l10n/cs.js"></script>
     <script>
+        // --- GLOBÁLNÍ PROMĚNNÉ ---
         let allReservations = []; 
         let currentFilteredData = [];
-        let computedDataMap = {}; 
-        let selectedResId = null; 
-        
-        let sortConfig = { key: 'created', dir: 'desc' };
-        
+        let computedDataMap = {}; // Cache pro vypočítané hodnoty (poplatky, daně, zisk)
+        let selectedResId = null; // ID rezervace vybrané v tabulce nebo kalendáři
+
+        let sortConfig = { key: 'created', dir: 'desc' }; // Konfigurace pro řazení tabulky
+
+        // Proměnné pro navigaci v kalendáři
         let viewMonth = new Date().getMonth();
         let viewYear = new Date().getFullYear();
 
+        // Stav pro výběr časového rozsahu v manuálním formuláři
         let selectionState = {
             active: false,
             start: null,
             hoverDate: null
         };
 
-        const STANDARD_PERCENT = 0.01;
-        const STANDARD_FIXED = 1;
-        const CPK_LIMIT = 50000;
+        // Konstanta pro výpočet poplatků
+        const STANDARD_PERCENT = 0.01; // 1%
+        const STANDARD_FIXED = 1;      // 1 Kč paušál
+        const CPK_LIMIT = 50000;       // Limit pro uplatnění poplatků
 
-        function login(event) {
-            if (event) event.preventDefault();
-            const p = document.getElementById("admin-pass").value;
-            localStorage.setItem("adminPass", p);
-            checkAuth();
+        // --- FILTROVÁNÍ DAT V TABULCE ---
+        function filterData(monthKey, buttonElement) {
+            // Odebere aktivní třídu ze všech tlačítek filtrů
+            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+            // Přidá aktivní třídu na kliknuté tlačítko
+            if(buttonElement) buttonElement.classList.add('active');
+
+            if (monthKey === 'ALL') {
+                currentFilteredData = [...allReservations]; // Pokud je filtr "VŠE", použije všechna data
+            } else {
+                // Jinak filtruje data podle zadaného měsíce (YYYY-MM)
+                currentFilteredData = allReservations.filter(r => r.startDate && r.startDate.startsWith(monthKey));
+            }
+            applySortAndRender(); // Aplikuje řazení a překreslí tabulku
         }
-        function logout() { localStorage.removeItem("adminPass"); location.reload(); }
+
+        // --- AUTENTIZACE A PRŮCHOD DO ADMINA ---
+        function login(event) {
+            if (event) event.preventDefault(); // Zabrání obnovení stránky při odeslání formuláře
+            const p = document.getElementById("admin-pass").value;
+            localStorage.setItem("adminPass", p); // Uloží heslo do localStorage (není bezpečné pro citlivé aplikace!)
+            checkAuth(); // Ověří heslo a zkusí načíst data
+        }
+        function logout() {
+            localStorage.removeItem("adminPass"); // Odstraní heslo z localStorage
+            location.reload(); // Obnoví stránku, zobrazí přihlašovací formulář
+        }
 
         async function checkAuth() {
             const pass = localStorage.getItem("adminPass");
-            if (!pass) return;
+            if (!pass) return; // Pokud heslo není, nic neděláme (zůstaneme na přihlašovací obrazovce)
             try {
-                const res = await fetch("/admin/reservations", { headers: { "x-admin-password": pass } });
-                if (res.status === 403) { alert("Špatné heslo"); localStorage.removeItem("adminPass"); return; }
-                allReservations = await res.json(); 
-                
+                // Zkusí načíst data z administrátorské routy, což zároveň ověří heslo (díky checkAdmin middleware na serveru)
+                const res = await fetch("/admin/reservations", {
+                    headers: { "x-admin-password": pass } // Heslo se posílá v hlavičce
+                });
+
+                if (res.status === 403) { // Pokud server vrátí 403 Forbidden, heslo je špatné
+                    alert("Špatné heslo");
+                    localStorage.removeItem("adminPass");
+                    return;
+                }
+
+                allReservations = await res.json(); // Načte všechna data rezervací
+
+                // Pokud bylo načtení úspěšné, skryje přihlašovací formulář a zobrazí admin obsah
                 document.getElementById("login-section").style.display = "none";
                 document.getElementById("admin-content").style.display = "block";
-                
+
+                // Nastaví hodnoty z localStorage do formulářů (daň, denní cena)
                 const savedTax = localStorage.getItem("taxRate");
                 if (savedTax) document.getElementById("tax-rate").value = savedTax;
-                
+                else document.getElementById("tax-rate").value = 15; // Výchozí hodnota daně
+
+                const savedPrice = localStorage.getItem("dailyPrice");
+                if (savedPrice) document.getElementById("daily-price").value = savedPrice;
+                else document.getElementById("daily-price").value = 230; // Výchozí denní cena
+
+                // Inicializuje Flatpickr pro výběr dat a času
+                // Musí se nastavit type="text" aby Flatpickr mohl nahradit <input type="date">
                 document.getElementById("admin-start").type = "text";
                 document.getElementById("admin-end").type = "text";
                 document.getElementById("edit-start").type = "text";
                 document.getElementById("edit-end").type = "text";
 
                 const fpConfig = {
-                    locale: "cs",
-                    dateFormat: "Y-m-d",
-                    altInput: true,
-                    altFormat: "d. m. Y",
+                    locale: "cs", // Nastaví češtinu pro Flatpickr
+                    dateFormat: "Y-m-d", // Formát datumu
+                    altInput: true, // Zobrazí alternativní formát datumu pro uživatele
+                    altFormat: "d. m. Y", // Formát datumu viditelný pro uživatele
                 };
 
+                // Inicializace Flatpickr pro ruční formulář
                 let fpAdminStart = flatpickr("#admin-start", {
                     ...fpConfig,
                     onChange: function(selectedDates, dateStr, instance) {
-                        if(fpAdminEnd) fpAdminEnd.set("minDate", dateStr);
-                        updateManualPriceHint();
-                        renderAdminCalendar();
+                        if(fpAdminEnd) fpAdminEnd.set("minDate", dateStr); // Nastaví minimální datum pro konec na datum začátku
+                        updateManualPriceHint(); // Aktualizuje náhled ceny
+                        renderAdminCalendar(); // Překreslí kalendář podle nového výběru
                     }
                 });
                 let fpAdminEnd = flatpickr("#admin-end", {
                     ...fpConfig,
                     onChange: function(selectedDates, dateStr, instance) {
-                        updateManualPriceHint();
-                        renderAdminCalendar();
+                        updateManualPriceHint(); // Aktualizuje náhled ceny
+                        renderAdminCalendar(); // Překreslí kalendář podle nového výběru
                     }
                 });
+
+                // Inicializace Flatpickr pro editační formulář
                 let fpEditStart = flatpickr("#edit-start", {
                     ...fpConfig,
                     onChange: function(selectedDates, dateStr, instance) {
-                        if(fpEditEnd) fpEditEnd.set("minDate", dateStr);
+                        if(fpEditEnd) fpEditEnd.set("minDate", dateStr); // Nastaví minimální datum pro konec na datum začátku
                     }
                 });
-                let fpEditEnd = flatpickr("#edit-end", { ...fpConfig });
+                let fpEditEnd = flatpickr("#edit-end", {
+                    ...fpConfig,
+                    onChange: function(selectedDates, dateStr, instance) {
+                        // Zde není nutné nic víc, protože editace se děje jinou funkcí
+                    }
+                });
 
-                calculateFeesGlobal();
-                generateFilters();
-                renderAdminCalendar();
-                
-                // Spuštění kontroly zámku
-                initLockControl();
+                calculateFeesGlobal(); // Vypočítá globální statistiky (tržby, poplatky, zisk)
+                generateFilters(); // Vytvoří tlačítka pro filtrování podle měsíců
+                renderAdminCalendar(); // Vykreslí kalendář pro manuální rezervace
 
+                initLockControl(); // Inicializuje ovládání zámku webu
+
+                // Po úspěšném přihlášení a načtení dat se automaticky aplikuje první filtr (pokud je nějaký aktivní)
                 const activeBtn = document.querySelector('.filter-btn.active');
-                filterData(activeBtn ? activeBtn.getAttribute('data-month') : 'ALL', activeBtn);
+                filterData(activeBtn ? activeBtn.getAttribute('data-month') : 'ALL', activeBtn); // Pokud není aktivní, použije se 'ALL'
+
             } catch(e) {
+                // Pokud nastane chyba při načítání dat (např. server neodpovídá, špatná URL), zobrazí se chyba
                 console.error("Chyba načítání dat:", e);
+                alert("Nepodařilo se načíst data. Zkontrolujte připojení k serveru nebo kontaktujte administrátora.");
+                // I když nastane chyba, zobrazíme admin rozhraní, abychom viděli alespoň přihlašovací část
                 document.getElementById("login-section").style.display = "none";
                 document.getElementById("admin-content").style.display = "block";
             }
         }
 
+        // --- OVLÁDÁNÍ ZÁMKU WEBU ---
         async function initLockControl() {
-            const btn = document.getElementById('toggle-lock-btn');
-            const statusText = document.getElementById('lock-status-text');
+            const btn = document.getElementById('toggle-lock-btn'); // Tlačítko pro změnu stavu zámku
+            const statusText = document.getElementById('lock-status-text'); // Text zobrazující aktuální stav
 
-            async function updateUI() {
+            async function updateUI() { // Pomocná funkce pro aktualizaci UI
                 try {
-                    const res = await fetch('/api/lock-status');
+                    const res = await fetch('/api/lock-status'); // Získání aktuálního stavu zámku ze serveru
                     const data = await res.json();
-                    
-                    if (data.isLocked) {
+
+                    if (data.isLocked) { // Pokud je web zamčený
                         statusText.innerHTML = '<span style="color: #dc3545;">ZAMČENO</span>';
                         btn.innerText = 'Odemknout web (vypnout heslo)';
-                        btn.style.background = '#28a745';
-                    } else {
+                        btn.style.background = '#28a745'; // Zelená barva tlačítka
+                    } else { // Pokud je web odemčený
                         statusText.innerHTML = '<span style="color: #28a745;">ODEMČENO (Veřejné)</span>';
                         btn.innerText = 'Zamknout web (zapnout heslo)';
-                        btn.style.background = '#dc3545';
+                        btn.style.background = '#dc3545'; // Červená barva tlačítka
                     }
-                    btn.dataset.locked = data.isLocked;
-                } catch (e) {
+                    btn.dataset.locked = data.isLocked; // Uložení aktuálního stavu do atributu data-* pro snadnější přístup
+                } catch (e) { // Pokud nastane chyba při komunikaci se serverem
                     statusText.innerText = 'Chyba spojení se serverem';
+                    btn.disabled = true; // Deaktivuje tlačítko
                 }
             }
 
+            // Obsluha kliknutí na tlačítko pro změnu stavu zámku
             btn.onclick = async () => {
                 try {
-                    const isLocked = btn.dataset.locked === 'true';
+                    const isLocked = btn.dataset.locked === 'true'; // Získání aktuálního stavu
+                    // Odeslání požadavku na server pro změnu stavu zámku
                     const response = await fetch('/admin/toggle-lock', {
                         method: 'POST',
-                        headers: { 
+                        headers: {
                             'Content-Type': 'application/json',
-                            'x-admin-password': localStorage.getItem('adminPass')
+                            'x-admin-password': localStorage.getItem('adminPass') // Poslání hesla admina v hlavičce
                         },
-                        body: JSON.stringify({ locked: !isLocked })
+                        body: JSON.stringify({ locked: !isLocked }) // Odeslání nového stavu (opačného)
                     });
 
-                    if (response.ok) {
-                        await updateUI();
+                    if (response.ok) { // Pokud server odpoví úspěšně
+                        await updateUI(); // Aktualizace UI
                         alert('✅ Stav zámku byl úspěšně změněn.');
-                    } else {
+                    } else { // Pokud nastane chyba na serveru
                         const errData = await response.json();
-                        alert('❌ Chyba: ' + (errData.error || response.statusText));
+                        alert('❌ Chyba: ' + (errData.error || response.statusText)); // Zobrazení chybové zprávy
                     }
-                } catch (e) {
+                } catch (e) { // Chyba sítě
                     alert('❌ Kritická chyba sítě: Server neodpovídá (pravděpodobně se restartoval, pokud používáš nodemon).');
                 }
             };
 
-            updateUI();
+            updateUI(); // Spustí aktualizaci UI při načtení stránky
         }
 
+        // --- SPRÁVA GLOBÁLNÍCH NASTAVENÍ ---
         async function saveGlobalSettings() {
-            const tax = document.getElementById("tax-rate").value;
-            const price = document.getElementById("daily-price").value;
-            localStorage.setItem("taxRate", tax);
-            localStorage.setItem("dailyPrice", price);
+            const tax = document.getElementById("tax-rate").value; // Hodnota daně z inputu
+            const price = document.getElementById("daily-price").value; // Hodnota denní ceny z inputu
+            localStorage.setItem("taxRate", tax); // Uložení do localStorage
+            localStorage.setItem("dailyPrice", price); // Uložení do localStorage
             try {
+                // Odeslání nových nastavení na server
                 await fetch("/admin/settings", {
-                    method: "POST", headers: { "Content-Type": "application/json", "x-admin-password": localStorage.getItem("adminPass") },
-                    body: JSON.stringify({ taxRate: tax, dailyPrice: price })
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "x-admin-password": localStorage.getItem("adminPass") // Heslo admina
+                    },
+                    body: JSON.stringify({ taxRate: tax, dailyPrice: price }) // Odesílaná data
                 });
-                alert("Uloženo."); recalculateAll();
-            } catch(e) { alert("Chyba."); }
+                alert("Uloženo."); // Potvrzení
+                recalculateAll(); // Přepočítání statistik s novými hodnotami
+            } catch(e) { alert("Chyba."); } // Zobrazení chyby
         }
 
+        // --- VÝPOČET CENY PRO MANUÁLNÍ REZERVACI ---
         function updateManualPriceHint() {
-            const start = document.getElementById("admin-start").value;
-            const end = document.getElementById("admin-end").value;
-            const t1 = document.getElementById("admin-time").value;
-            const t2 = document.getElementById("admin-endtime").value;
-            const daily = parseFloat(document.getElementById("daily-price").value) || 0;
+            const start = document.getElementById("admin-start").value; // Datum od
+            const end = document.getElementById("admin-end").value;   // Datum do
+            const t1 = document.getElementById("admin-time").value;   // Čas vyzvednutí
+            const t2 = document.getElementById("admin-endtime").value; // Čas vrácení
+            const daily = parseFloat(document.getElementById("daily-price").value) || 0; // Denní cena
 
-            if (start && end) {
-                const startDt = new Date(start + 'T' + t1);
-                const endDt = new Date(end + 'T' + t2);
-                
-                let diffMs = endDt - startDt;
-                if (diffMs < 0) diffMs = 0;
-                let days = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-                if (days < 1) days = 1;
+            if (start && end) { // Pokud jsou obě data vybrána
+                const startDt = new Date(start + 'T' + t1); // Vytvoření objektu Date pro začátek
+                const endDt = new Date(end + 'T' + t2);     // Vytvoření objektu Date pro konec
 
+                let diffMs = endDt - startDt; // Rozdíl v milisekundách
+                if (diffMs < 0) diffMs = 0; // Pokud je konec před začátkem, nastavíme rozdíl na 0
+                let days = Math.ceil(diffMs / (1000 * 60 * 60 * 24)); // Převod milisekund na dny (zaokrouhleno nahoru)
+                if (days < 1) days = 1; // Minimálně 1 den, i když je to ve stejný den
+
+                // Aktualizace inputu pro cenu a textového náhledu
                 document.getElementById("admin-price").value = days * daily;
                 document.getElementById("price-hint").innerText = `Výpočet: ${days} den/dny x ${daily} Kč = ${days * daily} Kč`;
-                
-                renderAdminCalendar();
+
+                renderAdminCalendar(); // Překreslí kalendář podle nového výběru
             }
         }
 
-        function getMonthName(mIndex) {
+        // --- POMOCNÉ FUNKCE PRO KALENDÁŘ A TABULKU ---
+        function getMonthName(mIndex) { // Vrátí název měsíce podle indexu
             const monthNames = ["Leden", "Únor", "Březen", "Duben", "Květen", "Červen", "Červenec", "Srpen", "Září", "Říjen", "Listopad", "Prosinec"];
             return monthNames[mIndex];
         }
 
+        // Vypočítá poplatky, daně a čistý zisk pro všechny rezervace
         function calculateFeesGlobal() {
-            computedDataMap = {};
-            const monthlyRevenue = {};
+            computedDataMap = {}; // Vyčistí cache
+            const monthlyRevenue = {}; // Pomocné pro sledování měsíčních tržeb (pro výpočet poplatků)
+            // Seřadí rezervace podle data začátku pro správné pořadí v kalendáři a výpočtu
             const chronological = [...allReservations].sort((a,b) => new Date(a.startDate) - new Date(b.startDate));
             chronological.forEach(r => {
-                if (r.paymentStatus !== 'PAID') { computedDataMap[r._id] = { fee: 0, tax: 0, net: 0 }; return; }
-                const mKey = r.startDate.substring(0, 7);
-                if (!monthlyRevenue[mKey]) monthlyRevenue[mKey] = 0;
-                let price = r.price || 0;
+                // Pokud rezervace není zaplacená, přeskočíme ji
+                if (r.paymentStatus !== 'PAID') {
+                    computedDataMap[r._id] = { fee: 0, tax: 0, net: 0 }; // Nastaví 0 pro tyto případy
+                    return;
+                }
+
+                const mKey = r.startDate.substring(0, 7); // Klíč pro měsíc (např. "2023-10")
+                if (!monthlyRevenue[mKey]) monthlyRevenue[mKey] = 0; // Inicializace měsíční tržby
+
+                let price = r.price || 0; // Cena rezervace, nebo 0 pokud chybí
+
+                // Výpočet poplatků GoPay podle pravidel
                 let fee = (monthlyRevenue[mKey] < CPK_LIMIT) ? 0 : Math.round(price * STANDARD_PERCENT + STANDARD_FIXED);
-                const taxRate = parseFloat(document.getElementById("tax-rate").value) || 0;
-                let tax = Math.round(price * (taxRate / 100));
-                computedDataMap[r._id] = { fee, tax, net: price - fee - tax };
-                monthlyRevenue[mKey] += price;
+
+                const taxRate = parseFloat(document.getElementById("tax-rate").value) || 0; // Získání sazby daně
+                let tax = Math.round(price * (taxRate / 100)); // Výpočet daně
+
+                computedDataMap[r._id] = { fee, tax, net: price - fee - tax }; // Uložení vypočtených hodnot do cache
+                monthlyRevenue[mKey] += price; // Přičtení ceny k měsíční tržbě
             });
         }
 
-        function recalculateAll() { calculateFeesGlobal(); const activeBtn = document.querySelector('.filter-btn.active'); if (activeBtn) activeBtn.click(); else filterData('ALL', null); }
+        // Přepočítá vše, pokud se změní globální nastavení (daň, denní cena)
+        function recalculateAll() {
+            calculateFeesGlobal(); // Znovu vypočítá poplatky a daně
+            const activeBtn = document.querySelector('.filter-btn.active'); // Najde aktivní tlačítko filtru
+            if (activeBtn) filterData(activeBtn.getAttribute('data-month'), activeBtn); // Pokud existuje, aplikuje filtr
+            else filterData('ALL', null); // Jinak aplikuje výchozí filtr "VŠECHNO"
+        }
 
+        // Generuje filtrační tlačítka podle měsíců, ve kterých jsou rezervace
         function generateFilters() {
-            const container = document.getElementById('month-filters-container');
-            container.innerHTML = `<button class="filter-btn active" data-month="ALL" onclick="filterData('ALL', this)">VŠE</button>`;
-            const months = new Set();
-            allReservations.forEach(r => { if(r.startDate) months.add(r.startDate.substring(0, 7)); });
+            const container = document.getElementById('month-filters-container'); // Kontejner pro tlačítka
+            container.innerHTML = `<button class="filter-btn active" data-month="ALL" onclick="filterData('ALL', this)">VŠE</button>`; // Přidá tlačítko "VŠE"
+
+            const months = new Set(); // Set pro unikátní měsíce
+            allReservations.forEach(r => { if(r.startDate) months.add(r.startDate.substring(0, 7)); }); // Přidá všechny měsíce do Setu
+
+            // Seřadí měsíce od nejnovějšího a vytvoří pro každý tlačítko
             Array.from(months).sort().reverse().forEach(m => {
-                const [year, month] = m.split('-');
-                const label = `${getMonthName(parseInt(month) - 1)} ${year}`;
-                container.innerHTML += `<button class="filter-btn" data-month="${m}" onclick="filterData('${m}', this)">${label}</button>`;
+                const [year, month] = m.split('-'); // Rozdělí rok a měsíc
+                const label = `${getMonthName(parseInt(month) - 1)} ${year}`; // Formátuje název měsíce
+                container.innerHTML += `<button class="filter-btn" data-month="${m}" onclick="filterData('${m}', this)">${label}</button>`; // Vytvoří tlačítko
             });
         }
 
+        // Nastaví konfiguraci řazení a aplikuje ji
         function sortData(key) {
-            if (sortConfig.key === key) {
-                sortConfig.dir = sortConfig.dir === 'asc' ? 'desc' : 'asc';
-            } else {
-                sortConfig.key = key;
-                sortConfig.dir = 'asc';
+            if (sortConfig.key === key) { // Pokud se klikne na již seřazený sloupec
+                sortConfig.dir = sortConfig.dir === 'asc' ? 'desc' : 'asc'; // Změní směr řazení
+            } else { // Pokud se klikne na nový sloupec
+                sortConfig.key = key; // Nastaví klíč pro řazení
+                sortConfig.dir = 'asc'; // Výchozí směr je vzestupně
             }
-            applySortAndRender();
+            applySortAndRender(); // Aplikuje řazení a překreslí tabulku
         }
 
+        // Aplikuje aktuální konfiguraci řazení na data a překreslí tabulku
         function applySortAndRender() {
-            currentFilteredData.sort((a, b) => {
+            currentFilteredData.sort((a, b) => { // Seřadí data podle konfigurace
                 let valA = a[sortConfig.key];
                 let valB = b[sortConfig.key];
+                // Zpracování chybějících hodnot
                 if (valA === undefined || valA === null) valA = "";
                 if (valB === undefined || valB === null) valB = "";
+                // Speciální zpracování pro datum a cenu
                 if (['created', 'startDate'].includes(sortConfig.key)) {
                     valA = valA ? new Date(valA).getTime() : 0;
                     valB = valB ? new Date(valB).getTime() : 0;
@@ -631,101 +725,132 @@
                     valA = Number(valA) || 0;
                     valB = Number(valB) || 0;
                 }
+                // Porovnání hodnot podle směru řazení
                 if (valA < valB) return sortConfig.dir === 'asc' ? -1 : 1;
                 if (valA > valB) return sortConfig.dir === 'asc' ? 1 : -1;
-                return 0;
+                return 0; // Hodnoty jsou stejné
             });
-            renderTable(currentFilteredData);
+            renderTable(currentFilteredData); // Překreslí tabulku s seřazenými daty
         }
 
+        // Zvýrazní rezervaci v kalendáři a v tabulce
         function highlightReservationInCalendar(rId) {
-            const r = allReservations.find(item => item._id === rId);
-            if(!r) return;
-            selectedResId = rId;
+            const r = allReservations.find(item => item._id === rId); // Najde rezervaci podle ID
+            if(!r) return; // Pokud nenajde, nic nedělá
 
+            selectedResId = rId; // Nastaví ID vybrané rezervace
+
+            // Nastaví měsíc a rok kalendáře podle data vybrané rezervace
             const d = new Date(r.startDate);
             viewMonth = d.getMonth();
             viewYear = d.getFullYear();
 
-            renderAdminCalendar();
-            renderTable(currentFilteredData);
-            
+            renderAdminCalendar(); // Překreslí kalendář
+            renderTable(currentFilteredData); // Překreslí tabulku (pro případné přidání/odebrání třídy selected-row)
+
+            // Zobrazí informaci o vybrané rezervaci dole pod kalendářem
             const infoBox = document.getElementById("selected-res-info");
             document.getElementById("selected-res-text").innerHTML = `<b>Vybráno:</b> ${r.name} (${r.reservationCode})<br>Termín: ${new Date(r.startDate).toLocaleDateString("cs-CZ")} - ${new Date(r.endDate).toLocaleDateString("cs-CZ")}`;
-            infoBox.style.display = "flex";
+            infoBox.style.display = "flex"; // Zobrazí element
         }
 
+        // Odstraní zvýraznění rezervace
         function clearHighlight() {
-            selectedResId = null;
-            document.getElementById("selected-res-info").style.display = "none";
-            renderAdminCalendar();
-            renderTable(currentFilteredData);
+            selectedResId = null; // Resetuje ID vybrané rezervace
+            document.getElementById("selected-res-info").style.display = "none"; // Skryje informační box
+            renderAdminCalendar(); // Překreslí kalendář
+            renderTable(currentFilteredData); // Překreslí tabulku
         }
 
+        // Vykreslí tabulku rezervací
         function renderTable(data) {
-            const tbody = document.querySelector("#res-table tbody");
-            tbody.innerHTML = "";
+            const tbody = document.querySelector("#res-table tbody"); // Najde tbody tabulky
+            tbody.innerHTML = ""; // Vyčistí obsah tabulky
+
+            // Proměnné pro celkové statistiky
             let tRev = 0, tFee = 0, tTax = 0, tNet = 0;
-            
-            data.forEach(r => {
-                let statusClass = "b-pending", statusText = "Čeká";
-                let vals = computedDataMap[r._id] || { fee: 0, tax: 0, net: 0 };
-                
+
+            data.forEach(r => { // Pro každou rezervaci v datech
+                let statusClass = "b-pending", statusText = "Čeká"; // Výchozí stav
+                let vals = computedDataMap[r._id] || { fee: 0, tax: 0, net: 0 }; // Získá vypočtené hodnoty z cache
+
+                // Informace o případném prodloužení rezervace
                 let pendingInfoHtml = "";
                 if (r.pendingExtension && r.pendingExtension.active) {
                     statusText = "Doplatek...";
                     statusClass = "b-pending";
                     const pendingDate = `${new Date(r.pendingExtension.newStartDate).toLocaleDateString("cs-CZ")} - ${new Date(r.pendingExtension.newEndDate).toLocaleDateString("cs-CZ")}`;
                     pendingInfoHtml = `<div style="font-size:9px; margin-top:3px; color:#d35400;">Návrh: ${pendingDate}<br>+${r.pendingExtension.surcharge} Kč</div>`;
-                } else if (r.paymentStatus === 'PAID') { 
-                    statusClass = "b-paid"; statusText = "Zaplaceno"; 
-                    tRev += (r.price || 0); tFee += vals.fee; tTax += vals.tax; tNet += vals.net;
-                } else if (r.paymentStatus === 'CANCELED') { 
-                    statusClass = "b-canceled"; statusText = "Zrušeno"; 
+                } else if (r.paymentStatus === 'PAID') {
+                    statusClass = "b-paid"; statusText = "Zaplaceno";
+                    // Přičtení k celkovým statistikám
+                    tRev += (r.price || 0);
+                    tFee += vals.fee;
+                    tTax += vals.tax;
+                    tNet += vals.net;
+                } else if (r.paymentStatus === 'CANCELED') {
+                    statusClass = "b-canceled"; statusText = "Zrušeno";
                 }
 
-                const todayStr = new Date().toISOString().split('T')[0];
+                // Určení, zda je rezervace aktuální
+                const todayStr = new Date().toISOString().split('T')[0]; // Dnešní datum ve formátu YYYY-MM-DD
                 const isActive = (r.startDate <= todayStr && r.endDate >= todayStr && r.paymentStatus === 'PAID');
-                
+
+                // Formátování data vytvoření
                 const d = new Date(r.created);
                 const dateStr = d.toLocaleDateString("cs-CZ");
                 const timeStr = d.toLocaleTimeString("cs-CZ", {hour: '2-digit', minute:'2-digit'});
                 const createdHtml = `${dateStr}<br><small style="color:#888">${timeStr}</small>`;
 
-                const endTimeDisplay = r.endTime || r.time;
+                // Formátování termínu
+                const endTimeDisplay = r.endTime || r.time; // Pokud není endTime, použije se time
                 const termStr = `<span style="color:#555">${new Date(r.startDate).toLocaleDateString("cs-CZ")}</span> <b>${r.time}</b><br><small>do</small> <span style="color:#555">${new Date(r.endDate).toLocaleDateString("cs-CZ")}</span> <b>${endTimeDisplay}</b>`;
 
+                // Určení stavu PINu (čeká, aktivní, ukončen, chyba)
                 const now = new Date();
-                const startDt = new Date(r.startDate + 'T' + r.time);
-                const endDt = new Date(r.endDate + 'T' + endTimeDisplay);
-                
-                let pinHtml = (now < startDt) ? '<span class="pin-stat pin-wait">⏳ Čeká</span>' : (now <= endDt && r.paymentStatus === 'PAID') ? '<span class="pin-stat pin-active">🟢 Aktivní</span>' : '<span class="pin-stat pin-end">⚫ Ukončen</span>';
-                if (r.paymentStatus === 'CANCELED') pinHtml = '<span class="pin-stat pin-end">Zrušeno</span>';
-                if (!r.keyboardPwdId && r.paymentStatus === 'PAID') {
+                const startDt = new Date(r.startDate + 'T' + r.time); // Datum a čas začátku rezervace
+                const endDt = new Date(r.endDate + 'T' + endTimeDisplay); // Datum a čas konce rezervace
+
+                let pinHtml = (now < startDt) ? '<span class="pin-stat pin-wait">⏳ Čeká</span>' : // Pokud rezervace ještě nezačala
+                              (now <= endDt && r.paymentStatus === 'PAID') ? '<span class="pin-stat pin-active">🟢 Aktivní</span>' : // Pokud je rezervace aktivní
+                              '<span class="pin-stat pin-end">⚫ Ukončen</span>'; // Pokud rezervace skončila
+                if (r.paymentStatus === 'CANCELED') pinHtml = '<span class="pin-stat pin-end">Zrušeno</span>'; // Pokud je zrušená
+                if (!r.keyboardPwdId && r.paymentStatus === 'PAID') { // Pokud je zaplacená, ale nemá ID zámku (chyba při synchronizaci)
                     pinHtml = '<span class="pin-stat pin-error">❗ Chyba zámku</span>';
                 }
 
+                // Vytvoření řádku tabulky (<tr>)
                 const tr = document.createElement("tr");
-                if (selectedResId === r._id) tr.classList.add("selected-row");
-                else if (isActive) tr.classList.add("active-now");
-                
+                if (selectedResId === r._id) tr.classList.add("selected-row"); // Přidá třídu, pokud je řádek vybraný
+                else if (isActive) tr.classList.add("active-now"); // Přidá třídu pro aktuálně aktivní rezervaci
+
+                // Obsluha kliknutí na celý řádek (kromě tlačítek)
                 tr.onclick = (e) => {
+                    // Pokud kliknutí není na tlačítko nebo odkaz, provede zvýraznění
                     if (!e.target.closest('button') && !e.target.closest('a')) {
-                         highlightReservationInCalendar(r._id);
+                         highlightReservationInCalendar(r._id); // Zvýrazní rezervaci v kalendáři
                     }
                 };
 
+                // Odkaz pro zobrazení rezervace jako zákazník
                 const checkLink = `<a href="/check.html?id=${r.reservationCode}" target="_blank" class="col-id" title="Zobrazit jako zákazník">${r.reservationCode || '???'}</a>`;
 
-                let actionBtn = "";
+                // Tlačítka akcí
+                let actionBtn = ""; // Proměnná pro tlačítka akcí
+                // Pokud je PIN neplatný nebo chybí a rezervace je zaplacená, zobrazí se tlačítko pro opakování nastavení PINu
                 if (!r.keyboardPwdId && r.paymentStatus === 'PAID') {
                      actionBtn = `<button onclick="retryPin('${r._id}')" class="btn btn-restore" title="Zkusit znovu nastavit PIN"><i class="fa-solid fa-rotate-right"></i></button>`;
-                } else if (r.keyboardPwdId && r.paymentStatus === 'PAID' && now > endDt) {
+                }
+                // Pokud je PIN platný, rezervace zaplacená, ale už skončila, zobrazí se tlačítko pro obnovení
+                else if (r.keyboardPwdId && r.paymentStatus === 'PAID' && now > endDt) {
                      actionBtn = `<button onclick="renewRes('${r._id}')" class="btn btn-restore" title="Obnovit PIN a posunout termín"><i class="fa-solid fa-lock"></i></button>`;
-                } else if (r.keyboardPwdId && r.paymentStatus === 'PAID') {
+                }
+                // Pokud je PIN platný a rezervace stále probíhá, zobrazí se tlačítko pro ukončení
+                else if (r.keyboardPwdId && r.paymentStatus === 'PAID') {
                      actionBtn = `<button onclick="archiveRes('${r._id}')" class="btn btn-arch" title="Ukončit rezervaci"><i class="fa-solid fa-lock-open"></i></button>`;
                 }
 
+                // Vytvoření HTML pro řádek tabulky s daty a tlačítky
                 tr.innerHTML = `
                     <td data-label="Vytvořeno">${createdHtml}</td>
                     <td data-label="ID">${checkLink}</td>
@@ -744,166 +869,187 @@
                         ${pendingInfoHtml}
                     </td>
                     <td data-label="Akce" style="display:flex; gap:3px;">
-                        <button onclick='openEditModal(${JSON.stringify(r)})' class="btn btn-edit"><i class="fa-solid fa-pen"></i></button>
-                        ${(r.pendingExtension && r.pendingExtension.active) 
+                        <button onclick="openEditModal('${r._id}')" class="btn btn-edit" title="Upravit rezervaci"><i class="fa-solid fa-pen"></i></button>
+                        ${(r.pendingExtension && r.pendingExtension.active)
                             ? `<button onclick="resendPaymentLink('${r._id}')" class="btn btn-pay-link" title="Znovu poslat výzvu k platbě"><i class="fa-solid fa-money-bill-wave"></i></button>`
-                            : `<button onclick="resendEmail('${r._id}')" class="btn btn-resend"><i class="fa-regular fa-envelope"></i></button>`
+                            : `<button onclick="resendEmail('${r._id}')" class="btn btn-resend" title="Znovu odeslat potvrzovací e-mail"><i class="fa-regular fa-envelope"></i></button>`
                         }
                         ${actionBtn}
-                        <button onclick="deleteRes('${r._id}')" class="btn btn-del"><i class="fa-solid fa-trash"></i></button>
+                        <button onclick="deleteRes('${r._id}')" class="btn btn-del" title="Smazat rezervaci"><i class="fa-solid fa-trash"></i></button>
                     </td>
                 `;
-                tbody.appendChild(tr);
+                tbody.appendChild(tr); // Přidá řádek do tabulky
             });
+            // Aktualizace celkových statistik
             document.getElementById("total-revenue").innerText = tRev.toLocaleString() + " Kč";
             document.getElementById("total-fees").innerText = "-" + tFee.toLocaleString() + " Kč";
             document.getElementById("total-tax").innerText = "-" + tTax.toLocaleString() + " Kč";
             document.getElementById("total-net").innerText = tNet.toLocaleString() + " Kč";
-            document.getElementById("res-count").innerText = data.length;
+            document.getElementById("res-count").innerText = data.length; // Počet zobrazených rezervací
         }
 
+        // Změní zobrazený měsíc v kalendáři
         function changeAdminMonth(delta) {
-            viewMonth += delta;
+            viewMonth += delta; // Přičte nebo odečte měsíc
+            // Zpracování přechodu mezi roky
             if (viewMonth > 11) { viewMonth = 0; viewYear++; }
             else if (viewMonth < 0) { viewMonth = 11; viewYear--; }
-            renderAdminCalendar();
+            renderAdminCalendar(); // Překreslí kalendář
         }
 
+        // Zpracuje kliknutí na den v kalendáři
         function handleDayClick(dateStr) {
-            const todayStr = new Date().toLocaleDateString('en-CA');
-            if (dateStr < todayStr) return;
+            const todayStr = new Date().toLocaleDateString('en-CA'); // Dnešní datum v YYYY-MM-DD formátu
+            if (dateStr < todayStr) return; // Pokud je datum v minulosti, nic nedělá
 
-            if (!selectionState.active) {
-                selectionState.active = true;
-                selectionState.start = dateStr;
-                selectionState.hoverDate = dateStr;
-                
-                document.getElementById("admin-start").value = dateStr;
-                document.getElementById("admin-end").value = "";
-                document.getElementById("price-hint").innerText = "Vybírám konec...";
-                
-            } else {
-                let start = selectionState.start;
-                let end = dateStr;
-                
-                if (end < start) {
-                    [start, end] = [end, start];
+            if (!selectionState.active) { // Pokud ještě není aktivní výběr
+                selectionState.active = true; // Aktivuje výběr
+                selectionState.start = dateStr; // Nastaví počáteční datum
+                selectionState.hoverDate = dateStr; // Nastaví datum pro hover
+
+                document.getElementById("admin-start").value = dateStr; // Nastaví datum do inputu pro začátek
+                document.getElementById("admin-end").value = ""; // Vyčistí datum konce
+                document.getElementById("price-hint").innerText = "Vybírám konec..."; // Změní text náhledu ceny
+
+            } else { // Pokud už je výběr aktivní (zvoleno datum začátku)
+                let start = selectionState.start; // Datum začátku
+                let end = dateStr; // Aktuální datum (konec)
+
+                if (end < start) { // Pokud je vybrané datum konce před datem začátku
+                    [start, end] = [end, start]; // Prohodí datumy
                 }
-                
-                document.getElementById("admin-start").value = start;
-                document.getElementById("admin-end").value = end;
-                
-                selectionState.active = false;
-                selectionState.start = null;
-                selectionState.hoverDate = null;
-                
-                updateManualPriceHint(); 
+
+                document.getElementById("admin-start").value = start; // Nastaví datum začátku
+                document.getElementById("admin-end").value = end;   // Nastaví datum konce
+
+                selectionState.active = false; // Deaktivuje výběr
+                selectionState.start = null;   // Vyčistí datum začátku
+                selectionState.hoverDate = null; // Vyčistí datum hoveru
+
+                updateManualPriceHint(); // Aktualizuje náhled ceny
             }
-            renderAdminCalendar();
+            renderAdminCalendar(); // Překreslí kalendář pro zobrazení výběru
         }
 
+        // Zpracuje hover nad dnem v kalendáři během aktivního výběru
         function handleDayHover(dateStr) {
-            if (selectionState.active) {
-                selectionState.hoverDate = dateStr;
-                renderAdminCalendar();
-                
+            if (selectionState.active) { // Pouze pokud je aktivní výběr
+                selectionState.hoverDate = dateStr; // Aktualizuje datum hoveru
+                renderAdminCalendar(); // Překreslí kalendář pro zobrazení rozsahu
+
+                // Výpočet předběžné ceny
                 const daily = parseFloat(document.getElementById("daily-price").value) || 0;
                 let start = new Date(selectionState.start);
                 let current = new Date(dateStr);
-                
+
+                // Výpočet počtu dnů mezi datem začátku a datem hoveru
                 let diffMs = Math.abs(current - start);
                 let days = Math.ceil(diffMs / (1000 * 60 * 60 * 24)) + 1;
-                if (start.getTime() === current.getTime()) days = 1;
+                if (start.getTime() === current.getTime()) days = 1; // Pokud je to stejný den, je to 1 den
 
-                document.getElementById("price-hint").innerText = `Předběžně: ${days} dnů x ${daily} = ${days * daily} Kč`;
+                document.getElementById("price-hint").innerText = `Předběžně: ${days} dnů x ${daily} = ${days * daily} Kč`; // Zobrazí náhled ceny
             }
         }
 
+        // Vykreslí obsah kalendáře pro aktuálně zobrazený měsíc a rok
         function renderAdminCalendar() {
-            const grid = document.getElementById("admin-cal-grid");
-            const label = document.getElementById("admin-cal-month");
-            grid.innerHTML = "";
+            const grid = document.getElementById("admin-cal-grid"); // Kontejner pro dny v kalendáři
+            const label = document.getElementById("admin-cal-month"); // Místo pro název měsíce a roku
+            grid.innerHTML = ""; // Vyčistí předchozí obsah gridu
 
-            const monthNames = ["Leden", "Únor", "Březen", "Duben", "Květen", "Červen", "Červenec", "Srpen", "Září", "Říjen", "Listopad", "Prosinec"];
-            label.innerText = `${monthNames[viewMonth]} ${viewYear}`;
+            label.innerText = `${getMonthName(viewMonth)} ${viewYear}`; // Nastaví název měsíce a roku
 
+            // Přidá hlavičky dnů v týdnu (PO, ÚT, ...)
             ["PO","ÚT","ST","ČT","PÁ","SO","NE"].forEach(d => {
                 grid.innerHTML += `<div class="cal-weekday">${d}</div>`;
             });
 
-            const firstDay = new Date(viewYear, viewMonth, 1).getDay();
-            const shift = (firstDay === 0) ? 6 : firstDay - 1;
-            const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+            // Výpočet posunu pro první den měsíce
+            const firstDay = new Date(viewYear, viewMonth, 1).getDay(); // Den v týdnu, kdy začíná měsíc (0=neděle, 1=pondělí...)
+            const shift = (firstDay === 0) ? 6 : firstDay - 1; // Počet prázdných dnů před začátkem měsíce (pondělí je 0, neděle 6)
+            const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate(); // Počet dnů v aktuálním měsíci
 
+            // Přidá prázdné divy pro posunutí prvního dne
             for (let i = 0; i < shift; i++) grid.innerHTML += `<div class="cal-day empty"></div>`;
 
-            const todayStr = new Date().toLocaleDateString('en-CA');
-            const startVal = document.getElementById("admin-start").value;
-            const endVal = document.getElementById("admin-end").value;
-            
-            let selectedRes = null;
-            if (selectedResId) selectedRes = allReservations.find(r => r._id === selectedResId);
+            const todayStr = new Date().toLocaleDateString('en-CA'); // Dnešní datum
+            const startVal = document.getElementById("admin-start").value; // Vybrané datum začátku
+            const endVal = document.getElementById("admin-end").value;   // Vybrané datum konce
 
+            let selectedRes = null; // Proměnná pro rezervaci, která je vybraná pro zobrazení detailů
+            if (selectedResId) selectedRes = allReservations.find(r => r._id === selectedResId); // Najde rezervaci podle ID
+
+            // Iteruje přes všechny dny v měsíci
             for (let d = 1; d <= daysInMonth; d++) {
-                const dateStr = new Date(viewYear, viewMonth, d).toLocaleDateString('en-CA');
-                const dayEl = document.createElement("div");
-                dayEl.className = "cal-day";
-                dayEl.innerText = d;
-                
-                if (dateStr === todayStr) dayEl.classList.add("today");
+                const dateStr = new Date(viewYear, viewMonth, d).toLocaleDateString('en-CA'); // Datum aktuálního dne
+                const dayEl = document.createElement("div"); // Vytvoří element pro den
+                dayEl.className = "cal-day"; // Nastaví základní třídy
+                dayEl.innerText = d; // Nastaví číslo dne
 
-                const bg = getDayOccupancyStyle(dateStr);
-                if (bg) dayEl.style.background = bg;
+                if (dateStr === todayStr) dayEl.classList.add("today"); // Označí dnešní den
 
+                const bg = getDayOccupancyStyle(dateStr); // Získá styl pozadí dne podle obsazenosti
+                if (bg) dayEl.style.background = bg; // Aplikuje styl pozadí
+
+                // Zvýrazní vybraný den/rozsah pro manuální rezervaci
                 if (!selectionState.active && startVal && endVal && dateStr >= startVal && dateStr <= endVal) {
                     dayEl.classList.add("selected");
                 }
 
+                // Zvýrazní dny během hoveru při aktivním výběru
                 if (selectionState.active && selectionState.start && selectionState.hoverDate) {
                     let s = selectionState.start;
                     let h = selectionState.hoverDate;
-                    if (h < s) [s, h] = [h, s];
-                    
+                    if (h < s) [s, h] = [h, s]; // Seřadí data
+
                     if (dateStr >= s && dateStr <= h) {
                         dayEl.classList.add("hover-range");
                     }
                 }
 
+                // Zvýrazní dny patřící k vybrané rezervaci (pro detailní pohled)
                 if (selectedRes && dateStr >= selectedRes.startDate && dateStr <= selectedRes.endDate) {
                     dayEl.classList.add("highlight-selection");
                 }
 
+                // Dny v minulosti jsou neaktivní
                 if (dateStr < todayStr) dayEl.classList.add("past");
-                else {
-                    dayEl.onclick = () => handleDayClick(dateStr);
-                    dayEl.onmouseenter = () => handleDayHover(dateStr);
+                else { // Dny v budoucnosti jsou aktivní
+                    dayEl.onclick = () => handleDayClick(dateStr); // Nastaví obsluhu kliknutí
+                    dayEl.onmouseenter = () => handleDayHover(dateStr); // Nastaví obsluhu hoveru
                 }
-                grid.appendChild(dayEl);
+                grid.appendChild(dayEl); // Přidá den do gridu
             }
         }
 
+        // Vrací styl pozadí pro den na základě jeho obsazenosti a výběru
         function getDayOccupancyStyle(dateStr) {
-            let timeline = [];
-            
+            let timeline = []; // Pole pro bloky obsazenosti dne
+
+            // Iteruje přes všechny rezervace
             allReservations.forEach(res => {
-                if (res.paymentStatus === 'CANCELED') return;
-                
+                if (res.paymentStatus === 'CANCELED') return; // Přeskočí zrušené rezervace
+
+                // Pokud rezervace zasahuje do daného dne
                 if (dateStr >= res.startDate && dateStr <= res.endDate) {
-                    let sP = 0, eP = 100;
-                    
+                    let sP = 0, eP = 100; // Výchozí procenta (celý den)
+
+                    // Výpočet procentuální pozice začátku rezervace v daném dni
                     if (res.startDate === dateStr) {
                         const p = res.time.split(':');
-                        sP = ((parseInt(p[0]) + parseInt(p[1])/60) / 24) * 100;
+                        sP = ((parseInt(p[0]) + parseInt(p[1])/60) / 24) * 100; // Převede čas (např. 8:30) na procenta (8.5 / 24 * 100)
                     }
+                    // Výpočet procentuální pozice konce rezervace v daném dni
                     if (res.endDate === dateStr) {
-                        const endTimeVal = res.endTime || res.time;
+                        const endTimeVal = res.endTime || res.time; // Použije endTime, pokud je definováno
                         const p = endTimeVal.split(':');
                         eP = ((parseInt(p[0]) + parseInt(p[1])/60) / 24) * 100;
                     }
-                    timeline.push({ s: sP, e: eP, type: 'booked' });
+                    timeline.push({ s: sP, e: eP, type: 'booked' }); // Přidá blok rezervace do timeline
                 }
             });
 
+            // Pokud není aktivní výběr, ale je vybrán rozsah pro manuální rezervaci
             if (!selectionState.active) {
                 const startVal = document.getElementById("admin-start").value;
                 const endVal = document.getElementById("admin-end").value;
@@ -912,88 +1058,116 @@
 
                 if (startVal && endVal && dateStr >= startVal && dateStr <= endVal) {
                     let sP = 0, eP = 100;
-                    if (dateStr === startVal) {
+                    if (dateStr === startVal) { // Výpočet pro začátek výběru
                         const p = t1.split(':');
                         sP = ((parseInt(p[0]) + parseInt(p[1])/60) / 24) * 100;
                     }
-                    if (dateStr === endVal) {
+                    if (dateStr === endVal) { // Výpočet pro konec výběru
                         const p = t2.split(':');
                         eP = ((parseInt(p[0]) + parseInt(p[1])/60) / 24) * 100;
                     }
-                    timeline.push({ s: sP, e: eP, type: 'selection' });
+                    timeline.push({ s: sP, e: eP, type: 'selection' }); // Přidá blok výběru do timeline
                 }
             }
 
-            if (timeline.length === 0) return null;
-            
-            timeline.sort((a,b) => a.s - b.s);
-            
-            const cBooked = "#e0e0e0"; 
-            const cSelect = "#f3e9d9"; 
-            const cFree = "#ffffff"; 
+            if (timeline.length === 0) return null; // Pokud nejsou žádné bloky, vrátí null
 
-            let stops = []; 
-            let currentPos = 0;
-            
+            timeline.sort((a,b) => a.s - b.s); // Seřadí bloky podle začátku
+
+            // Barvy pro různé typy bloků
+            const cBooked = "#e0e0e0"; // Obsazeno
+            const cSelect = "#f3e9d9"; // Výběr
+            const cFree = "#ffffff";   // Volno
+
+            let stops = []; // Pole pro definici gradientu
+            let currentPos = 0; // Aktuální pozice v gradientu
+
+            // Vytvoření gradientu z bloků obsazenosti
             timeline.forEach(block => {
-                if (block.s > currentPos) { 
-                    stops.push(`${cFree} ${currentPos}%`); 
-                    stops.push(`${cFree} ${block.s}%`); 
+                if (block.s > currentPos) { // Pokud je mezera mezi bloky
+                    stops.push(`${cFree} ${currentPos}%`); // Přidá segment volného místa
+                    stops.push(`${cFree} ${block.s}%`);
                 }
-                const color = block.type === 'booked' ? cBooked : cSelect;
-                stops.push(`${color} ${block.s}%`); 
+                const color = block.type === 'booked' ? cBooked : cSelect; // Vybere barvu podle typu bloku
+                stops.push(`${color} ${block.s}%`); // Přidá segment bloku
                 stops.push(`${color} ${block.e}%`);
-                currentPos = block.e;
+                currentPos = block.e; // Aktualizuje aktuální pozici
             });
-            if (currentPos < 100) { 
-                stops.push(`${cFree} ${currentPos}%`); 
-                stops.push(`${cFree} 100%`); 
+            if (currentPos < 100) { // Pokud zbytek dne je volný
+                stops.push(`${cFree} ${currentPos}%`);
+                stops.push(`${cFree} 100%`);
             }
-            return `linear-gradient(90deg, ${stops.join(", ")})`;
+            // Vytvoří a vrátí linear gradient
+            return `linear-gradient(90deg, ${stops.join(", ")}`;
         }
 
+        // Archivuje rezervaci (ukončí platnost PINu a odešle email)
         async function archiveRes(id) {
-            const reason = prompt("Zadejte důvod ukončení PINu (bude odeslán zákazníkovi):", "Ukončeno po dohodě");
-            if (reason !== null) { 
-                await fetch(`/admin/reservations/${id}/archive`, { 
-                    method: "POST", 
+            const reason = prompt("Zadejte důvod ukončení PINu (bude odeslán zákazníkovi):", "Ukončeno po dohodě"); // Zeptá se na důvod
+            if (reason !== null) { // Pokud uživatel zadá důvod a potvrdí
+                await fetch(`/admin/reservations/${id}/archive`, { // Odešle požadavek na archivaci
+                    method: "POST",
                     headers: { "x-admin-password": localStorage.getItem("adminPass"), "Content-Type": "application/json" },
-                    body: JSON.stringify({ reason: reason }) 
+                    body: JSON.stringify({ reason: reason })
                 });
-                alert("Ukončeno a email odeslán.");
-                checkAuth();
+                alert("Ukončeno a email odeslán."); // Potvrzení
+                checkAuth(); // Znovu načte data, aby se aktualizoval stav rezervace
             }
         }
 
-        async function deleteRes(id) { if(confirm("Smazat?")) { await fetch(`/admin/reservations/${id}`, { method: "DELETE", headers: { "x-admin-password": localStorage.getItem("adminPass") } }); checkAuth(); } }
+        // Smaže rezervaci
+        async function deleteRes(id) {
+            if(confirm("Smazat?")) { // Potvrdí smazání
+                await fetch(`/admin/reservations/${id}`, { // Odešle požadavek na smazání
+                    method: "DELETE",
+                    headers: { "x-admin-password": localStorage.getItem("adminPass") }
+                });
+                checkAuth(); // Znovu načte data
+            }
+        }
 
-        async function resendEmail(id) { await fetch(`/admin/reservations/${id}/resend-email`, { method: "POST", headers: { "x-admin-password": localStorage.getItem("adminPass") } }); alert("Odesláno"); }
-        
+        // Znovu odešle potvrzovací email
+        async function resendEmail(id) {
+            await fetch(`/admin/reservations/${id}/resend-email`, {
+                method: "POST",
+                headers: { "x-admin-password": localStorage.getItem("adminPass") }
+            });
+            alert("Odesláno");
+        }
+
+        // Obnoví PIN a termín rezervace
         async function renewRes(id) {
-            if(!confirm("Obnovit původní termín a vygenerovat nový PIN?")) return;
-            const res = await fetch("/admin/reservations/" + id, {
+            if(!confirm("Obnovit původní termín a vygenerovat nový PIN?")) return; // Potvrzení akce
+
+            const res = await fetch("/admin/reservations/" + id, { // Odešle požadavek na obnovení
                 method: "PUT",
                 headers: { "Content-Type": "application/json", "x-admin-password": localStorage.getItem("adminPass") },
-                body: JSON.stringify({ restore: true })
+                body: JSON.stringify({ restore: true }) // Parametr pro obnovení
             });
 
-            if(res.ok) { alert("Obnoveno."); checkAuth(); } 
-            else if (res.status === 409) { alert("CHYBA: Nelze obnovit! Termín je již obsazen jinou rezervací."); } 
-            else { alert("Chyba při obnovování."); }
+            if(res.ok) {
+                alert("Obnoveno.");
+                checkAuth(); // Znovu načte data
+            }
+            else if (res.status === 409) { // Chyba kolize termínu
+                alert("CHYBA: Nelze obnovit! Termín je již obsazen jinou rezervací.");
+            }
+            else { alert("Chyba při obnovování."); } // Obecná chyba
         }
 
+        // Znovu se pokusí nastavit PIN v zámku pro existující rezervaci
         async function retryPin(id) {
-            if (!confirm("Opravdu chcete zkusit znovu nastavit PIN v zámku? Tento pokus použije již existující PIN rezervace.")) return;
-            
+            if (!confirm("Opravdu chcete zkusit znovu nastavit PIN v zámku? Tento pokus použije již existující PIN rezervace.")) return; // Potvrzení akce
+
             try {
-                const res = await fetch(`/admin/reservations/${id}/retry-pin`, {
+                const res = await fetch(`/admin/reservations/${id}/retry-pin`, { // Odešle požadavek na opakování PINu
                     method: "POST",
                     headers: { "x-admin-password": localStorage.getItem("adminPass") }
                 });
 
                 if (res.ok) {
                     alert("✅ Úspěch! PIN byl nastaven v zámku.");
-                    checkAuth();
+                    checkAuth(); // Znovu načte data
                 } else {
                     const data = await res.json();
                     alert("❌ Selhalo: " + (data.error || "Neznámá chyba serveru. Zkuste to znovu za chvíli."));
@@ -1003,28 +1177,36 @@
             }
         }
 
+        // Znovu odešle výzvu k platbě za prodloužení
         async function resendPaymentLink(id) {
-            if(!confirm("Znovu poslat email s odkazem na platbu?")) return;
-            const res = await fetch(`/admin/reservations/${id}/resend-extension-email`, { method: "POST", headers: { "x-admin-password": localStorage.getItem("adminPass") } });
+            if(!confirm("Znovu poslat email s odkazem na platbu?")) return; // Potvrzení akce
+            const res = await fetch(`/admin/reservations/${id}/resend-extension-email`, { // Odešle požadavek
+                method: "POST",
+                headers: { "x-admin-password": localStorage.getItem("adminPass") }
+            });
             if(res.ok) alert("Odesláno"); else alert("Chyba");
         }
 
+        // Ručně vytvoří novou rezervaci (buď zaplacenou, nebo s výzvou k platbě)
         async function manualReserve(requestPayment = false) {
-            const startDate = document.getElementById("admin-start").value;
-            const endDate = document.getElementById("admin-end").value;
-            const time = document.getElementById("admin-time").value;
-            const endTime = document.getElementById("admin-endtime").value;
+            const startDate = document.getElementById("admin-start").value; // Datum od
+            const endDate = document.getElementById("admin-end").value;   // Datum do
+            const time = document.getElementById("admin-time").value;   // Čas vyzvednutí
+            const endTime = document.getElementById("admin-endtime").value; // Čas vrácení
 
+            // Kontrola, zda není rezervace v minulosti (s možností potvrdit)
             const todayStr = new Date().toLocaleDateString('en-CA');
             if (startDate < todayStr) {
                 if(!confirm("⚠️ Varování: Vytváříte rezervaci v minulosti. Chcete pokračovat?")) return;
             }
 
+            // Validace datumu a času
             if (startDate > endDate || (startDate === endDate && time >= endTime)) {
                 alert("⛔ Chyba: Čas/datum vrácení musí být později než vyzvednutí.");
                 return;
             }
 
+            // Sestavení dat pro odeslání na server
             const body = {
                 startDate: startDate,
                 endDate: endDate,
@@ -1034,73 +1216,101 @@
                 email: document.getElementById("admin-email").value,
                 phone: document.getElementById("admin-phone").value,
                 price: document.getElementById("admin-price").value,
-                requestPayment: requestPayment 
+                requestPayment: requestPayment // Určuje, zda se má poslat výzva k platbě
             };
-            
+
             try {
-                const res = await fetch("/reserve-range", { 
-                    method: "POST", headers: { "Content-Type": "application/json", "x-admin-password": localStorage.getItem("adminPass") }, 
-                    body: JSON.stringify(body) 
+                // Odeslání požadavku na vytvoření rezervace
+                const res = await fetch("/reserve-range", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "x-admin-password": localStorage.getItem("adminPass") },
+                    body: JSON.stringify(body)
                 });
-                
-                if (res.ok) { 
+
+                if (res.ok) { // Pokud server odpoví úspěšně
                     const data = await res.json();
-                    if (data.mode === 'payment_link') {
+                    if (data.mode === 'payment_link') { // Pokud byla vytvořena výzva k platbě
                         alert("✅ Rezervace vytvořena. Email s odkazem na platbu byl odeslán.");
-                    } else {
+                    } else { // Pokud byla rezervace vytvořena jako zaplacená
                         alert("✅ Rezervace vytvořena a zaplacena. PIN odeslán.");
                     }
-                    checkAuth(); 
-                } else if (res.status === 409) {
+                    checkAuth(); // Znovu načte data pro aktualizaci tabulky
+                } else if (res.status === 409) { // Chyba kolize termínu
                     alert("⛔ CHYBA: V tomto termínu již existuje jiná rezervace!");
-                } else { 
-                    alert("Chyba serveru."); 
+                } else { // Jiná chyba serveru
+                    alert("Chyba serveru.");
                 }
-            } catch(e) {
+            } catch(e) { // Chyba sítě
                 alert("Kritická chyba: " + e.message);
             }
         }
 
-        function openEditModal(r) {
+        // Otevře modální okno pro editaci rezervace
+        function openEditModal(id) {
+            // Bezpečně najdeme rezervaci v již načtených datech
+            const r = allReservations.find(item => item._id === id);
+            if (!r) return;
+
+            // Vyplní formulář údaji o rezervaci
             document.getElementById('edit-id').value = r._id;
             document.getElementById('edit-start').value = r.startDate;
             document.getElementById('edit-end').value = r.endDate;
             document.getElementById('edit-time').value = r.time;
             document.getElementById('edit-endtime').value = r.endTime || r.time;
-            document.getElementById('edit-original-price').value = r.price;
-            document.getElementById('edit-price').value = r.price;
-            
+            document.getElementById('edit-original-price').value = r.price; // Uloží původní cenu pro výpočet rozdílu
+            document.getElementById('edit-price').value = r.price; // Nastaví aktuální cenu do inputu
+
             document.getElementById('edit-name').value = r.name || "";
             document.getElementById('edit-email').value = r.email || "";
             document.getElementById('edit-phone').value = r.phone || "";
 
-            document.getElementById('edit-modal').style.display = 'flex';
+            document.getElementById('edit-modal').style.display = 'flex'; // Zobrazí modální okno
+            calcDiff(); // Spustí výpočet rozdílu ceny
         }
-        function closeEditModal() { document.getElementById('edit-modal').style.display = 'none'; }
-        
+
+        // Zavře modální okno
+        function closeEditModal() {
+            document.getElementById('edit-modal').style.display = 'none';
+        }
+
+        // Uloží pouze kontaktní údaje rezervace
         async function saveContactInfoOnly() {
-            const id = document.getElementById('edit-id').value;
+            const id = document.getElementById('edit-id').value; // ID rezervace
+            // Sestaví payload s novými kontaktními údaji a původními daty rezervace
             const payload = {
                 startDate: document.getElementById('edit-start').value,
                 endDate: document.getElementById('edit-end').value,
                 time: document.getElementById('edit-time').value,
                 endTime: document.getElementById('edit-endtime').value,
-                price: document.getElementById('edit-original-price').value,
+                price: document.getElementById('edit-original-price').value, // Původní cena, aby se nezměnila
                 name: document.getElementById('edit-name').value,
                 email: document.getElementById('edit-email').value,
                 phone: document.getElementById('edit-phone').value
             };
             try {
-                const res = await fetch("/admin/reservations/" + id, { method: "PUT", headers: { "Content-Type": "application/json", "x-admin-password": localStorage.getItem("adminPass") }, body: JSON.stringify(payload) });
-                if(res.ok) { alert("✅ Kontaktní údaje uloženy."); checkAuth(); } 
-                else { const d = await res.json(); alert("❌ Chyba: " + (d.error || "Neznámá")); }
-            } catch(e) { alert("Chyba: " + e.message); }
+                // Odešle požadavek na server pro aktualizaci
+                const res = await fetch("/admin/reservations/" + id, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json", "x-admin-password": localStorage.getItem("adminPass") },
+                    body: JSON.stringify(payload)
+                });
+                if(res.ok) {
+                    alert("✅ Kontaktní údaje uloženy.");
+                    closeEditModal(); // Zavře modální okno
+                    checkAuth(); // Znovu načte data
+                } else {
+                    const d = await res.json();
+                    alert("❌ Chyba: " + (d.error || "Neznámá"));
+                }
+            } catch(e) { alert("Chyba: " + e.message); } // Chyba sítě
         }
 
+        // Uloží změny v rezervaci (zdarma, pokud cena zůstane stejná nebo se sníží)
         async function saveEditFree() {
-            const res = await fetch("/admin/reservations/" + document.getElementById('edit-id').value, {
-                method: "PUT", headers: { "Content-Type": "application/json", "x-admin-password": localStorage.getItem("adminPass") },
-                body: JSON.stringify({
+            const res = await fetch("/admin/reservations/" + document.getElementById('edit-id').value, { // Odešle požadavek na PUT
+                method: "PUT",
+                headers: { "Content-Type": "application/json", "x-admin-password": localStorage.getItem("adminPass") },
+                body: JSON.stringify({ // Data pro aktualizaci
                     startDate: document.getElementById('edit-start').value,
                     endDate: document.getElementById('edit-end').value,
                     time: document.getElementById('edit-time').value,
@@ -1111,69 +1321,91 @@
                     phone: document.getElementById('edit-phone').value
                 })
             });
-            if(res.ok) { alert("Uloženo."); closeEditModal(); checkAuth(); }
-            else { alert("Chyba (kolize termínu?)"); }
+            if(res.ok) {
+                alert("Uloženo.");
+                closeEditModal();
+                checkAuth();
+            }
+            else if (res.status === 409) { // Pokud dojde ke kolizi termínu
+                alert("Chyba (kolize termínu)?");
+            }
+            else { alert("Chyba."); }
         }
-        
+
+        // Vytvoří výzvu k platbě za prodloužení rezervace
         async function saveEditPayment() {
-            const oldP = parseFloat(document.getElementById('edit-original-price').value) || 0;
-            const newP = parseFloat(document.getElementById('edit-price').value) || 0;
-            if (newP <= oldP) { alert("Pro výzvu k platbě musí být nová cena vyšší."); return; }
-            if(!confirm(`Odeslat výzvu k úhradě ${newP - oldP} Kč?`)) return;
-            
-            const id = document.getElementById('edit-id').value;
+            const oldP = parseFloat(document.getElementById('edit-original-price').value) || 0; // Původní cena
+            const newP = parseFloat(document.getElementById('edit-price').value) || 0;     // Nová cena
+            if (newP <= oldP) { alert("Pro výzvu k platbě musí být nová cena vyšší."); return; } // Validace ceny
+            if(!confirm(`Odeslat výzvu k úhradě ${newP - oldP} Kč?`)) return; // Potvrzení akce
+
+            const id = document.getElementById('edit-id').value; // ID rezervace
+            // Data pro vytvoření prodloužení
             const body = {
                 startDate: document.getElementById('edit-start').value,
                 endDate: document.getElementById('edit-end').value,
                 time: document.getElementById('edit-time').value,
                 endTime: document.getElementById('edit-endtime').value,
-                newTotalPrice: newP
+                newTotalPrice: newP // Nová celková cena
             };
-            
+
             try {
+                // Odeslání požadavku na server
                 const res = await fetch(`/admin/reservations/${id}/create-extension`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json", "x-admin-password": localStorage.getItem("adminPass") },
                     body: JSON.stringify(body)
                 });
-                if(res.ok) { alert("Výzva odeslána."); closeEditModal(); checkAuth(); }
+                if(res.ok) {
+                    alert("Výzva odeslána.");
+                    closeEditModal();
+                    checkAuth();
+                }
                 else alert("Chyba.");
             } catch(e) { alert("Chyba."); }
         }
 
+        // Vypočítá rozdíl mezi původní a novou cenou a zobrazí ho
         function calcDiff() {
             const oldP = parseFloat(document.getElementById('edit-original-price').value) || 0;
             const newP = parseFloat(document.getElementById('edit-price').value) || 0;
             const diff = newP - oldP;
             const el = document.getElementById('price-diff');
-            if(diff > 0) { el.innerText = `Doplatek: ${diff} Kč`; el.style.color = "red"; }
-            else if(diff < 0) { el.innerText = `Přeplatek: ${Math.abs(diff)} Kč`; el.style.color = "green"; }
-            else { el.innerText = "Cena beze změny"; el.style.color = "black"; }
+            if(diff > 0) { el.innerText = `Doplatek: ${diff} Kč`; el.style.color = "red"; } // Doplatek
+            else if(diff < 0) { el.innerText = `Přeplatek: ${Math.abs(diff)} Kč`; el.style.color = "green"; } // Přeplatek
+            else { el.innerText = "Cena beze změny"; el.style.color = "black"; } // Bez změny
         }
 
+        // Exportuje tabulku rezervací do CSV souboru
         function downloadCSV() {
-            if (!currentFilteredData || currentFilteredData.length === 0) { alert("Žádná data."); return; }
+            if (!currentFilteredData || currentFilteredData.length === 0) { alert("Žádná data k exportu."); return; } // Kontrola, zda jsou nějaká data
+            // Hlavička CSV souboru
             let csv = "\uFEFFID Rezervace;Jméno;Email;Telefon;Vytvořeno;Termín Od;Termín Do;Cena (Kč);Poplatek GoPay;Daň;Čistý Zisk;Stav;PIN\n";
-            currentFilteredData.forEach(r => {
-                let vals = computedDataMap[r._id] || { fee: 0, tax: 0, net: 0 };
+            currentFilteredData.forEach(r => { // Pro každou rezervaci
+                let vals = computedDataMap[r._id] || { fee: 0, tax: 0, net: 0 }; // Získá vypočtené hodnoty
+                // Sestaví řádek CSV
                 let row = [
-                    r.reservationCode, `"${r.name}"`, r.email, r.phone,
-                    new Date(r.created).toLocaleDateString("cs-CZ"),
-                    new Date(r.startDate).toLocaleDateString("cs-CZ") + " " + r.time,
-                    new Date(r.endDate).toLocaleDateString("cs-CZ") + " " + (r.endTime || r.time),
-                    r.price || 0, vals.fee, vals.tax, vals.net, r.paymentStatus, r.passcode
+                    r.reservationCode, `"${r.name}"`, r.email, r.phone, // Základní údaje
+                    new Date(r.created).toLocaleDateString("cs-CZ"), // Datum vytvoření
+                    new Date(r.startDate).toLocaleDateString("cs-CZ") + " " + r.time, // Datum a čas od
+                    new Date(r.endDate).toLocaleDateString("cs-CZ") + " " + (r.endTime || r.time), // Datum a čas do
+                    r.price || 0, vals.fee, vals.tax, vals.net, // Ceny a výpočty
+                    r.paymentStatus, r.passcode // Stav a PIN
                 ];
-                csv += row.join(";") + "\n";
+                csv += row.join(";") + "\n"; // Přidá řádek do CSV stringu
             });
+            // Vytvoří Blob objekt z CSV dat
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            // Vytvoří odkaz pro stažení
             const link = document.createElement("a");
             link.href = URL.createObjectURL(blob);
-            link.download = "rezervace_vozik.csv";
-            link.click();
+            link.download = "rezervace_vozik.csv"; // Název souboru
+            link.click(); // Simuluje kliknutí na odkaz pro stažení
         }
 
-        document.getElementById('login-form').addEventListener('submit', login);
-        window.onload = checkAuth;
+        // --- INICIALIZACE ---
+        document.getElementById('login-form').addEventListener('submit', login); // Přidá obsluhu pro přihlašovací formulář
+        window.onload = checkAuth; // Spustí kontrolu autentizace při načtení stránky
     </script>
 </body>
 </html>
