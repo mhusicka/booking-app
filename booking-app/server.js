@@ -160,6 +160,12 @@ function hashPassword(password) {
     return crypto.createHash("md5").update(password).digest("hex");
 }
 
+function sanitizeSubject(subj) {
+    if (!subj) return 'Vozík 24/7';
+    const cleaned = subj.replace(/\bTEST\b/gi, '').replace(/\s{2,}/g, ' ').trim();
+    return cleaned || 'Vozík 24/7';
+}
+
 async function checkOverlap(startStr, endStr, excludeId = null) {
     const newStart = new Date(startStr).getTime();
     const newEnd = new Date(endStr).getTime();
@@ -332,6 +338,7 @@ async function sendReservationEmail(data, pdfBuffer, isUpdate = false, paymentLi
                 <span style="font-size: 48px; font-weight: 800; color: #333; letter-spacing: 8px; line-height: 1;">${data.passcode}</span>
             </div>`;
     }
+    subject = sanitizeSubject(subject);
 
     if (!paymentLink) {
         actionContent = `
@@ -453,7 +460,7 @@ async function sendAdminNewReservationEmail(data) {
         sender: { name: "Vozík 24/7 System", email: SENDER_EMAIL },
         to: [{ email: ADMIN_NOTIFICATION_EMAIL, name: "Martin Husicka" }],
         replyTo: { email: data.email },
-        subject: `NOVÁ REZERVACE: ${data.name} (${data.price} Kč)`,
+        subject: sanitizeSubject(`NOVÁ REZERVACE: ${data.name} (${data.price} Kč)`),
         htmlContent: htmlContent
     };
 
@@ -477,7 +484,7 @@ async function sendTerminationEmail(data, reason) {
         sender: { name: "Vozík 24/7", email: SENDER_EMAIL },
         to: [{ email: data.email, name: data.name }],
         replyTo: { email: SENDER_EMAIL },
-        subject: `Ukončení PIN kódu - ${data.reservationCode}`,
+        subject: sanitizeSubject(`Ukončení PIN kódu - ${data.reservationCode}`),
         htmlContent: htmlContent
     };
     try { await axios.post("https://api.brevo.com/v3/smtp/email", emailData, { headers: { "api-key": BREVO_API_KEY, "Content-Type": "application/json" } }); }
@@ -721,6 +728,68 @@ app.get("/payment-return", async (req, res) => {
     }
 });
 
+app.post("/api/payment-notify", async (req, res) => {
+    try {
+        const payload = req.body || {};
+        const paymentId = payload.id || (payload.payment && payload.payment.id) || req.query.id;
+        if (!paymentId) return res.status(400).send("Missing payment id");
+
+        const token = await getGoPayToken();
+        const statusRes = await axios.get(`${GOPAY_API_URL}/api/payments/payment/${paymentId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        const state = statusRes.data.state;
+
+        let r = await Reservation.findOne({ gopayId: paymentId });
+        let isExtension = false;
+        if (!r) {
+            r = await Reservation.findOne({ "pendingExtension.gopayId": paymentId });
+            isExtension = !!r;
+        }
+
+        if (!r) {
+            console.warn("Payment notify: reservation not found for paymentId", paymentId);
+            return res.status(200).send("OK");
+        }
+
+        if (state === 'PAID') {
+            if (isExtension) {
+                if (r.keyboardPwdId) await deletePinFromLock(r.keyboardPwdId);
+
+                r.startDate = r.pendingExtension.newStartDate;
+                r.endDate = r.pendingExtension.newEndDate;
+                r.time = r.pendingExtension.newTime;
+                r.endTime = r.pendingExtension.newEndTime;
+                r.price = r.pendingExtension.newTotalPrice;
+                r.pendingExtension = { active: false };
+
+                const lockData = await addPinToLock(r);
+                r.passcode = lockData.pin;
+                r.keyboardPwdId = lockData.keyboardPwdId;
+                await r.save();
+
+                const pdf = await createInvoicePdf(r);
+                await sendReservationEmail(r, pdf, true);
+                await sendAdminNewReservationEmail(r);
+            } else {
+                await finalizeReservation(r);
+            }
+        } else {
+            if (!isExtension) {
+                r.paymentStatus = 'CANCELED';
+                await r.save();
+            }
+        }
+
+        res.status(200).send("OK");
+    } catch (e) {
+        console.error("Payment notify error:", e);
+        res.status(500).send("ERROR");
+    }
+});
+
+// GET health-check for payment notify
 app.get("/api/payment-notify", (req, res) => res.send("OK")); 
 
 app.post("/retrieve-booking", async (req, res) => {
