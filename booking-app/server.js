@@ -690,7 +690,9 @@ app.get("/payment-return", async (req, res) => {
             headers: { 'Authorization': `Bearer ${token}` }
         });
 
-        if (statusRes.data.state === 'PAID') {
+        const state = statusRes.data.state;
+
+        if (state === 'PAID') {
             if (isExtension) {
                 if (r.keyboardPwdId) await deletePinFromLock(r.keyboardPwdId);
                 
@@ -709,12 +711,14 @@ app.get("/payment-return", async (req, res) => {
                 const pdf = await createInvoicePdf(r);
                 await sendReservationEmail(r, pdf, true); 
                 await sendAdminNewReservationEmail(r);
-
             } else {
-                await finalizeReservation(r);
+                if (r.paymentStatus !== 'PAID') {
+                    await finalizeReservation(r);
+                }
             }
             res.redirect(`/check.html?id=${r.reservationCode}`);
-        } else {
+        } else if (state === 'CANCELED' || state === 'TIMEOUTED') {
+            // Platba definitivně selhala nebo vypršela
             if (!isExtension) {
                 r.paymentStatus = 'CANCELED';
                 await r.save();
@@ -722,17 +726,25 @@ app.get("/payment-return", async (req, res) => {
             } else {
                 res.redirect("/?error=extension_failed");
             }
+        } else {
+            // MEZISTAV (Platba se zpracovává: AUTHORIZED, PAYMENT_METHOD_CHOSEN, atd.)
+            // Nepřepisujeme stav na CANCELED, necháme ho PENDING.
+            // Zákazníka pošleme na check.html s parametrem, že platba probíhá.
+            res.redirect(`/check.html?id=${r.reservationCode}&payment=processing`);
         }
     } catch (e) {
         res.redirect("/?error=server");
     }
 });
 
-app.post("/api/payment-notify", async (req, res) => {
+// Společná funkce pro zpracování GoPay notifikací (GET i POST)
+async function handlePaymentNotify(req, res) {
     try {
         const payload = req.body || {};
         const paymentId = payload.id || (payload.payment && payload.payment.id) || req.query.id;
-        if (!paymentId) return res.status(400).send("Missing payment id");
+        
+        // GoPay si občas jen "pingne" URL bez ID, aby ověřil dostupnost webhooku
+        if (!paymentId) return res.status(200).send("OK");
 
         const token = await getGoPayToken();
         const statusRes = await axios.get(`${GOPAY_API_URL}/api/payments/payment/${paymentId}`, {
@@ -755,6 +767,7 @@ app.post("/api/payment-notify", async (req, res) => {
 
         if (state === 'PAID') {
             if (isExtension) {
+                // Dokončení doplatku
                 if (r.keyboardPwdId) await deletePinFromLock(r.keyboardPwdId);
 
                 r.startDate = r.pendingExtension.newStartDate;
@@ -773,10 +786,14 @@ app.post("/api/payment-notify", async (req, res) => {
                 await sendReservationEmail(r, pdf, true);
                 await sendAdminNewReservationEmail(r);
             } else {
-                await finalizeReservation(r);
+                // Pojistka, abychom negenerovali vše 2x, když už je to uhrazené z redirectu
+                if (r.paymentStatus !== 'PAID') {
+                    await finalizeReservation(r);
+                }
             }
-        } else {
-            if (!isExtension) {
+        } else if (state === 'CANCELED' || state === 'TIMEOUTED') {
+            // Pokud je platba zamítnuta nebo vypršela její platnost
+            if (!isExtension && r.paymentStatus !== 'CANCELED') {
                 r.paymentStatus = 'CANCELED';
                 await r.save();
             }
@@ -785,12 +802,15 @@ app.post("/api/payment-notify", async (req, res) => {
         res.status(200).send("OK");
     } catch (e) {
         console.error("Payment notify error:", e);
+        // Vracíme ERROR, aby GoPay zkusil notifikaci poslat znovu později
         res.status(500).send("ERROR");
     }
-});
+}
 
-// GET health-check for payment notify
-app.get("/api/payment-notify", (req, res) => res.send("OK")); 
+// Nastavení endpointu pro POST i GET notifikace
+app.post("/api/payment-notify", handlePaymentNotify);
+app.get("/api/payment-notify", handlePaymentNotify);
+
 
 app.post("/retrieve-booking", async (req, res) => {
     try {
