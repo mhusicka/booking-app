@@ -17,6 +17,7 @@
         .bg-active { background: #28a745; }
         .bg-future { background: #17a2b8; }
         .bg-ended { background: #6c757d; }
+        .bg-processing { background: #f39c12; } /* Nová oranžová barva pro zpracování */
 
         .detail-body { padding: 30px 20px; text-align: center; }
         
@@ -24,6 +25,10 @@
         .pin-label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 2px; display: block; margin-bottom: 5px; }
         .pin-value { font-size: 48px; font-weight: 800; color: #333; letter-spacing: 8px; line-height: 1; }
         
+        /* Nový styl pro informační okno o probíhající platbě */
+        .processing-alert { background: #fff3cd; border: 2px dashed #ffeeba; color: #856404; padding: 20px; border-radius: 10px; margin: 20px 0; font-size: 13px; text-align: left; line-height: 1.5; display: none; }
+        .processing-alert strong { display: block; margin-bottom: 8px; font-size: 15px; color: #664d03; }
+
         .info-row { display: flex; justify-content: space-between; border-bottom: 1px solid #f0f0f0; padding: 15px 0; font-size: 14px; }
         .info-row:last-child { border-bottom: none; }
         .info-label { color: #888; }
@@ -56,7 +61,14 @@
             <p style="margin:0; color:#aaa; font-size:12px; text-transform:uppercase;">ID Rezervace</p>
             <h1 id="out-id" style="margin:5px 0 20px 0; color:#333; letter-spacing:2px;">---</h1>
 
-            <div class="pin-wrapper">
+            <!-- Informační okno o probíhající platbě (skryté ve výchozím stavu) -->
+            <div id="processing-alert" class="processing-alert">
+                <strong><i class="fa-solid fa-hourglass-half fa-spin"></i> Čekáme na schválení platby</strong>
+                Zpracování transakce může bankou trvat několik minut. Jakmile platba úspěšně projde, <strong>zašleme Vám hotový PIN kód k zámku i s potvrzením na e-mail</strong>. Tuto stránku můžete nyní bezpečně zavřít.
+            </div>
+
+            <!-- Standardní okno s PINem -->
+            <div id="pin-wrapper" class="pin-wrapper">
                 <span class="pin-label">PIN K ZÁMKU</span>
                 <span id="out-pin" class="pin-value">---</span>
             </div>
@@ -161,6 +173,9 @@
     function showDetail(data) {
         document.getElementById('detail-section').style.display = 'block';
 
+        const urlParams = new URLSearchParams(window.location.search);
+        const isProcessingUrl = urlParams.get('payment') === 'processing';
+
         document.getElementById('out-id').innerText = data.reservationCode;
         document.getElementById('out-pin').innerText = data.passcode || '---';
 
@@ -188,19 +203,32 @@
         const statusEl = document.getElementById('status-bar');
         const now = new Date();
 
-        if (data.paymentStatus !== 'PAID') {
-            statusEl.innerText = "ČEKÁ NA PLATBU / ZRUŠENO";
+        // LOGIKA PRO ZOBRAZENÍ STAVU
+        if (data.paymentStatus === 'CANCELED') {
+            statusEl.innerText = "ZRUŠENO / NEZAPLACENO";
             statusEl.className = "status-header bg-ended";
             document.getElementById('out-pin').innerText = "---";
+        } else if (data.paymentStatus === 'PENDING' || isProcessingUrl) {
+            // Stav: Platba se zpracovává
+            statusEl.innerText = "PLATBA SE ZPRACOVÁVÁ";
+            statusEl.className = "status-header bg-processing";
+            document.getElementById('pin-wrapper').style.display = 'none';
+            document.getElementById('processing-alert').style.display = 'block';
         } else if (now > d2) {
             statusEl.innerText = "REZERVACE UKONČENA";
             statusEl.className = "status-header bg-ended";
         } else if (now < d1) {
             statusEl.innerText = "REZERVACE BUDE AKTIVNÍ";
             statusEl.className = "status-header bg-future";
+            // Zajištění, že se ukáže PIN blok, pokud bychom ho předtím skryli
+            document.getElementById('pin-wrapper').style.display = 'block';
+            document.getElementById('processing-alert').style.display = 'none';
         } else {
             statusEl.innerText = "REZERVACE JE AKTIVNÍ";
             statusEl.className = "status-header bg-active";
+            // Zajištění, že se ukáže PIN blok
+            document.getElementById('pin-wrapper').style.display = 'block';
+            document.getElementById('processing-alert').style.display = 'none';
         }
     }
 </script>
