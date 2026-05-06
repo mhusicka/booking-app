@@ -54,7 +54,7 @@ const MY_LOCK_ID = parseInt(process.env.MY_LOCK_ID);
 const GOPAY_GOID = process.env.GOPAY_GOID;
 const GOPAY_CLIENT_ID = process.env.GOPAY_CLIENT_ID;
 const GOPAY_CLIENT_SECRET = process.env.GOPAY_CLIENT_SECRET;
-const GOPAY_API_URL = "https://gw.sandbox.gopay.com";
+const GOPAY_API_URL = "https://gate.gopay.cz";
 
 // --- API PRO ZÁMEK WEBU ---
 app.get("/api/lock-status", (req, res) => {
