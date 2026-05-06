@@ -180,7 +180,7 @@ async function checkOverlap(startStr, endStr, excludeId = null) {
     for (const r of existing) {
         if (r.paymentStatus === 'PENDING') {
             const diff = Date.now() - new Date(r.created).getTime();
-            if (diff > 20 * 60 * 1000) continue; 
+            if (diff > 5 * 60 * 1000) continue; 
         }
         
         const rStart = new Date(`${r.startDate}T${r.time}:00`).getTime();
