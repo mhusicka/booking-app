@@ -180,7 +180,7 @@ async function checkOverlap(startStr, endStr, excludeId = null) {
     for (const r of existing) {
         if (r.paymentStatus === 'PENDING') {
             const diff = Date.now() - new Date(r.created).getTime();
-            if (diff > 5 * 60 * 1000) continue; // POJISTKA: Po 5 minutách termín uvolníme
+            if (diff > 5 * 60 * 1000) continue; // Uklízeč z ignorování po 5 min
         }
         
         const rStart = new Date(`${r.startDate}T${r.time}:00`).getTime();
@@ -596,7 +596,6 @@ async function getGoPayToken() {
 
 // --- PUBLIC ROUTY ---
 
-// UKLÍZEČ 1: PRO KALENDÁŘ NA WEBU
 app.get("/availability", async (req, res) => {
     try {
         const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000);
@@ -668,7 +667,7 @@ app.post("/create-payment", async (req, res) => {
             currency: "CZK",
             order_number: `${rCode}-${Date.now().toString().slice(-4)}`,
             target: { type: "ACCOUNT", goid: GOPAY_GOID },
-            allowed_payment_instruments: ["PAYMENT_CARD", "APPLE_PAY", "GOOGLE_PAY"],
+            // ZDE JE TO ODSTRANĚNO - kód bude fungovat
             callback: {
                 return_url: `${BASE_URL}/payment-return`,
                 notification_url: `${BASE_URL}/api/payment-notify`
@@ -682,7 +681,9 @@ app.post("/create-payment", async (req, res) => {
         res.json({ success: true, redirectUrl: gpRes.data.gw_url });
 
     } catch (e) {
-        res.status(500).json({ error: "Chyba" });
+        const errorDetail = e.response && e.response.data ? JSON.stringify(e.response.data) : e.message;
+        console.error("GOPAY ERROR (create-payment):", errorDetail);
+        res.status(500).json({ error: "Chyba GoPay: " + errorDetail });
     }
 });
 
@@ -850,12 +851,11 @@ app.post("/retrieve-booking", async (req, res) => {
 
 // --- ADMIN ROUTES ---
 
-// UKLÍZEČ 2: PRO ADMINISTRACI
 app.get("/admin/reservations", checkAdmin, async (req, res) => {
     try {
         const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000);
         
-        // Zrušení starých PENDING rezervací i při načtení administrace
+        // Zrušení starých PENDING rezervací
         await Reservation.updateMany(
             { paymentStatus: 'PENDING', created: { $lt: fiveMinsAgo } },
             { $set: { paymentStatus: 'CANCELED' } }
@@ -949,7 +949,7 @@ app.post("/reserve-range", checkAdmin, async (req, res) => {
                 currency: "CZK",
                 order_number: `${rCode}-${Date.now().toString().slice(-4)}`,
                 target: { type: "ACCOUNT", goid: GOPAY_GOID },
-                allowed_payment_instruments: ["PAYMENT_CARD", "APPLE_PAY", "GOOGLE_PAY"],
+                // ZDE JE TO ODSTRANĚNO - kód bude fungovat
                 callback: {
                     return_url: `${BASE_URL}/payment-return`,
                     notification_url: `${BASE_URL}/api/payment-notify`
@@ -965,8 +965,9 @@ app.post("/reserve-range", checkAdmin, async (req, res) => {
             res.json({ success: true, mode: 'payment_link', paymentUrl: gpRes.data.gw_url });
 
         } catch (e) {
-            console.error(e);
-            res.status(500).json({ error: "Chyba při vytváření platby" });
+            const errorDetail = e.response && e.response.data ? JSON.stringify(e.response.data) : e.message;
+            console.error("GOPAY ERROR (reserve-range):", errorDetail);
+            res.status(500).json({ error: "Chyba při vytváření platby: " + errorDetail });
         }
 
     } else {
@@ -1000,7 +1001,7 @@ app.post("/admin/reservations/:id/create-extension", checkAdmin, async (req, res
             payer: { contact: { first_name: r.name, email: r.email, phone_number: r.phone } },
             amount: surcharge, currency: "CZK", order_number: `EXT-${r.reservationCode}`,
             target: { type: "ACCOUNT", goid: GOPAY_GOID },
-            allowed_payment_instruments: ["PAYMENT_CARD", "APPLE_PAY", "GOOGLE_PAY"],
+            // ZDE JE TO ODSTRANĚNO - kód bude fungovat
             callback: { return_url: `${BASE_URL}/payment-return`, notification_url: `${BASE_URL}/api/payment-notify` },
             lang: "CS"
         }, { headers: { 'Authorization': `Bearer ${token}` } });
@@ -1020,7 +1021,11 @@ app.post("/admin/reservations/:id/create-extension", checkAdmin, async (req, res
         await sendReservationEmail(r, null, false, gpRes.data.gw_url);
         
         res.json({ success: true, paymentUrl: gpRes.data.gw_url });
-    } catch (e) { res.status(500).json({ error: "Chyba" }); }
+    } catch (e) { 
+        const errorDetail = e.response && e.response.data ? JSON.stringify(e.response.data) : e.message;
+        console.error("GOPAY ERROR (extension):", errorDetail);
+        res.status(500).json({ error: "Chyba GoPay: " + errorDetail });
+    }
 });
 
 app.put("/admin/reservations/:id", checkAdmin, async (req, res) => {
