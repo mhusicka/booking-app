@@ -180,7 +180,7 @@ async function checkOverlap(startStr, endStr, excludeId = null) {
     for (const r of existing) {
         if (r.paymentStatus === 'PENDING') {
             const diff = Date.now() - new Date(r.created).getTime();
-            if (diff > 5 * 60 * 1000) continue; 
+            if (diff > 5 * 60 * 1000) continue; // POJISTKA: Po 5 minutách termín uvolníme
         }
         
         const rStart = new Date(`${r.startDate}T${r.time}:00`).getTime();
@@ -268,7 +268,7 @@ function createInvoicePdf(data) {
     });
 }
 
-// --- EMAILY (UPRAVENO PŘESNĚ PODLE WEBOVÉHO DESIGNU) ---
+// --- EMAILY ---
 async function sendReservationEmail(data, pdfBuffer, isUpdate = false, paymentLink = null) {
     if (!BREVO_API_KEY) {
         console.log("⚠️ Chybí BREVO_API_KEY, email se neodeslal.");
@@ -290,7 +290,6 @@ async function sendReservationEmail(data, pdfBuffer, isUpdate = false, paymentLi
     const startF = formatDateCz(displayStartDate);
     const endF = formatDateCz(displayEndDate);
     
-    // Výpočet délky rezervace jako v check.html
     const d1 = new Date(`${displayStartDate}T${displayTime}:00`);
     const d2 = new Date(`${displayEndDate}T${displayEndTime}:00`);
     let diffMs = d2 - d1;
@@ -311,7 +310,7 @@ async function sendReservationEmail(data, pdfBuffer, isUpdate = false, paymentLi
         const amount = isExtension ? data.pendingExtension.surcharge : data.price;
         subject = `PLATBA REZERVACE - ${data.reservationCode}`;
         statusText = "VÝZVA K PLATBĚ";
-        statusColor = "#0d47a1"; // Modrá
+        statusColor = "#0d47a1"; 
         
         pinBlock = `<div style="margin: 20px 0; color: #555;">Kód k zámku Vám zašleme ihned po zaplacení.</div>`;
         actionContent = `
@@ -320,7 +319,7 @@ async function sendReservationEmail(data, pdfBuffer, isUpdate = false, paymentLi
     } else if (isUpdate) {
         subject = `ZMĚNA REZERVACE - ${data.reservationCode}`;
         statusText = "REZERVACE UPRAVENA";
-        statusColor = "#17a2b8"; // Modrozelená (bg-future)
+        statusColor = "#17a2b8"; 
         
         pinBlock = `
             <div style="background: #fffdfa; border: 2px dashed #bfa37c; padding: 20px; border-radius: 10px; margin: 20px 0;">
@@ -330,7 +329,7 @@ async function sendReservationEmail(data, pdfBuffer, isUpdate = false, paymentLi
     } else {
         subject = `Potvrzení rezervace - ${data.reservationCode}`;
         statusText = "REZERVACE ÚSPĚŠNÁ";
-        statusColor = "#28a745"; // Zelená (bg-active)
+        statusColor = "#28a745"; 
         
         pinBlock = `
             <div style="background: #fffdfa; border: 2px dashed #bfa37c; padding: 20px; border-radius: 10px; margin: 20px 0;">
@@ -596,9 +595,24 @@ async function getGoPayToken() {
 }
 
 // --- PUBLIC ROUTY ---
+
+// UKLÍZEČ 1: PRO KALENDÁŘ NA WEBU
 app.get("/availability", async (req, res) => {
-    const data = await Reservation.find({ paymentStatus: { $ne: 'CANCELED' } }, "startDate endDate time endTime");
-    res.json(data);
+    try {
+        const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000);
+        
+        // Zrušení starých PENDING rezervací
+        await Reservation.updateMany(
+            { paymentStatus: 'PENDING', created: { $lt: fiveMinsAgo } },
+            { $set: { paymentStatus: 'CANCELED' } }
+        );
+
+        const data = await Reservation.find({ paymentStatus: { $ne: 'CANCELED' } }, "startDate endDate time endTime");
+        res.json(data);
+    } catch (e) {
+        console.error("Availability error:", e);
+        res.status(500).json({ error: "Chyba" });
+    }
 });
 
 app.get('/api/check/:code', async (req, res) => {
@@ -654,6 +668,7 @@ app.post("/create-payment", async (req, res) => {
             currency: "CZK",
             order_number: `${rCode}-${Date.now().toString().slice(-4)}`,
             target: { type: "ACCOUNT", goid: GOPAY_GOID },
+            allowed_payment_instruments: ["PAYMENT_CARD", "APPLE_PAY", "GOOGLE_PAY"],
             callback: {
                 return_url: `${BASE_URL}/payment-return`,
                 notification_url: `${BASE_URL}/api/payment-notify`
@@ -718,7 +733,6 @@ app.get("/payment-return", async (req, res) => {
             }
             res.redirect(`/check.html?id=${r.reservationCode}`);
         } else if (state === 'CANCELED' || state === 'TIMEOUTED') {
-            // Platba definitivně selhala nebo vypršela
             if (!isExtension) {
                 r.paymentStatus = 'CANCELED';
                 await r.save();
@@ -727,9 +741,6 @@ app.get("/payment-return", async (req, res) => {
                 res.redirect("/?error=extension_failed");
             }
         } else {
-            // MEZISTAV (Platba se zpracovává: AUTHORIZED, PAYMENT_METHOD_CHOSEN, atd.)
-            // Nepřepisujeme stav na CANCELED, necháme ho PENDING.
-            // Zákazníka pošleme na check.html s parametrem, že platba probíhá.
             res.redirect(`/check.html?id=${r.reservationCode}&payment=processing`);
         }
     } catch (e) {
@@ -737,13 +748,11 @@ app.get("/payment-return", async (req, res) => {
     }
 });
 
-// Společná funkce pro zpracování GoPay notifikací (GET i POST)
 async function handlePaymentNotify(req, res) {
     try {
         const payload = req.body || {};
         const paymentId = payload.id || (payload.payment && payload.payment.id) || req.query.id;
         
-        // GoPay si občas jen "pingne" URL bez ID, aby ověřil dostupnost webhooku
         if (!paymentId) return res.status(200).send("OK");
 
         const token = await getGoPayToken();
@@ -767,7 +776,6 @@ async function handlePaymentNotify(req, res) {
 
         if (state === 'PAID') {
             if (isExtension) {
-                // Dokončení doplatku
                 if (r.keyboardPwdId) await deletePinFromLock(r.keyboardPwdId);
 
                 r.startDate = r.pendingExtension.newStartDate;
@@ -786,13 +794,11 @@ async function handlePaymentNotify(req, res) {
                 await sendReservationEmail(r, pdf, true);
                 await sendAdminNewReservationEmail(r);
             } else {
-                // Pojistka, abychom negenerovali vše 2x, když už je to uhrazené z redirectu
                 if (r.paymentStatus !== 'PAID') {
                     await finalizeReservation(r);
                 }
             }
         } else if (state === 'CANCELED' || state === 'TIMEOUTED') {
-            // Pokud je platba zamítnuta nebo vypršela její platnost
             if (!isExtension && r.paymentStatus !== 'CANCELED') {
                 r.paymentStatus = 'CANCELED';
                 await r.save();
@@ -802,12 +808,10 @@ async function handlePaymentNotify(req, res) {
         res.status(200).send("OK");
     } catch (e) {
         console.error("Payment notify error:", e);
-        // Vracíme ERROR, aby GoPay zkusil notifikaci poslat znovu později
         res.status(500).send("ERROR");
     }
 }
 
-// Nastavení endpointu pro POST i GET notifikace
 app.post("/api/payment-notify", handlePaymentNotify);
 app.get("/api/payment-notify", handlePaymentNotify);
 
@@ -845,9 +849,24 @@ app.post("/retrieve-booking", async (req, res) => {
 });
 
 // --- ADMIN ROUTES ---
+
+// UKLÍZEČ 2: PRO ADMINISTRACI
 app.get("/admin/reservations", checkAdmin, async (req, res) => {
-    const data = await Reservation.find().sort({ created: -1 });
-    res.json(data);
+    try {
+        const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000);
+        
+        // Zrušení starých PENDING rezervací i při načtení administrace
+        await Reservation.updateMany(
+            { paymentStatus: 'PENDING', created: { $lt: fiveMinsAgo } },
+            { $set: { paymentStatus: 'CANCELED' } }
+        );
+
+        const data = await Reservation.find().sort({ created: -1 });
+        res.json(data);
+    } catch (e) {
+        console.error("Admin check error:", e);
+        res.status(500).json({ error: "Chyba" });
+    }
 });
 
 app.post("/admin/settings", checkAdmin, (req, res) => {
@@ -930,6 +949,7 @@ app.post("/reserve-range", checkAdmin, async (req, res) => {
                 currency: "CZK",
                 order_number: `${rCode}-${Date.now().toString().slice(-4)}`,
                 target: { type: "ACCOUNT", goid: GOPAY_GOID },
+                allowed_payment_instruments: ["PAYMENT_CARD", "APPLE_PAY", "GOOGLE_PAY"],
                 callback: {
                     return_url: `${BASE_URL}/payment-return`,
                     notification_url: `${BASE_URL}/api/payment-notify`
@@ -980,6 +1000,7 @@ app.post("/admin/reservations/:id/create-extension", checkAdmin, async (req, res
             payer: { contact: { first_name: r.name, email: r.email, phone_number: r.phone } },
             amount: surcharge, currency: "CZK", order_number: `EXT-${r.reservationCode}`,
             target: { type: "ACCOUNT", goid: GOPAY_GOID },
+            allowed_payment_instruments: ["PAYMENT_CARD", "APPLE_PAY", "GOOGLE_PAY"],
             callback: { return_url: `${BASE_URL}/payment-return`, notification_url: `${BASE_URL}/api/payment-notify` },
             lang: "CS"
         }, { headers: { 'Authorization': `Bearer ${token}` } });
