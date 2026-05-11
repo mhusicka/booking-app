@@ -18,24 +18,6 @@ app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 
-// --- KONFIGURACE ---
-const settingsPath = path.join(__dirname, 'settings.json');
-
-function getGlobalSettings() {
-    const defaultSettings = { dailyPrice: 230, taxRate: 15, webLocked: true };
-    if (!fs.existsSync(settingsPath)) return defaultSettings;
-    try {
-        const data = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
-        return { ...defaultSettings, ...data };
-    } catch (e) {
-        return defaultSettings;
-    }
-}
-
-function saveGlobalSettings(settings) {
-    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
-}
-
 const MONGO_URI = process.env.MONGO_URI;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 const DEBUG_PASSWORD = process.env.DEBUG_PASSWORD; // Heslo pro web
@@ -56,48 +38,23 @@ const GOPAY_CLIENT_ID = process.env.GOPAY_CLIENT_ID;
 const GOPAY_CLIENT_SECRET = process.env.GOPAY_CLIENT_SECRET;
 const GOPAY_API_URL = "https://gate.gopay.cz";
 
-// --- API PRO ZÁMEK WEBU ---
-app.get("/api/lock-status", (req, res) => {
-    const settings = getGlobalSettings();
-    res.json({ isLocked: settings.webLocked });
-});
-
-app.post("/api/verify-password", (req, res) => {
-    const { password } = req.body;
-    if (password === DEBUG_PASSWORD) {
-        res.json({ success: true });
-    } else {
-        res.status(401).json({ success: false });
-    }
-});
-
-app.post("/admin/toggle-lock", (req, res) => {
-    try {
-        const adminPwd = req.headers["x-admin-password"];
-        if (adminPwd !== ADMIN_PASSWORD) {
-            console.log("❌ Zámek webu: Neplatné heslo admina.");
-            return res.status(403).json({ error: "Neplatné heslo admina." });
-        }
-
-        const { locked } = req.body;
-        const settings = getGlobalSettings();
-        settings.webLocked = !!locked;
-        
-        saveGlobalSettings(settings);
-        console.log(`✅ Zámek webu byl ${locked ? "ZAPNUT" : "VYPNUT"}.`);
-        
-        res.json({ success: true, isLocked: settings.webLocked });
-    } catch (err) {
-        console.error("❌ Kritická chyba při ukládání do settings.json:", err);
-        res.status(500).json({ error: "Nepodařilo se zapsat do souboru settings.json na serveru." });
-    }
-});
-
-// --- DB ---
+// --- DB PŘIPOJENÍ ---
 mongoose.connect(MONGO_URI)
     .then(() => console.log("✅ DB připojena"))
     .catch(err => console.error("❌ Chyba DB:", err));
 
+// --- SCHÉMATA DB ---
+
+// 1. Schéma pro trvalé nastavení webu (zámek, ceny)
+const SettingsSchema = new mongoose.Schema({
+    type: { type: String, default: 'global' },
+    dailyPrice: { type: Number, default: 230 },
+    taxRate: { type: Number, default: 15 },
+    webLocked: { type: Boolean, default: true }
+});
+const Settings = mongoose.model("Settings", SettingsSchema);
+
+// 2. Schéma pro rezervace
 const ReservationSchema = new mongoose.Schema({
     reservationCode: String,
     startDate: String,
@@ -127,6 +84,17 @@ const ReservationSchema = new mongoose.Schema({
     }
 });
 const Reservation = mongoose.model("Reservation", ReservationSchema);
+
+
+// --- FUNKCE PRO ZÍSKÁNÍ TRVALÉHO NASTAVENÍ Z DB ---
+async function getGlobalSettings() {
+    let settings = await Settings.findOne({ type: 'global' });
+    if (!settings) {
+        settings = new Settings();
+        await settings.save();
+    }
+    return settings;
+}
 
 // --- POMOCNÉ FCE ---
 const checkAdmin = (req, res, next) => {
@@ -194,6 +162,47 @@ async function checkOverlap(startStr, endStr, excludeId = null) {
     return false; 
 }
 
+// --- API PRO ZÁMEK WEBU (Nyní bere z DB) ---
+app.get("/api/lock-status", async (req, res) => {
+    try {
+        const settings = await getGlobalSettings();
+        res.json({ isLocked: settings.webLocked });
+    } catch (e) {
+        res.json({ isLocked: true }); // Bezpečnostní pojistka v případě chyby DB
+    }
+});
+
+app.post("/api/verify-password", (req, res) => {
+    const { password } = req.body;
+    if (password === DEBUG_PASSWORD) {
+        res.json({ success: true });
+    } else {
+        res.status(401).json({ success: false });
+    }
+});
+
+app.post("/admin/toggle-lock", async (req, res) => {
+    try {
+        const adminPwd = req.headers["x-admin-password"];
+        if (adminPwd !== ADMIN_PASSWORD) {
+            console.log("❌ Zámek webu: Neplatné heslo admina.");
+            return res.status(403).json({ error: "Neplatné heslo admina." });
+        }
+
+        const { locked } = req.body;
+        const settings = await getGlobalSettings();
+        settings.webLocked = !!locked;
+        
+        await settings.save(); // Uložení do databáze!
+        console.log(`✅ Zámek webu byl trvale uložen v DB jako: ${locked ? "ZAPNUT" : "VYPNUT"}.`);
+        
+        res.json({ success: true, isLocked: settings.webLocked });
+    } catch (err) {
+        console.error("❌ Kritická chyba při ukládání zámku do DB:", err);
+        res.status(500).json({ error: "Nepodařilo se zapsat do databáze." });
+    }
+});
+
 // --- PDF GENERATOR ---
 function createInvoicePdf(data) {
     return new Promise((resolve, reject) => {
@@ -242,7 +251,7 @@ function createInvoicePdf(data) {
             doc.fillColor('#333333').text(dateStr, 150, topDates);
             
             doc.fillColor('#888888').text('Způsob úhrady:', 50, topDates + 15);
-            doc.fillColor('#333333').text('GoPay / Karta', 150, topDates + 15);
+            doc.fillColor('#333333').text('GoPay', 150, topDates + 15);
 
             const tableTop = 290;
             doc.fillColor('#f4f4f4').rect(50, tableTop, 495, 25).fill();
@@ -639,8 +648,17 @@ app.get('/api/check/:code', async (req, res) => {
     }
 });
 
-app.get("/api/settings", (req, res) => {
-    res.json(getGlobalSettings());
+app.get("/api/settings", async (req, res) => {
+    try {
+        const settings = await getGlobalSettings();
+        res.json({
+            dailyPrice: settings.dailyPrice,
+            taxRate: settings.taxRate,
+            webLocked: settings.webLocked
+        });
+    } catch (e) {
+        res.status(500).json({ error: "Chyba načítání nastavení" });
+    }
 });
 
 app.post("/create-payment", async (req, res) => {
@@ -667,7 +685,6 @@ app.post("/create-payment", async (req, res) => {
             currency: "CZK",
             order_number: `${rCode}-${Date.now().toString().slice(-4)}`,
             target: { type: "ACCOUNT", goid: GOPAY_GOID },
-            // ZDE JE TO ODSTRANĚNO - kód bude fungovat
             callback: {
                 return_url: `${BASE_URL}/payment-return`,
                 notification_url: `${BASE_URL}/api/payment-notify`
@@ -829,7 +846,9 @@ app.post("/retrieve-booking", async (req, res) => {
             const d1 = new Date(r.startDate);
             const d2 = new Date(r.endDate);
             const diffDays = Math.ceil(Math.abs(d2 - d1) / (1000 * 60 * 60 * 24)) || 1;
-            const currentPrice = getGlobalSettings().dailyPrice; 
+            
+            const settings = await getGlobalSettings();
+            const currentPrice = settings.dailyPrice; 
             
             res.json({
                 success: true,
@@ -869,10 +888,20 @@ app.get("/admin/reservations", checkAdmin, async (req, res) => {
     }
 });
 
-app.post("/admin/settings", checkAdmin, (req, res) => {
-    const { dailyPrice, taxRate } = req.body;
-    fs.writeFileSync(settingsPath, JSON.stringify({ dailyPrice: parseInt(dailyPrice), taxRate: parseInt(taxRate) }));
-    res.json({ success: true });
+app.post("/admin/settings", checkAdmin, async (req, res) => {
+    try {
+        const { dailyPrice, taxRate } = req.body;
+        const settings = await getGlobalSettings();
+        
+        settings.dailyPrice = parseInt(dailyPrice);
+        settings.taxRate = parseInt(taxRate);
+        
+        await settings.save(); // Uložení do databáze
+        res.json({ success: true });
+    } catch (err) {
+        console.error("Error saving admin settings:", err);
+        res.status(500).json({ error: "Nelze uložit nastavení" });
+    }
 });
 
 app.post("/admin/reservations/:id/resend-email", checkAdmin, async (req, res) => {
@@ -949,7 +978,6 @@ app.post("/reserve-range", checkAdmin, async (req, res) => {
                 currency: "CZK",
                 order_number: `${rCode}-${Date.now().toString().slice(-4)}`,
                 target: { type: "ACCOUNT", goid: GOPAY_GOID },
-                // ZDE JE TO ODSTRANĚNO - kód bude fungovat
                 callback: {
                     return_url: `${BASE_URL}/payment-return`,
                     notification_url: `${BASE_URL}/api/payment-notify`
@@ -1001,7 +1029,6 @@ app.post("/admin/reservations/:id/create-extension", checkAdmin, async (req, res
             payer: { contact: { first_name: r.name, email: r.email, phone_number: r.phone } },
             amount: surcharge, currency: "CZK", order_number: `EXT-${r.reservationCode}`,
             target: { type: "ACCOUNT", goid: GOPAY_GOID },
-            // ZDE JE TO ODSTRANĚNO - kód bude fungovat
             callback: { return_url: `${BASE_URL}/payment-return`, notification_url: `${BASE_URL}/api/payment-notify` },
             lang: "CS"
         }, { headers: { 'Authorization': `Bearer ${token}` } });
