@@ -48,7 +48,7 @@ mongoose.connect(MONGO_URI)
 // 1. Schéma pro trvalé nastavení webu (zámek, ceny)
 const SettingsSchema = new mongoose.Schema({
     type: { type: String, default: 'global' },
-    dailyPrice: { type: Number, default: 230 },
+    dailyPrice: { type: Number, default: 235 },
     taxRate: { type: Number, default: 15 },
     webLocked: { type: Boolean, default: true }
 });
