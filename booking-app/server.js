@@ -139,7 +139,7 @@ async function checkOverlap(startStr, endStr, excludeId = null) {
     const newEnd = new Date(endStr).getTime();
     
     const query = { 
-        paymentStatus: { $in: ['PAID', 'PENDING'] },
+        paymentStatus: { $in: ['PAID', 'PENDING', 'PROCESSING'] },
         _id: { $ne: excludeId } 
     };
     
@@ -160,6 +160,23 @@ async function checkOverlap(startStr, endStr, excludeId = null) {
         }
     }
     return false; 
+}
+
+function isReservationStartInPast(startDate, time) {
+    return new Date(`${startDate}T${time}:00`).getTime() < Date.now();
+}
+
+function calculateRentalDays(startDate, endDate, time, endTime) {
+    const finalEndTime = endTime || time;
+    const diffMs = new Date(`${endDate}T${finalEndTime}:00`).getTime() - new Date(`${startDate}T${time}:00`).getTime();
+    if (diffMs <= 0) return 0;
+    let days = Math.ceil(diffMs / (24 * 60 * 60 * 1000));
+    if (days < 1) days = 1;
+    return days;
+}
+
+function calculateRentalPrice(startDate, endDate, time, endTime, dailyPrice) {
+    return calculateRentalDays(startDate, endDate, time, endTime) * dailyPrice;
 }
 
 // --- API PRO ZÁMEK WEBU (Nyní bere z DB) ---
@@ -377,6 +394,7 @@ async function sendReservationEmail(data, pdfBuffer, isUpdate = false, paymentLi
     <!DOCTYPE html>
     <html lang="cs">
     <head>
+    <link rel="icon" type="image/png" href="/favicon.png">
         <meta charset="UTF-8">
         <title>${statusText}</title>
     </head>
@@ -594,6 +612,61 @@ async function finalizeReservation(reservation) {
     return reservation;
 }
 
+async function applyExtensionPayment(reservation) {
+    const ext = reservation.pendingExtension;
+    if (reservation.keyboardPwdId) await deletePinFromLock(reservation.keyboardPwdId);
+
+    reservation.startDate = ext.newStartDate;
+    reservation.endDate = ext.newEndDate;
+    reservation.time = ext.newTime;
+    reservation.endTime = ext.newEndTime;
+    reservation.price = ext.newTotalPrice;
+
+    const lockData = await addPinToLock(reservation);
+    reservation.passcode = lockData.pin;
+    reservation.keyboardPwdId = lockData.keyboardPwdId;
+    await reservation.save();
+
+    const pdf = await createInvoicePdf(reservation);
+    await sendReservationEmail(reservation, pdf, true);
+    await sendAdminNewReservationEmail(reservation);
+    return reservation;
+}
+
+// Atomicky zpracuje úspěšnou platbu — chrání před duplicitou mezi payment-return a payment-notify
+async function processSuccessfulPayment(paymentId) {
+    const pid = String(paymentId);
+
+    const claimed = await Reservation.findOneAndUpdate(
+        { gopayId: pid, paymentStatus: 'PENDING' },
+        { $set: { paymentStatus: 'PROCESSING' } },
+        { new: true }
+    );
+    if (claimed) {
+        try {
+            return await finalizeReservation(claimed);
+        } catch (e) {
+            await Reservation.updateOne(
+                { _id: claimed._id, paymentStatus: 'PROCESSING' },
+                { $set: { paymentStatus: 'PENDING' } }
+            );
+            throw e;
+        }
+    }
+
+    const claimedExt = await Reservation.findOneAndUpdate(
+        { 'pendingExtension.gopayId': pid, 'pendingExtension.active': true },
+        { $set: { 'pendingExtension.active': false } },
+        { new: true }
+    );
+    if (claimedExt) {
+        return await applyExtensionPayment(claimedExt);
+    }
+
+    return await Reservation.findOne({ gopayId: pid })
+        || await Reservation.findOne({ 'pendingExtension.gopayId': pid });
+}
+
 // --- GOPAY ---
 async function getGoPayToken() {
     const params = new URLSearchParams({ grant_type: 'client_credentials', scope: 'payment-create' });
@@ -662,18 +735,30 @@ app.get("/api/settings", async (req, res) => {
 });
 
 app.post("/create-payment", async (req, res) => {
-    const { startDate, endDate, time, endTime, name, email, phone, price } = req.body;
+    const { startDate, endDate, time, endTime, name, email, phone } = req.body;
     
     try {
+        const finalEndTime = endTime || time;
         const reqStartStr = `${startDate}T${time}:00`;
-        const reqEndStr = `${endDate}T${endTime || time}:00`;
+        const reqEndStr = `${endDate}T${finalEndTime}:00`;
+
+        if (isReservationStartInPast(startDate, time)) {
+            return res.status(400).json({ error: "Začátek rezervace nemůže být v minulosti." });
+        }
+
+        if (calculateRentalDays(startDate, endDate, time, finalEndTime) < 1) {
+            return res.status(400).json({ error: "Čas vrácení musí být po začátku rezervace." });
+        }
         
         const overlap = await checkOverlap(reqStartStr, reqEndStr);
         if (overlap) return res.status(409).json({ error: "Termín je již obsazen (kolize)." });
+
+        const settings = await getGlobalSettings();
+        const price = calculateRentalPrice(startDate, endDate, time, finalEndTime, settings.dailyPrice);
         
         const rCode = generateResCode();
         const reservation = new Reservation({
-            reservationCode: rCode, startDate, endDate, time, endTime, name, email, phone, price,
+            reservationCode: rCode, startDate, endDate, time, endTime: finalEndTime, name, email, phone, price,
             paymentStatus: 'PENDING'
         });
         await reservation.save();
@@ -706,17 +791,15 @@ app.post("/create-payment", async (req, res) => {
 
 app.get("/payment-return", async (req, res) => {
     const { id } = req.query;
-    let r = await Reservation.findOne({ gopayId: id });
-    let isExtension = false;
-    
-    if (!r) {
-        r = await Reservation.findOne({ "pendingExtension.gopayId": id });
-        isExtension = true;
-    }
+    if (!id) return res.redirect("/?error=not_found");
 
+    const rByMain = await Reservation.findOne({ gopayId: id });
+    const rByExt = await Reservation.findOne({ "pendingExtension.gopayId": id });
+    const r = rByMain || rByExt;
     if (!r) return res.redirect("/?error=not_found");
-    if (r.paymentStatus === 'PAID' && !isExtension) return res.redirect(`/check.html?id=${r.reservationCode}`);
-    
+
+    const isExtension = !!rByExt && !rByMain;
+
     try {
         const token = await getGoPayToken();
         const statusRes = await axios.get(`${GOPAY_API_URL}/api/payments/payment/${id}`, {
@@ -726,42 +809,22 @@ app.get("/payment-return", async (req, res) => {
         const state = statusRes.data.state;
 
         if (state === 'PAID') {
-            if (isExtension) {
-                if (r.keyboardPwdId) await deletePinFromLock(r.keyboardPwdId);
-                
-                r.startDate = r.pendingExtension.newStartDate;
-                r.endDate = r.pendingExtension.newEndDate;
-                r.time = r.pendingExtension.newTime;
-                r.endTime = r.pendingExtension.newEndTime;
-                r.price = r.pendingExtension.newTotalPrice;
-                r.pendingExtension = { active: false };
-                
-                const lockData = await addPinToLock(r);
-                r.passcode = lockData.pin;
-                r.keyboardPwdId = lockData.keyboardPwdId;
-                await r.save();
-                
-                const pdf = await createInvoicePdf(r);
-                await sendReservationEmail(r, pdf, true); 
-                await sendAdminNewReservationEmail(r);
-            } else {
-                if (r.paymentStatus !== 'PAID') {
-                    await finalizeReservation(r);
-                }
-            }
-            res.redirect(`/check.html?id=${r.reservationCode}`);
+            const updated = await processSuccessfulPayment(id);
+            const code = updated ? updated.reservationCode : r.reservationCode;
+            res.redirect(`/check.html?id=${code}`);
         } else if (state === 'CANCELED' || state === 'TIMEOUTED') {
-            if (!isExtension) {
+            if (!isExtension && r.paymentStatus === 'PENDING') {
                 r.paymentStatus = 'CANCELED';
                 await r.save();
                 res.redirect("/?error=payment_failed");
             } else {
-                res.redirect("/?error=extension_failed");
+                res.redirect(isExtension ? "/?error=extension_failed" : `/check.html?id=${r.reservationCode}`);
             }
         } else {
             res.redirect(`/check.html?id=${r.reservationCode}&payment=processing`);
         }
     } catch (e) {
+        console.error("Payment return error:", e);
         res.redirect("/?error=server");
     }
 });
@@ -780,12 +843,10 @@ async function handlePaymentNotify(req, res) {
 
         const state = statusRes.data.state;
 
-        let r = await Reservation.findOne({ gopayId: paymentId });
-        let isExtension = false;
-        if (!r) {
-            r = await Reservation.findOne({ "pendingExtension.gopayId": paymentId });
-            isExtension = !!r;
-        }
+        const rByMain = await Reservation.findOne({ gopayId: paymentId });
+        const rByExt = await Reservation.findOne({ "pendingExtension.gopayId": paymentId });
+        const r = rByMain || rByExt;
+        const isExtension = !!rByExt && !rByMain;
 
         if (!r) {
             console.warn("Payment notify: reservation not found for paymentId", paymentId);
@@ -793,29 +854,7 @@ async function handlePaymentNotify(req, res) {
         }
 
         if (state === 'PAID') {
-            if (isExtension) {
-                if (r.keyboardPwdId) await deletePinFromLock(r.keyboardPwdId);
-
-                r.startDate = r.pendingExtension.newStartDate;
-                r.endDate = r.pendingExtension.newEndDate;
-                r.time = r.pendingExtension.newTime;
-                r.endTime = r.pendingExtension.newEndTime;
-                r.price = r.pendingExtension.newTotalPrice;
-                r.pendingExtension = { active: false };
-
-                const lockData = await addPinToLock(r);
-                r.passcode = lockData.pin;
-                r.keyboardPwdId = lockData.keyboardPwdId;
-                await r.save();
-
-                const pdf = await createInvoicePdf(r);
-                await sendReservationEmail(r, pdf, true);
-                await sendAdminNewReservationEmail(r);
-            } else {
-                if (r.paymentStatus !== 'PAID') {
-                    await finalizeReservation(r);
-                }
-            }
+            await processSuccessfulPayment(paymentId);
         } else if (state === 'CANCELED' || state === 'TIMEOUTED') {
             if (!isExtension && r.paymentStatus !== 'CANCELED') {
                 r.paymentStatus = 'CANCELED';
@@ -958,6 +997,13 @@ app.post("/reserve-range", checkAdmin, async (req, res) => {
     
     const overlap = await checkOverlap(reqStartStr, reqEndStr);
     if (overlap) return res.status(409).json({ error: "Termín je již obsazen." });
+
+    if (calculateRentalDays(startDate, endDate, time, finalEndTime) < 1) {
+        return res.status(400).json({ error: "Čas vrácení musí být po začátku rezervace." });
+    }
+
+    const settings = await getGlobalSettings();
+    const price = calculateRentalPrice(startDate, endDate, time, finalEndTime, settings.dailyPrice);
     
     const rCode = generateResCode();
 
@@ -967,6 +1013,7 @@ app.post("/reserve-range", checkAdmin, async (req, res) => {
                 ...rest, 
                 startDate, endDate, time, endTime: finalEndTime, 
                 reservationCode: rCode, 
+                price,
                 paymentStatus: 'PENDING' 
             });
             await r.save();
@@ -974,7 +1021,7 @@ app.post("/reserve-range", checkAdmin, async (req, res) => {
             const token = await getGoPayToken();
             const gpRes = await axios.post(`${GOPAY_API_URL}/api/payments/payment`, {
                 payer: { contact: { first_name: rest.name, email: rest.email, phone_number: rest.phone } },
-                amount: Math.round(rest.price * 100),
+                amount: Math.round(price * 100),
                 currency: "CZK",
                 order_number: `${rCode}-${Date.now().toString().slice(-4)}`,
                 target: { type: "ACCOUNT", goid: GOPAY_GOID },
@@ -1002,7 +1049,8 @@ app.post("/reserve-range", checkAdmin, async (req, res) => {
         const r = new Reservation({ 
             ...rest, 
             startDate, endDate, time, endTime: finalEndTime, 
-            reservationCode: rCode, 
+            reservationCode: rCode,
+            price,
             paymentStatus: 'PAID' 
         });
         
@@ -1013,14 +1061,24 @@ app.post("/reserve-range", checkAdmin, async (req, res) => {
 
 app.post("/admin/reservations/:id/create-extension", checkAdmin, async (req, res) => {
     try {
-        const { startDate, endDate, time, endTime, newTotalPrice } = req.body;
+        const { startDate, endDate, time, endTime } = req.body;
         const r = await Reservation.findById(req.params.id);
         if (!r) return res.status(404).json({ error: "Nenalezeno" });
 
+        const finalEndTime = endTime || time;
+        if (calculateRentalDays(startDate, endDate, time, finalEndTime) < 1) {
+            return res.status(400).json({ error: "Čas vrácení musí být po začátku rezervace." });
+        }
+
+        const settings = await getGlobalSettings();
+        const newTotalPrice = calculateRentalPrice(startDate, endDate, time, finalEndTime, settings.dailyPrice);
         const surcharge = Math.round((newTotalPrice - r.price) * 100);
+        if (surcharge <= 0) {
+            return res.status(400).json({ error: "Nová cena musí být vyšší než stávající rezervace." });
+        }
         
         const reqStartStr = `${startDate}T${time}:00`;
-        const reqEndStr = `${endDate}T${endTime || time}:00`;
+        const reqEndStr = `${endDate}T${finalEndTime}:00`;
         const overlap = await checkOverlap(reqStartStr, reqEndStr, r._id); 
         if (overlap) return res.status(409).json({ error: "Termín obsazen." });
         
@@ -1038,7 +1096,7 @@ app.post("/admin/reservations/:id/create-extension", checkAdmin, async (req, res
             newStartDate: startDate,
             newEndDate: endDate,
             newTime: time,
-            newEndTime: endTime || time,
+            newEndTime: finalEndTime,
             newTotalPrice,
             surcharge: (surcharge / 100),
             gopayId: gpRes.data.id,
@@ -1060,21 +1118,46 @@ app.put("/admin/reservations/:id", checkAdmin, async (req, res) => {
         const isRestore = req.body.restore === true;
         const r = await Reservation.findById(req.params.id);
         if (!r) return res.status(404).json({ error: "Nenalezeno" });
+
+        if (req.body.contactsOnly === true) {
+            const { name, email, phone } = req.body;
+            if (name) r.name = name;
+            if (email) r.email = email;
+            if (phone) r.phone = phone;
+            await r.save();
+            return res.json({ success: true });
+        }
         
         if (isRestore) {
             const targetEnd = r.originalEndDate || r.endDate;
-            const overlap = await checkOverlap(`${r.startDate}T${r.time}:00`, `${targetEnd}T${r.endTime || r.time}:00`, r._id);
+            const finalEndTime = r.endTime || r.time;
+            const overlap = await checkOverlap(`${r.startDate}T${r.time}:00`, `${targetEnd}T${finalEndTime}:00`, r._id);
             if (overlap) return res.status(409).json({ error: "Termín je již obsazen, nelze obnovit." });
             
             if (r.originalEndDate) r.endDate = r.originalEndDate;
+            const settings = await getGlobalSettings();
+            r.price = calculateRentalPrice(r.startDate, r.endDate, r.time, finalEndTime, settings.dailyPrice);
             r.paymentStatus = 'PAID';
         } 
         else {
-            const { startDate, endDate, time, endTime, price, name, email, phone } = req.body;
-            const overlap = await checkOverlap(`${startDate}T${time}:00`, `${endDate}T${endTime || time}:00`, r._id);
+            const { startDate, endDate, time, endTime, name, email, phone } = req.body;
+            const finalEndTime = endTime || time;
+
+            if (calculateRentalDays(startDate, endDate, time, finalEndTime) < 1) {
+                return res.status(400).json({ error: "Čas vrácení musí být po začátku rezervace." });
+            }
+
+            const overlap = await checkOverlap(`${startDate}T${time}:00`, `${endDate}T${finalEndTime}:00`, r._id);
             if (overlap) return res.status(409).json({ error: "Termín je již obsazen." });
+
+            const settings = await getGlobalSettings();
+            const price = calculateRentalPrice(startDate, endDate, time, finalEndTime, settings.dailyPrice);
             
-            r.startDate = startDate; r.endDate = endDate; r.time = time; r.endTime = endTime || time; r.price = price;
+            r.startDate = startDate;
+            r.endDate = endDate;
+            r.time = time;
+            r.endTime = finalEndTime;
+            r.price = price;
             if (name) r.name = name;
             if (email) r.email = email;
             if (phone) r.phone = phone;

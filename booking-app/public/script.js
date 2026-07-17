@@ -379,7 +379,11 @@ async function performAutoSelection() {
     if (!startDate) return;
     await refreshDataSilent();
 
-    let timeStartVal = document.getElementById("inp-time").value || "06:00";
+    let timeStartVal = document.getElementById("inp-time").value || getDefaultStartTimeForDate(startDate);
+    if (isStartInPast(startDate, timeStartVal)) {
+        timeStartVal = getDefaultStartTimeForDate(startDate);
+        document.getElementById("inp-time").value = timeStartVal;
+    }
     
     const occupancy = getOccupancyEnd(startDate, timeStartVal);
     if (occupancy) {
@@ -431,6 +435,9 @@ function validateAndCalc() {
     if (diffMs <= 0) {
         isError = true;
         msg = "ČAS VRÁCENÍ MUSÍ BÝT POZDĚJI";
+    } else if (isStartInPast(startDate, t1)) {
+        isError = true;
+        msg = "ZAČÁTEK REZERVACE NEMŮŽE BÝT V MINULOSTI";
     } else if (currentWall && endMs > currentWall.ms + 60000) {
         isError = true;
         msg = `KOLIZE S JINOU REZERVACÍ (ZAČÍNÁ V ${currentWall.time})`;
@@ -553,7 +560,13 @@ async function handleDayClick(clickedDateStr) {
             }
             
             const MIN_GAP_MS = 60 * 60 * 1000; // 1 hour
-            gaps = gaps.filter(g => (g.end.getTime() - g.start.getTime()) >= MIN_GAP_MS);
+            const nowMs = Date.now();
+            gaps = gaps
+                .map(g => ({
+                    start: new Date(Math.max(g.start.getTime(), nowMs)),
+                    end: g.end
+                }))
+                .filter(g => g.end.getTime() > nowMs && (g.end.getTime() - g.start.getTime()) >= MIN_GAP_MS);
 
             if (gaps.length > 0) {
                 openGapsModal(gaps, clickedDateStr);
@@ -566,7 +579,7 @@ async function handleDayClick(clickedDateStr) {
         endDate = null;
         isSelectingRange = true;
         const timeInp = document.getElementById("inp-time");
-        if (timeInp) timeInp.value = "06:00";
+        if (timeInp) timeInp.value = getDefaultStartTimeForDate(clickedDateStr);
         
         if (instrEl) {
             instrEl.innerText = "Nyní vyberte datum vrácení";
@@ -830,6 +843,17 @@ function formatCzDate(iso) {
     if(!iso) return ""; 
     const d = new Date(iso);  
     return d.getDate() + "." + (d.getMonth() + 1) + ".";  
+}
+
+function getDefaultStartTimeForDate(dateStr) {
+    const todayStr = new Date().toLocaleDateString('en-CA');
+    if (dateStr > todayStr) return "06:00";
+    const now = new Date();
+    return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+}
+
+function isStartInPast(dateStr, timeStr) {
+    return new Date(`${dateStr}T${timeStr}:00`).getTime() < Date.now();
 } 
 
 function validateInput(id, msg) {
@@ -878,7 +902,13 @@ async function submitReservation(event) {
     event.preventDefault();
     if (isSubmitting) return; 
 
-    if (!startDate || !endDate) { alert("Vyberte prosím termín."); return; } 
+    if (!startDate || !endDate) { alert("Vyberte prosím termín."); return; }
+
+    const t1 = document.getElementById("inp-time").value;
+    if (isStartInPast(startDate, t1)) {
+        alert("Začátek rezervace nemůže být v minulosti. Upravte prosím čas vyzvednutí.");
+        return;
+    }
 
     let isValid = true;
     if (!validateInput("inp-name", "Vyplňte jméno")) isValid = false;

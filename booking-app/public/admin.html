@@ -214,10 +214,10 @@
             <input type="hidden" id="edit-id">
             <input type="hidden" id="edit-original-price">
             
-            <div class="input-group"><label>Datum Od:</label><input type="date" id="edit-start"></div>
-            <div class="input-group"><label>Datum Do:</label><input type="date" id="edit-end"></div>
-            <div class="input-group"><label>Čas:</label><input type="time" id="edit-time"></div>
-            <div class="input-group"><label>Čas vrácení (nepovinné):</label><input type="time" id="edit-endtime"></div>
+            <div class="input-group"><label>Datum Od:</label><input type="date" id="edit-start" onchange="updateEditPriceHint()"></div>
+            <div class="input-group"><label>Datum Do:</label><input type="date" id="edit-end" onchange="updateEditPriceHint()"></div>
+            <div class="input-group"><label>Čas:</label><input type="time" id="edit-time" onchange="updateEditPriceHint()"></div>
+            <div class="input-group"><label>Čas vrácení (nepovinné):</label><input type="time" id="edit-endtime" onchange="updateEditPriceHint()"></div>
             
             <div class="customer-edit-section">
                 <h3>Údaje zákazníka</h3>
@@ -228,8 +228,8 @@
             </div>
 
             <div class="input-group" style="background: #f9f9f9; padding: 10px; border-radius: 5px;">
-                <label>Nová celková cena (Kč):</label>
-                <input type="number" id="edit-price" oninput="calcDiff()">
+                <label>Celková cena (automaticky):</label>
+                <input type="number" id="edit-price" readonly style="background: #eee;">
                 <div id="price-diff" style="font-size: 12px; color: #555; margin-top: 5px; font-weight: bold;"></div>
             </div>
 
@@ -274,7 +274,7 @@
                 <div style="margin-left: 20px;">
                     <i class="fa-solid fa-tag"></i>
                     <label>Základní cena (24h):</label>
-                    <input type="number" id="daily-price" value="230" onchange="updateManualPriceHint()"> Kč
+                    <input type="number" id="daily-price" value="235" onchange="updateManualPriceHint()"> Kč
                 </div>
                 <button onclick="saveGlobalSettings()" class="btn btn-save-settings"><i class="fa-solid fa-floppy-disk"></i> ULOŽIT GLOBÁLNÍ NASTAVENÍ</button>
             </div>
@@ -359,7 +359,7 @@
 
                     <div class="input-group">
                         <label>Cena (Kč)</label>
-                        <input id="admin-price" type="number" value="235">
+                        <input id="admin-price" type="number" value="235" readonly style="background: #eee;">
                         <small id="price-hint" style="color: #888; display: block; margin-top: 4px;"></small>
                     </div>
                     
@@ -614,28 +614,51 @@
             } catch(e) { alert("Chyba."); } // Zobrazení chyby
         }
 
+        // --- VÝPOČET CENY (stejná logika jako na serveru) ---
+        function calculateRentalDays(start, end, t1, t2) {
+            const startDt = new Date(start + 'T' + t1);
+            const endDt = new Date(end + 'T' + t2);
+            let diffMs = endDt - startDt;
+            if (diffMs <= 0) return 0;
+            let days = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+            if (days < 1) days = 1;
+            return days;
+        }
+
+        function calculateRentalPrice(start, end, t1, t2, daily) {
+            return calculateRentalDays(start, end, t1, t2) * daily;
+        }
+
         // --- VÝPOČET CENY PRO MANUÁLNÍ REZERVACI ---
         function updateManualPriceHint() {
-            const start = document.getElementById("admin-start").value; // Datum od
-            const end = document.getElementById("admin-end").value;   // Datum do
-            const t1 = document.getElementById("admin-time").value;   // Čas vyzvednutí
-            const t2 = document.getElementById("admin-endtime").value; // Čas vrácení
-            const daily = parseFloat(document.getElementById("daily-price").value) || 0; // Denní cena
+            const start = document.getElementById("admin-start").value;
+            const end = document.getElementById("admin-end").value;
+            const t1 = document.getElementById("admin-time").value;
+            const t2 = document.getElementById("admin-endtime").value;
+            const daily = parseFloat(document.getElementById("daily-price").value) || 0;
 
-            if (start && end) { // Pokud jsou obě data vybrána
-                const startDt = new Date(start + 'T' + t1); // Vytvoření objektu Date pro začátek
-                const endDt = new Date(end + 'T' + t2);     // Vytvoření objektu Date pro konec
+            if (start && end) {
+                const days = calculateRentalDays(start, end, t1, t2);
+                const price = days > 0 ? days * daily : 0;
+                document.getElementById("admin-price").value = price;
+                document.getElementById("price-hint").innerText = days > 0
+                    ? `Výpočet: ${days} den/dny x ${daily} Kč = ${price} Kč`
+                    : "Neplatný termín";
+                renderAdminCalendar();
+            }
+        }
 
-                let diffMs = endDt - startDt; // Rozdíl v milisekundách
-                if (diffMs < 0) diffMs = 0; // Pokud je konec před začátkem, nastavíme rozdíl na 0
-                let days = Math.ceil(diffMs / (1000 * 60 * 60 * 24)); // Převod milisekund na dny (zaokrouhleno nahoru)
-                if (days < 1) days = 1; // Minimálně 1 den, i když je to ve stejný den
+        function updateEditPriceHint() {
+            const start = document.getElementById("edit-start").value;
+            const end = document.getElementById("edit-end").value;
+            const t1 = document.getElementById("edit-time").value;
+            const t2 = document.getElementById("edit-endtime").value || t1;
+            const daily = parseFloat(document.getElementById("daily-price").value) || 0;
 
-                // Aktualizace inputu pro cenu a textového náhledu
-                document.getElementById("admin-price").value = days * daily;
-                document.getElementById("price-hint").innerText = `Výpočet: ${days} den/dny x ${daily} Kč = ${days * daily} Kč`;
-
-                renderAdminCalendar(); // Překreslí kalendář podle nového výběru
+            if (start && end && t1) {
+                const price = calculateRentalPrice(start, end, t1, t2, daily);
+                document.getElementById("edit-price").value = price;
+                calcDiff();
             }
         }
 
@@ -1216,8 +1239,7 @@
                 name: document.getElementById("admin-name").value,
                 email: document.getElementById("admin-email").value,
                 phone: document.getElementById("admin-phone").value,
-                price: document.getElementById("admin-price").value,
-                requestPayment: requestPayment // Určuje, zda se má poslat výzva k platbě
+                requestPayment: requestPayment
             };
 
             try {
@@ -1258,15 +1280,15 @@
             document.getElementById('edit-end').value = r.endDate;
             document.getElementById('edit-time').value = r.time;
             document.getElementById('edit-endtime').value = r.endTime || r.time;
-            document.getElementById('edit-original-price').value = r.price; // Uloží původní cenu pro výpočet rozdílu
-            document.getElementById('edit-price').value = r.price; // Nastaví aktuální cenu do inputu
+            document.getElementById('edit-original-price').value = r.price;
+            document.getElementById('edit-price').value = r.price;
 
             document.getElementById('edit-name').value = r.name || "";
             document.getElementById('edit-email').value = r.email || "";
             document.getElementById('edit-phone').value = r.phone || "";
 
-            document.getElementById('edit-modal').style.display = 'flex'; // Zobrazí modální okno
-            calcDiff(); // Spustí výpočet rozdílu ceny
+            document.getElementById('edit-modal').style.display = 'flex';
+            updateEditPriceHint();
         }
 
         // Zavře modální okno
@@ -1279,11 +1301,7 @@
             const id = document.getElementById('edit-id').value; // ID rezervace
             // Sestaví payload s novými kontaktními údaji a původními daty rezervace
             const payload = {
-                startDate: document.getElementById('edit-start').value,
-                endDate: document.getElementById('edit-end').value,
-                time: document.getElementById('edit-time').value,
-                endTime: document.getElementById('edit-endtime').value,
-                price: document.getElementById('edit-original-price').value, // Původní cena, aby se nezměnila
+                contactsOnly: true,
                 name: document.getElementById('edit-name').value,
                 email: document.getElementById('edit-email').value,
                 phone: document.getElementById('edit-phone').value
@@ -1311,12 +1329,11 @@
             const res = await fetch("/admin/reservations/" + document.getElementById('edit-id').value, { // Odešle požadavek na PUT
                 method: "PUT",
                 headers: { "Content-Type": "application/json", "x-admin-password": localStorage.getItem("adminPass") },
-                body: JSON.stringify({ // Data pro aktualizaci
+                body: JSON.stringify({
                     startDate: document.getElementById('edit-start').value,
                     endDate: document.getElementById('edit-end').value,
                     time: document.getElementById('edit-time').value,
                     endTime: document.getElementById('edit-endtime').value,
-                    price: document.getElementById('edit-price').value,
                     name: document.getElementById('edit-name').value,
                     email: document.getElementById('edit-email').value,
                     phone: document.getElementById('edit-phone').value
@@ -1346,8 +1363,7 @@
                 startDate: document.getElementById('edit-start').value,
                 endDate: document.getElementById('edit-end').value,
                 time: document.getElementById('edit-time').value,
-                endTime: document.getElementById('edit-endtime').value,
-                newTotalPrice: newP // Nová celková cena
+                endTime: document.getElementById('edit-endtime').value
             };
 
             try {
